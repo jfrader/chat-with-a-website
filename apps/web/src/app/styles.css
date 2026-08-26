@@ -1,0 +1,338 @@
+:root {
+  --theme-surface-app: #000;
+  --theme-surface-navigation: rgb(0 0 0 / 30%);
+  --theme-surface-transparent: transparent;
+  --theme-text-primary: #fff;
+  --theme-text-secondary: #a0a0a0;
+  --theme-text-muted: #969696;
+  --theme-text-dim: #646464;
+  --theme-text-description: rgb(255 255 255 / 70%);
+  --theme-text-disabled: rgb(255 255 255 / 30%);
+  --theme-text-danger: #ff8a8d;
+  --theme-focus-ring: #cb72ff;
+  --theme-line-subtle-color: rgb(255 255 255 / 10%);
+  --theme-line-strong-color: rgb(255 255 255 / 50%);
+  --theme-mask-color: #fff;
+  --theme-scrollbar-thumb: rgb(255 255 255 / 18%);
+  --theme-gradient-control: linear-gradient(180deg, rgb(255 255 255 / 11%), rgb(255 255 255 / 16%));
+  --theme-gradient-control-idle: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 6%),
+    rgb(255 255 255 / 12%)
+  );
+  --theme-gradient-source: linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 10%));
+  --theme-gradient-action: linear-gradient(180deg, rgb(120 50 160 / 40%), rgb(192 138 226 / 40%));
+  --theme-gradient-session-card: linear-gradient(
+    120deg,
+    rgb(120 50 160 / 18%),
+    rgb(255 255 255 / 7%)
+  );
+  --theme-gradient-border: linear-gradient(180deg, rgb(255 255 255 / 30%), transparent);
+  --theme-gradient-border-idle: linear-gradient(180deg, rgb(255 255 255 / 20%), transparent);
+  --theme-mask-solid: linear-gradient(var(--theme-mask-color) 0 0);
+  --theme-shadow-control:
+    0 17px 36px rgb(0 0 0 / 10%), 0 66px 66px rgb(0 0 0 / 9%), inset 0 -1px rgb(255 255 255 / 20%);
+  --theme-shadow-control-invalid:
+    0 0 0 1px rgb(255 93 97 / 75%), 0 17px 36px rgb(0 0 0 / 10%),
+    inset 0 -1px rgb(255 255 255 / 20%);
+  --theme-shadow-control-idle: inset 0 -1px rgb(255 255 255 / 20%);
+  --theme-shadow-action:
+    0 17px 36px rgb(0 0 0 / 10%), 0 66px 66px rgb(0 0 0 / 9%),
+    inset 0 -4px 12px rgb(255 255 255 / 15%), inset 0 -12px 36px rgb(255 255 255 / 15%),
+    inset 0 4px 8px rgb(255 255 255 / 10%), inset 0 -1px rgb(255 255 255 / 25%),
+    inset 0 0 12px rgb(255 255 255 / 30%);
+  --theme-shadow-action-compact:
+    inset 0 -4px 12px rgb(255 255 255 / 15%), inset 0 0 12px rgb(255 255 255 / 30%);
+  --theme-shadow-autofill: 0 0 0 1000px transparent inset;
+  --theme-workspace-background:
+    url("/assets/workspace-background.svg") center top / 100% 100% no-repeat;
+  --theme-composer-glow: url("/assets/url-composer-glow.svg") center / 100% 100% no-repeat;
+
+  --space-0: 0;
+  --space-px: 1px;
+  --space-0-5: 2px;
+  --space-1: 4px;
+  --space-1-5: 6px;
+  --space-2: 8px;
+  --space-2-5: 10px;
+  --space-3: 12px;
+  --space-3-75: 15px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-7: 28px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-12-5: 50px;
+  --space-15: 60px;
+  --space-18: 72px;
+  --space-22: 88px;
+  --space-24: 96px;
+  --space-25: 100px;
+  --space-28: 112px;
+  --space-30: 120px;
+  --space-40: 160px;
+
+  --layout-viewport-min-width: 320px;
+  --layout-sidebar-width: 320px;
+  --layout-sidebar-collapsed-width: 48px;
+  --layout-sidebar-active-header-height: 64px;
+  --layout-summary-width: 656px;
+  --layout-prompt-max-width: 560px;
+  --layout-copy-max-width: 420px;
+  --layout-reference-background-height: 954px;
+  --layout-generating-inline-padding: 322px;
+  --layout-generating-transition-offset: 240px;
+  --layout-generation-glow-top: 661px;
+  --layout-generation-glow-offset-x: -7px;
+  --layout-glow-width: 766px;
+  --layout-glow-height: 492px;
+  --layout-glow-mobile-width: 680px;
+  --layout-glow-mobile-height: 438px;
+  --layout-prompt-offset: 56px;
+  --layout-prompt-mobile-offset: 24px;
+  --layout-empty-glow-offset: -106px;
+
+  --control-composer-field-width: 320px;
+  --control-composer-action-width: 108px;
+  --control-height: 52px;
+  --control-history-action-height: 48px;
+  --control-failure-action-min-width: 168px;
+  --icon-size-xs: 12px;
+  --icon-size-sm: 16px;
+  --icon-size-md: 24px;
+  --icon-size-lg: 32px;
+
+  --radius-card: 8px;
+  --radius-control: 26px;
+  --radius-pill: 1000px;
+
+  --font-size-caption: 11px;
+  --font-size-label: 12px;
+  --font-size-meta: 13px;
+  --font-size-body: 14px;
+  --font-size-body-mobile: 16px;
+  --font-size-copy: 18px;
+  --font-size-heading: 24px;
+  --font-size-title: 28px;
+  --font-weight-regular: 400;
+  --font-weight-semibold: 600;
+  --line-height-compact: 16px;
+  --line-height-label: 18px;
+  --line-height-body: 20px;
+  --line-height-reading: 22px;
+  --line-height-mobile-copy: 23px;
+  --line-height-copy: 24px;
+  --line-height-title: 32px;
+  --line-height-display: 36px;
+  --line-height-longform: 1.6;
+  --tracking-heading: -0.02em;
+  --tracking-copy: -0.01em;
+  --tracking-title: -0.25px;
+  --tracking-label: 0.08em;
+
+  --motion-duration-quick: 100ms;
+  --motion-duration-logo: 120ms;
+  --motion-duration-standard: 160ms;
+  --motion-duration-layout: 180ms;
+  --motion-duration-generating: 1.8s;
+  --motion-duration-autofill: 9999s;
+  --motion-easing-standard: ease;
+  --motion-easing-in-out: ease-in-out;
+  --motion-easing-out: ease-out;
+  --blur-source: 3.5px;
+  --blur-control: 18px;
+  --blur-transition: 1.5px;
+  --blur-transition-start: 2px;
+  --blur-transition-end: 1px;
+  --brightness-icon-hover: 1.55;
+  --brightness-action-hover: 1.12;
+  --scale-action-active: 0.98;
+  --opacity-transition-start: 0.64;
+  --opacity-hidden: 0;
+  --opacity-visible: 1;
+  --transform-center: translate(-50%, -50%);
+  --transform-center-x: translateX(-50%);
+  --transform-history-collapsed: rotate(180deg);
+  --transform-action-hover: translateY(calc(var(--space-px) * -1));
+  --transform-action-active: translateY(var(--space-0)) scale(var(--scale-action-active));
+
+  --border-none: 0;
+  --border-transparent: 1px solid transparent;
+  --border-subtle: 1px solid var(--theme-line-subtle-color);
+  --border-strong: 1px solid var(--theme-line-strong-color);
+  --focus-outline: 2px solid var(--theme-focus-ring);
+  --focus-outline-offset: 3px;
+
+  --workspace-shell-direction: row;
+  --workspace-prompt-top: calc(50% - var(--layout-prompt-offset));
+  --workspace-prompt-width: min(var(--layout-prompt-max-width), calc(100% - var(--space-12)));
+  --workspace-copy-max-width: none;
+  --workspace-copy-font-size: var(--font-size-copy);
+  --workspace-copy-line-height: var(--line-height-copy);
+  --workspace-copy-margin-bottom: var(--space-10);
+  --workspace-glow-width: var(--layout-glow-width);
+  --workspace-glow-height: var(--layout-glow-height);
+
+  --history-navigation-width: var(--layout-sidebar-width);
+  --history-navigation-height: auto;
+  --history-navigation-flex-basis: var(--layout-sidebar-width);
+  --history-navigation-border-right: var(--border-subtle);
+  --history-navigation-border-bottom: var(--border-none);
+  --history-collapsed-width: var(--layout-sidebar-collapsed-width);
+  --history-collapsed-flex-basis: var(--layout-sidebar-collapsed-width);
+  --history-active-header-height: var(--layout-sidebar-active-header-height);
+  --history-active-header-padding: var(--space-4) var(--space-6);
+  --history-active-header-border-bottom: var(--border-subtle);
+  --history-collapsed-logo-position: absolute;
+  --history-collapsed-logo-opacity: var(--opacity-hidden);
+  --history-toggle-display: grid;
+  --history-content-display: grid;
+  --history-completed-content-display: block;
+  --history-bottom-display: block;
+
+  --composer-controls-direction: row;
+  --composer-field-width: var(--control-composer-field-width);
+  --composer-field-flex-basis: var(--control-composer-field-width);
+  --composer-action-width: var(--control-composer-action-width);
+  --composer-action-flex-basis: var(--control-composer-action-width);
+  --composer-error-top: var(--space-15);
+  --composer-error-text-align: start;
+
+  --session-generating-padding: var(--space-25) var(--layout-generating-inline-padding)
+    var(--space-6);
+  --session-content-width: var(--layout-summary-width);
+  --session-completed-padding: var(--space-12-5) var(--space-0) var(--space-24);
+  --session-title-font-size: var(--font-size-title);
+  --session-title-line-height: var(--line-height-title);
+  --session-title-white-space: nowrap;
+  --session-source-bottom: var(--space-6);
+  --session-completed-reset-display: none;
+
+  color: var(--theme-text-primary);
+  background: var(--theme-surface-app);
+  font-family:
+    "Inter Variable", Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "Segoe UI", sans-serif;
+  font-synthesis: none;
+  font-feature-settings:
+    "ss03" 1,
+    "cv08" 1,
+    "lnum" 1,
+    "tnum" 1;
+  text-rendering: optimizeLegibility;
+}
+
+@media (max-width: 1100px) {
+  :root {
+    --session-generating-padding: var(--space-25) clamp(var(--space-8), 10vw, var(--space-40))
+      var(--space-6);
+    --session-content-width: min(var(--layout-summary-width), 100%);
+    --session-completed-padding: var(--space-12-5) var(--space-8) var(--space-24);
+  }
+}
+
+@media (max-width: 720px) {
+  :root {
+    --workspace-shell-direction: column;
+    --workspace-prompt-top: calc(50% - var(--layout-prompt-mobile-offset));
+    --workspace-prompt-width: min(var(--layout-prompt-max-width), calc(100% - var(--space-8)));
+    --workspace-copy-max-width: var(--layout-copy-max-width);
+    --workspace-copy-font-size: var(--font-size-body-mobile);
+    --workspace-copy-line-height: var(--line-height-mobile-copy);
+
+    --history-navigation-width: 100%;
+    --history-navigation-height: var(--control-history-action-height);
+    --history-navigation-flex-basis: var(--control-history-action-height);
+    --history-navigation-border-right: var(--border-none);
+    --history-navigation-border-bottom: var(--border-subtle);
+    --history-collapsed-width: 100%;
+    --history-collapsed-flex-basis: var(--control-history-action-height);
+    --history-active-header-height: var(--control-history-action-height);
+    --history-active-header-padding: var(--space-2);
+    --history-active-header-border-bottom: var(--border-none);
+    --history-collapsed-logo-position: static;
+    --history-collapsed-logo-opacity: var(--opacity-visible);
+    --history-toggle-display: none;
+    --history-content-display: none;
+    --history-completed-content-display: none;
+    --history-bottom-display: none;
+
+    --session-generating-padding: var(--space-18) var(--space-6) var(--space-5);
+    --session-completed-padding: var(--space-10) var(--space-6) var(--space-22);
+    --session-title-font-size: var(--font-size-heading);
+    --session-title-line-height: var(--line-height-title);
+    --session-title-white-space: normal;
+    --session-source-bottom: var(--space-5);
+    --session-completed-reset-display: flex;
+  }
+}
+
+@media (max-width: 600px) {
+  :root {
+    --workspace-prompt-top: 50%;
+    --workspace-copy-margin-bottom: var(--space-8);
+    --workspace-glow-width: var(--layout-glow-mobile-width);
+    --workspace-glow-height: var(--layout-glow-mobile-height);
+
+    --composer-controls-direction: column;
+    --composer-field-width: min(var(--control-composer-field-width), calc(100vw - var(--space-8)));
+    --composer-field-flex-basis: auto;
+    --composer-action-width: min(var(--control-composer-field-width), calc(100vw - var(--space-8)));
+    --composer-action-flex-basis: var(--control-height);
+    --composer-error-top: var(--space-30);
+    --composer-error-text-align: center;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: var(--layout-viewport-min-width);
+  background: var(--theme-surface-app);
+}
+
+body {
+  min-width: var(--layout-viewport-min-width);
+  min-height: 100svh;
+  margin: var(--space-0);
+  overflow: hidden;
+  background: var(--theme-surface-app);
+}
+
+#root {
+  min-height: 100svh;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button,
+a,
+input {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+.sr-only {
+  position: absolute;
+  width: var(--space-px);
+  height: var(--space-px);
+  padding: var(--space-0);
+  margin: calc(var(--space-px) * -1);
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: var(--border-none);
+}

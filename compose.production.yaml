@@ -1,0 +1,46 @@
+x-runtime-build: &runtime-build
+  build:
+    context: .
+    target: runtime
+  image: profound-url-summarization:local
+  init: true
+
+services:
+  db:
+    image: postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    environment:
+      POSTGRES_DB: urlsum
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_USER: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d urlsum"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - production-postgres-data:/var/lib/postgresql/data
+
+  migrate:
+    <<: *runtime-build
+    command: ["node", "node_modules/@profound/db/dist/migrate.js"]
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/urlsum
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  app:
+    <<: *runtime-build
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/urlsum
+      NODE_ENV: production
+      PORT: 4311
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "4311:4311"
+
+volumes:
+  production-postgres-data:

@@ -1,0 +1,87 @@
+.shell {
+  position: relative;
+  isolation: isolate;
+  width: 100%;
+  height: 100svh;
+  display: flex;
+  flex-direction: var(--workspace-shell-direction);
+  overflow: hidden;
+  background: var(--theme-surface-app);
+}
+
+.background {
+  position: absolute;
+  z-index: -2;
+  inset: var(--space-0);
+  width: 100%;
+  height: 100%;
+  background: var(--theme-workspace-background);
+  pointer-events: none;
+  user-select: none;
+}
+
+.activeBackground {
+  height: max(100%, var(--layout-reference-background-height));
+}
+
+.main {
+  position: relative;
+  min-width: var(--space-0);
+  flex: 1;
+  overflow: hidden;
+}
+
+.prompt {
+  position: absolute;
+  top: var(--workspace-prompt-top);
+  left: 50%;
+  width: var(--workspace-prompt-width);
+  transform: var(--transform-center);
+}
+
+.glow {
+  position: absolute;
+  z-index: -1;
+  top: calc(var(--layout-empty-glow-offset));
+  left: 50%;
+  width: var(--workspace-glow-width);
+  max-width: none;
+  height: var(--workspace-glow-height);
+  transform: var(--transform-center-x);
+  background: var(--theme-composer-glow);
+  pointer-events: none;
+  user-select: none;
+}
+
+.copy {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--workspace-copy-margin-bottom);
+  text-align: center;
+}
+
+.copy h1,
+.copy p {
+  margin: var(--space-0);
+}
+
+.copy h1 {
+  color: var(--theme-text-primary);
+  font-size: var(--font-size-heading);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-heading);
+  line-height: var(--line-height-title);
+}
+
+.copy p {
+  max-width: var(--workspace-copy-max-width);
+  color: var(--theme-text-secondary);
+  font-size: var(--workspace-copy-font-size);
+  font-weight: var(--font-weight-regular);
+  letter-spacing: var(--tracking-copy);
+  line-height: var(--workspace-copy-line-height);
+}

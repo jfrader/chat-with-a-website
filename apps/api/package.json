@@ -1,0 +1,42 @@
+{
+  "name": "@profound/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "files": [
+    "dist",
+    "public"
+  ],
+  "exports": {
+    ".": {
+      "development": "./src/app.ts",
+      "types": "./dist/app.d.ts",
+      "import": "./dist/app.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/app.ts src/server.ts --format esm --clean && tsc -p tsconfig.build.json",
+    "dev": "tsx watch --conditions=development src/server.ts",
+    "start": "node dist/server.js",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@hono/node-server": "2.1.1",
+    "@profound/contracts": "workspace:*",
+    "@profound/db": "workspace:*",
+    "cheerio": "1.2.0",
+    "close-with-grace": "2.5.0",
+    "drizzle-orm": "0.45.2",
+    "hono": "4.13.4",
+    "ipaddr.js": "2.5.0",
+    "undici": "7.29.0",
+    "zod": "4.4.3"
+  },
+  "devDependencies": {
+    "@types/node": "24.13.3",
+    "tsx": "4.23.12",
+    "typescript": "7.0.2",
+    "vitest": "4.1.11"
+  }
+}
