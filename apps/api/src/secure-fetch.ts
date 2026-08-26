@@ -19,6 +19,7 @@ export type HostResolver = (hostname: string) => Promise<readonly string[]>
 export type SecureFetchOptions = {
   fetch?: typeof globalThis.fetch
   resolver?: HostResolver
+  signal?: AbortSignal
   timeoutMs?: number
   maxRedirects?: number
   maxResponseBytes?: number
@@ -201,7 +202,14 @@ export async function fetchPublicPage(
   const userAgent = options.userAgent ?? DEFAULT_USER_AGENT
   let currentUrl = initialUrl
   const controller = new AbortController()
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
+  let timedOut = false
+  const onCallerAbort = () => controller.abort()
+  if (options.signal?.aborted) controller.abort()
+  else options.signal?.addEventListener("abort", onCallerAbort, { once: true })
+  const timeout = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, timeoutMs)
 
   try {
     for (let redirectCount = 0; redirectCount <= maxRedirects; redirectCount += 1) {
@@ -265,11 +273,14 @@ export async function fetchPublicPage(
     throw new SessionPipelineError("FETCH_UNREACHABLE")
   } catch (error) {
     if (controller.signal.aborted) {
-      throw new SessionPipelineError("FETCH_TIMEOUT", { cause: error })
+      throw new SessionPipelineError(timedOut ? "FETCH_TIMEOUT" : "GENERATION_INTERRUPTED", {
+        cause: error,
+      })
     }
     if (error instanceof SessionPipelineError) throw error
     throw new SessionPipelineError("FETCH_UNREACHABLE", { cause: error })
   } finally {
     clearTimeout(timeout)
+    options.signal?.removeEventListener("abort", onCallerAbort)
   }
 }

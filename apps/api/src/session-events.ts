@@ -1,14 +1,8 @@
-import {
-  type SessionDto,
-  type SessionStreamEvent,
-  sessionStreamEventSchema,
-} from "@profound/contracts"
-import { createApiError } from "./session-errors"
-import type { SessionRecord } from "./session-repository"
+import { type SessionStreamEvent, sessionStreamEventSchema } from "@profound/contracts"
 
 type Subscriber = {
   closed: boolean
-  queue: SessionStreamEvent[]
+  pending: SessionStreamEvent | null
   wake: (() => void) | null
 }
 
@@ -16,105 +10,32 @@ export type SessionEventSubscription = AsyncIterable<SessionStreamEvent> & {
   close(): void
 }
 
-type SessionEventHubOptions = {
-  maxEventsPerSession?: number
-  maxRetainedSessions?: number
-}
-
-const defaultMaxEventsPerSession = 256
-const defaultMaxRetainedSessions = 1_000
-
-const isTerminalEvent = (event: SessionStreamEvent) =>
-  event.type === "session.completed" || event.type === "session.failed"
-
-export const createSessionSnapshotEvents = (
-  session: SessionRecord,
-  dto: SessionDto,
-): SessionStreamEvent[] => {
-  if (session.status === "complete") {
-    return [
-      sessionStreamEventSchema.parse({
-        type: "session.completed",
-        attemptId: session.currentAttemptId,
-        session: dto,
-      }),
-    ]
-  }
-
-  if (session.status === "failed") {
-    return [
-      sessionStreamEventSchema.parse({
-        type: "session.failed",
-        attemptId: session.currentAttemptId,
-        session: dto,
-        error: createApiError(session.failureCode ?? "INTERNAL_ERROR"),
-      }),
-    ]
-  }
-
-  return [
-    sessionStreamEventSchema.parse({
-      type: "session.created",
-      attemptId: session.currentAttemptId,
-      session: dto,
-    }),
-    sessionStreamEventSchema.parse({
-      type: "stage.changed",
-      attemptId: session.currentAttemptId,
-      stage: session.status,
-    }),
-  ]
-}
+const isTerminal = (event: SessionStreamEvent) =>
+  event.type === "summary.completed" || event.type === "summary.failed"
 
 export class SessionEventHub {
-  readonly #history = new Map<string, SessionStreamEvent[]>()
-  readonly #maxEventsPerSession: number
-  readonly #maxRetainedSessions: number
+  readonly #latest = new Map<string, SessionStreamEvent>()
   readonly #subscribers = new Map<string, Set<Subscriber>>()
 
-  constructor(options: SessionEventHubOptions = {}) {
-    this.#maxEventsPerSession = Math.max(
-      1,
-      options.maxEventsPerSession ?? defaultMaxEventsPerSession,
-    )
-    this.#maxRetainedSessions = Math.max(
-      1,
-      options.maxRetainedSessions ?? defaultMaxRetainedSessions,
-    )
-  }
-
   publish(sessionId: string, event: SessionStreamEvent): void {
-    const parsedEvent = sessionStreamEventSchema.parse(event)
-    if (!this.#history.has(sessionId) && this.#history.size >= this.#maxRetainedSessions) {
-      const oldestSessionId = this.#history.keys().next().value
-      if (oldestSessionId) this.#history.delete(oldestSessionId)
-    }
-    const history = this.#history.get(sessionId) ?? []
-    history.push(parsedEvent)
-    if (history.length > this.#maxEventsPerSession) {
-      history.splice(0, history.length - this.#maxEventsPerSession)
-    }
-    this.#history.set(sessionId, history)
-
+    const parsed = sessionStreamEventSchema.parse(event)
     for (const subscriber of this.#subscribers.get(sessionId) ?? []) {
-      subscriber.queue.push(parsedEvent)
-      if (subscriber.queue.length > this.#maxEventsPerSession) {
-        subscriber.queue.splice(0, subscriber.queue.length - this.#maxEventsPerSession)
-      }
+      subscriber.pending = parsed
       subscriber.wake?.()
       subscriber.wake = null
     }
+    if (isTerminal(parsed)) {
+      this.#latest.delete(sessionId)
+      this.#subscribers.delete(sessionId)
+    } else {
+      this.#latest.set(sessionId, parsed)
+    }
   }
 
-  reset(sessionId: string): void {
-    this.#history.delete(sessionId)
-  }
-
-  disconnect(sessionId: string): void {
-    this.#history.delete(sessionId)
+  clear(sessionId: string): void {
+    this.#latest.delete(sessionId)
     const subscribers = this.#subscribers.get(sessionId)
     this.#subscribers.delete(sessionId)
-
     for (const subscriber of subscribers ?? []) {
       subscriber.closed = true
       subscriber.wake?.()
@@ -122,54 +43,52 @@ export class SessionEventHub {
     }
   }
 
-  subscribe(session: SessionRecord, dto: SessionDto, listen = true): SessionEventSubscription {
-    const retainedEvents = this.#history.get(session.id)
-    const replay = retainedEvents ? [...retainedEvents] : createSessionSnapshotEvents(session, dto)
-    const subscriber: Subscriber = { closed: false, queue: [], wake: null }
-    const shouldListen = listen && !replay.some(isTerminalEvent)
+  subscribe(
+    sessionId: string,
+    initial: SessionStreamEvent,
+    listen: boolean,
+  ): SessionEventSubscription {
+    const replay = this.#latest.get(sessionId) ?? initial
+    const subscriber: Subscriber = { closed: false, pending: null, wake: null }
+    const shouldListen = listen && !isTerminal(replay)
 
     if (shouldListen) {
-      const subscribers = this.#subscribers.get(session.id) ?? new Set<Subscriber>()
+      const subscribers = this.#subscribers.get(sessionId) ?? new Set<Subscriber>()
       subscribers.add(subscriber)
-      this.#subscribers.set(session.id, subscribers)
-    }
-
-    const removeSubscriber = () => {
-      const subscribers = this.#subscribers.get(session.id)
-      subscribers?.delete(subscriber)
-      if (subscribers?.size === 0) this.#subscribers.delete(session.id)
+      this.#subscribers.set(sessionId, subscribers)
     }
 
     const close = () => {
+      if (subscriber.closed) return
       subscriber.closed = true
       subscriber.wake?.()
       subscriber.wake = null
-      removeSubscriber()
+      const subscribers = this.#subscribers.get(sessionId)
+      subscribers?.delete(subscriber)
+      if (subscribers?.size === 0) this.#subscribers.delete(sessionId)
     }
 
     return {
       close,
       async *[Symbol.asyncIterator]() {
         try {
-          for (const event of replay) {
-            if (subscriber.closed) return
-            yield event
-          }
+          if (subscriber.closed) return
+          yield replay
           if (!shouldListen) return
 
           while (!subscriber.closed) {
-            if (subscriber.queue.length === 0) {
+            if (!subscriber.pending) {
               await new Promise<void>((resolve) => {
                 subscriber.wake = resolve
               })
             }
-
             if (subscriber.closed) return
 
-            const event = subscriber.queue.shift()
+            const event = subscriber.pending
+            subscriber.pending = null
             if (!event) continue
             yield event
-            if (isTerminalEvent(event)) return
+            if (isTerminal(event)) return
           }
         } finally {
           close()

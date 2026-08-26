@@ -1,547 +1,786 @@
 import {
+  createChatRequestSchema,
   createSessionRequestSchema,
-  sessionSchema,
-  sessionStreamEventSchema,
+  type SessionStreamEvent,
 } from "@profound/contracts"
 import { describe, expect, it, vi } from "vitest"
-import { createApiApp } from "./app"
-import { SessionPipelineError } from "./session-errors"
-import { SessionEventHub } from "./session-events"
-import {
-  type CreateSessionResult,
-  type SessionRecord,
-  type SessionRepository,
-  type SessionUpdate,
-  UNAUTHENTICATED_WORKSPACE_ID,
-} from "./session-repository"
-import { SessionCapacityError, SessionService, toSessionDto } from "./session-service"
+import { LlmError } from "./llm"
+import { SessionService } from "./session-service"
+import { FakeLlm, fetchedHtml, MemorySessionRepository } from "./session-test-support"
 
-const sessionId = "11111111-1111-4111-8111-111111111111"
-const attemptId = "22222222-2222-4222-8222-222222222222"
 const request = createSessionRequestSchema.parse({
   url: "https://example.com/article",
   idempotencyKey: "33333333-3333-4333-8333-333333333333",
 })
-const fetchedHtml = `<!doctype html>
-  <html>
-    <head>
-      <title>Source title</title>
-      <meta property="og:site_name" content="Source site">
-      <meta name="description" content="A source description.">
-      <link rel="canonical" href="https://example.com/canonical">
-    </head>
-    <body>
-      <article>
-        <p>The source opens with a complete factual sentence about the topic.</p>
-        <p>A second complete sentence provides enough context for a useful summary.</p>
-        <p>The final sentence captures the consequence described by the source.</p>
-      </article>
-    </body>
-  </html>`
 
-class MemorySessionRepository implements SessionRepository {
-  readonly records = new Map<string, SessionRecord>()
-  readonly #idempotency = new Map<string, string>()
+const page = { finalUrl: request.url, html: fetchedHtml }
 
-  async claimForRecovery(
-    workspaceId: string,
-    id: string,
-    expectedAttemptId: string,
-    staleAfterMs: number,
-    update: SessionUpdate,
-  ): Promise<SessionRecord | null> {
-    const session = await this.findById(workspaceId, id)
-    const now = update.updatedAt ?? new Date()
-    if (
-      !session ||
-      session.currentAttemptId !== expectedAttemptId ||
-      session.updatedAt.getTime() > now.getTime() - staleAfterMs ||
-      session.status === "complete" ||
-      session.status === "failed"
-    ) {
-      return null
+const collect = async <T>(events: AsyncIterable<T>) => {
+  const values: T[] = []
+  for await (const event of events) values.push(event)
+  return values
+}
+
+const deferred = <T = void>() => {
+  let resolve!: (value: T | PromiseLike<T>) => void
+  let reject!: (reason?: unknown) => void
+  const promise = new Promise<T>((promiseResolve, promiseReject) => {
+    resolve = promiseResolve
+    reject = promiseReject
+  })
+  return { promise, reject, resolve }
+}
+
+class BlockingDeleteRepository extends MemorySessionRepository {
+  readonly deleteStarted = deferred<void>()
+  readonly releaseDelete = deferred<void>()
+  #shouldBlockDelete = true
+
+  override async delete(id: string): Promise<boolean> {
+    if (this.#shouldBlockDelete) {
+      this.#shouldBlockDelete = false
+      this.deleteStarted.resolve()
+      await this.releaseDelete.promise
     }
-
-    const updated = { ...session, ...update }
-    this.records.set(id, updated)
-    return updated
-  }
-
-  async createOrGet(workspaceId: string, input: typeof request): Promise<CreateSessionResult> {
-    const key = `${workspaceId}:${input.idempotencyKey}`
-    const existingId = this.#idempotency.get(key)
-    if (existingId) {
-      const existing = this.records.get(existingId)
-      if (!existing) throw new Error("Missing in-memory session")
-      return { created: false, session: existing }
-    }
-
-    const timestamp = new Date("2026-08-26T00:00:00.000Z")
-    const canonicalUrl = new URL(input.url).toString()
-    const id =
-      this.records.size === 0
-        ? sessionId
-        : `00000000-0000-4000-8000-${String(this.records.size).padStart(12, "0")}`
-    const session: SessionRecord = {
-      id,
-      workspaceId,
-      idempotencyKey: input.idempotencyKey,
-      originalUrl: input.url,
-      canonicalUrl,
-      finalUrl: null,
-      host: new URL(canonicalUrl).hostname,
-      title: null,
-      siteName: null,
-      description: null,
-      sourceText: "",
-      sourceHash: null,
-      sourceWordCount: 0,
-      sourceTruncated: false,
-      summary: "",
-      status: "fetching",
-      failureStage: null,
-      failureCode: null,
-      provider: null,
-      model: null,
-      promptVersion: null,
-      currentAttemptId: attemptId,
-      attemptNumber: 1,
-      inputTokens: null,
-      outputTokens: null,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-      completedAt: null,
-    }
-    this.records.set(session.id, session)
-    this.#idempotency.set(key, session.id)
-    return { created: true, session }
-  }
-
-  async findById(workspaceId: string, id: string): Promise<SessionRecord | null> {
-    const session = this.records.get(id)
-    return session?.workspaceId === workspaceId ? session : null
-  }
-
-  async updateForAttempt(
-    workspaceId: string,
-    id: string,
-    attemptId: string,
-    update: SessionUpdate,
-  ): Promise<SessionRecord | null> {
-    const session = await this.findById(workspaceId, id)
-    if (!session || session.currentAttemptId !== attemptId) return null
-    const updated = { ...session, ...update }
-    this.records.set(id, updated)
-    return updated
+    return super.delete(id)
   }
 }
 
-const collectEvents = async (events: AsyncIterable<unknown>) => {
-  const collected = []
-  for await (const event of events) collected.push(sessionStreamEventSchema.parse(event))
-  return collected
+class BlockingCreateResultRepository extends MemorySessionRepository {
+  readonly createdSessionId = deferred<string>()
+  readonly releaseCreate = deferred<void>()
+  #shouldBlockCreate = true
+
+  override async createOrGet(input: Parameters<MemorySessionRepository["createOrGet"]>[0]) {
+    const result = await super.createOrGet(input)
+    if (this.#shouldBlockCreate) {
+      this.#shouldBlockCreate = false
+      this.createdSessionId.resolve(result.session.id)
+      await this.releaseCreate.promise
+    }
+    return result
+  }
+}
+
+class BlockingCreateMessagesRepository extends MemorySessionRepository {
+  readonly createMessagesStarted = deferred<void>()
+  readonly releaseCreateMessages = deferred<void>()
+  #shouldBlockCreateMessages = true
+
+  override async createMessages(sessionId: string, requestId: string, content: string) {
+    if (this.#shouldBlockCreateMessages) {
+      this.#shouldBlockCreateMessages = false
+      this.createMessagesStarted.resolve()
+      await this.releaseCreateMessages.promise
+    }
+    return super.createMessages(sessionId, requestId, content)
+  }
+}
+
+class FailingInitialChatUpdateRepository extends MemorySessionRepository {
+  updateMessageAttempts = 0
+
+  override async updateMessage(
+    id: string,
+    update: Parameters<MemorySessionRepository["updateMessage"]>[1],
+  ) {
+    this.updateMessageAttempts += 1
+    if (this.updateMessageAttempts === 1) throw new Error("provider persistence failed")
+    return super.updateMessage(id, update)
+  }
+}
+
+class FailingSessionFailurePersistenceRepository extends MemorySessionRepository {
+  override async update(id: string, update: Parameters<MemorySessionRepository["update"]>[1]) {
+    if (update.status === "failed") throw new Error("session failure persistence failed")
+    return super.update(id, update)
+  }
+}
+
+class FailingChatFailurePersistenceRepository extends MemorySessionRepository {
+  override async updateMessage(
+    id: string,
+    update: Parameters<MemorySessionRepository["updateMessage"]>[1],
+  ) {
+    if (update.status === "failed") throw new Error("chat failure persistence failed")
+    return super.updateMessage(id, update)
+  }
+}
+
+class StaleSessionReadRepository extends MemorySessionRepository {
+  readonly readCaptured = deferred<void>()
+  readonly releaseRead = deferred<void>()
+  #armed = false
+  #captured = false
+
+  arm(): void {
+    this.#armed = true
+  }
+
+  override async findById(id: string) {
+    const snapshot = await super.findById(id)
+    if (this.#armed && !this.#captured) {
+      this.#captured = true
+      this.readCaptured.resolve()
+      await this.releaseRead.promise
+    }
+    return snapshot
+  }
 }
 
 describe("SessionService", () => {
-  it("persists the complete pipeline once and replays all progress to late subscribers", async () => {
+  it("publishes real LLM deltas with offsets and persists the completed summary", async () => {
     const repository = new MemorySessionRepository()
-    const fetchPage = vi.fn(async () => ({
-      finalUrl: "https://example.com/redirected",
-      html: fetchedHtml,
-    }))
-    const service = new SessionService({ repository, fetchPage })
-
-    const first = await service.create(request)
-    const second = await service.create(request)
-    await service.waitForIdle(first.session.id)
-
-    expect(first.created).toBe(true)
-    expect(first.session.status).toBe("fetching")
-    expect(second.created).toBe(false)
-    expect(fetchPage).toHaveBeenCalledTimes(1)
-    expect(repository.records.get(sessionId)?.workspaceId).toBe(UNAUTHENTICATED_WORKSPACE_ID)
-
-    const completed = await service.get(sessionId)
-    expect(completed).toMatchObject({
-      status: "complete",
-      finalUrl: "https://example.com/redirected",
-      canonicalUrl: "https://example.com/canonical",
-      title: "Source title",
-      siteName: "Source site",
-      description: "A source description.",
-      provider: "local",
-      model: "extractive-v1",
-      failureCode: null,
-      failureStage: null,
-    })
-    expect(completed?.summary).toContain("The source opens")
-    expect(completed?.sourceWordCount).toBeGreaterThan(20)
-    expect(sessionSchema.parse(completed).completedAt).not.toBeNull()
-
-    const stream = await service.stream(sessionId)
-    if (!stream) throw new Error("Expected a stream")
-    const events = await collectEvents(stream.events)
-    expect(events.map(({ type }) => type)).toEqual([
-      "session.created",
-      "stage.changed",
-      "stage.changed",
-      "stage.changed",
-      "summary.delta",
-      "session.completed",
-    ])
-    expect(
-      events
-        .filter((event) => event.type === "summary.delta")
-        .map((event) => event.delta)
-        .join(""),
-    ).toBe(completed?.summary)
-  })
-
-  it("persists and emits safe failures at the active stage", async () => {
-    const repository = new MemorySessionRepository()
+    let releaseFetch!: (value: typeof page) => void
     const service = new SessionService({
       repository,
-      fetchPage: async () => {
-        throw new SessionPipelineError("URL_NOT_ALLOWED", {
-          cause: new Error("secret network details"),
-        })
-      },
+      llm: new FakeLlm(["First ", "second."]),
+      partialWriteIntervalMs: 0,
+      fetchPage: () => new Promise((resolve) => (releaseFetch = resolve)),
     })
-
-    const created = await service.create(request)
-    await service.waitForIdle(created.session.id)
-
-    const failed = await service.get(sessionId)
-    expect(failed).toMatchObject({
-      status: "failed",
-      failureStage: "fetching",
-      failureCode: "URL_NOT_ALLOWED",
-    })
-    const stream = await service.stream(sessionId)
-    if (!stream) throw new Error("Expected a stream")
-    const events = await collectEvents(stream.events)
-    const failedEvent = events.at(-1)
-    expect(failedEvent?.type).toBe("session.failed")
-    if (failedEvent?.type !== "session.failed") throw new Error("Expected a failure event")
-    expect(failedEvent.error.code).toBe("URL_NOT_ALLOWED")
-    expect(failedEvent.error.message).not.toContain("secret")
-  })
-
-  it("bounds retained event history by event and session counts", async () => {
-    const repository = new MemorySessionRepository()
-    const record = (await repository.createOrGet(UNAUTHENTICATED_WORKSPACE_ID, request)).session
-    const completedRecord: SessionRecord = {
-      ...record,
-      status: "complete",
-      summary: "A summary.",
-      completedAt: new Date("2026-08-26T00:00:01.000Z"),
-      updatedAt: new Date("2026-08-26T00:00:01.000Z"),
-    }
-    const completedDto = toSessionDto(completedRecord)
-    const eventHub = new SessionEventHub({ maxEventsPerSession: 2, maxRetainedSessions: 1 })
-
-    eventHub.publish(sessionId, {
-      type: "session.created",
-      attemptId,
-      session: toSessionDto(record),
-    })
-    eventHub.publish(sessionId, { type: "stage.changed", attemptId, stage: "extracting" })
-    eventHub.publish(sessionId, {
-      type: "session.completed",
-      attemptId,
-      session: completedDto,
-    })
-
-    expect(
-      (await collectEvents(eventHub.subscribe(completedRecord, completedDto))).map(
-        ({ type }) => type,
-      ),
-    ).toEqual(["stage.changed", "session.completed"])
-
-    const secondRecord: SessionRecord = {
-      ...completedRecord,
-      id: "44444444-4444-4444-8444-444444444444",
-      currentAttemptId: "55555555-5555-4555-8555-555555555555",
-    }
-    const secondDto = toSessionDto(secondRecord)
-    eventHub.publish(secondRecord.id, {
-      type: "session.completed",
-      attemptId: secondRecord.currentAttemptId,
-      session: secondDto,
-    })
-
-    expect(
-      (await collectEvents(eventHub.subscribe(completedRecord, completedDto))).map(
-        ({ type }) => type,
-      ),
-    ).toEqual(["session.completed"])
-  })
-
-  it("closes a waiting event subscription on disconnect", async () => {
-    const repository = new MemorySessionRepository()
-    const record = (await repository.createOrGet(UNAUTHENTICATED_WORKSPACE_ID, request)).session
-    const eventHub = new SessionEventHub()
-    const subscription = eventHub.subscribe(record, toSessionDto(record))
-    const iterator = subscription[Symbol.asyncIterator]()
-
-    expect((await iterator.next()).value?.type).toBe("session.created")
-    expect((await iterator.next()).value?.type).toBe("stage.changed")
-    const waiting = iterator.next()
-    subscription.close()
-
-    await expect(waiting).resolves.toEqual({ done: true, value: undefined })
-  })
-
-  it("bounds queued events for slow subscribers", async () => {
-    const repository = new MemorySessionRepository()
-    const record = (await repository.createOrGet(UNAUTHENTICATED_WORKSPACE_ID, request)).session
-    const eventHub = new SessionEventHub({ maxEventsPerSession: 2 })
-    const subscription = eventHub.subscribe(record, toSessionDto(record))
-    const iterator = subscription[Symbol.asyncIterator]()
-
-    expect((await iterator.next()).value?.type).toBe("session.created")
-    expect((await iterator.next()).value?.type).toBe("stage.changed")
-    eventHub.publish(sessionId, { type: "summary.delta", attemptId, delta: "old" })
-    eventHub.publish(sessionId, { type: "summary.delta", attemptId, delta: "new" })
-    eventHub.publish(sessionId, {
-      type: "session.completed",
-      attemptId,
-      session: toSessionDto({ ...record, status: "complete" }),
-    })
-
-    expect((await iterator.next()).value).toMatchObject({ type: "summary.delta", delta: "new" })
-    expect((await iterator.next()).value?.type).toBe("session.completed")
-    await expect(iterator.next()).resolves.toEqual({ done: true, value: undefined })
-  })
-
-  it("replays terminal state and restarts interrupted work after an event-hub restart", async () => {
-    const repository = new MemorySessionRepository()
-    const originalService = new SessionService({
-      repository,
-      fetchPage: async () => ({ finalUrl: request.url, html: fetchedHtml }),
-    })
-    const created = await originalService.create(request)
-    await originalService.waitForIdle(created.session.id)
-
-    const restartedService = new SessionService({ repository })
-    const terminalStream = await restartedService.stream(sessionId)
-    if (!terminalStream) throw new Error("Expected a terminal stream")
-    expect((await collectEvents(terminalStream.events)).map(({ type }) => type)).toEqual([
-      "session.completed",
-    ])
-
-    const currentRepository = new MemorySessionRepository()
-    const interrupted = await currentRepository.createOrGet(UNAUTHENTICATED_WORKSPACE_ID, request)
-    currentRepository.records.set(sessionId, {
-      ...interrupted.session,
-      canonicalUrl: "https://declared-canonical.example/other",
-      status: "summarizing",
-    })
-    const fetchPage = vi.fn(async () => ({ finalUrl: request.url, html: fetchedHtml }))
-    const currentService = new SessionService({ repository: currentRepository, fetchPage })
-    const currentStream = await currentService.stream(sessionId)
-    if (!currentStream) throw new Error("Expected a current-state stream")
-    expect((await collectEvents(currentStream.events)).map(({ type }) => type)).toEqual([
-      "session.created",
-      "stage.changed",
-      "stage.changed",
-      "stage.changed",
-      "summary.delta",
-      "session.completed",
-    ])
-    expect(fetchPage).toHaveBeenCalledOnce()
-    expect(fetchPage).toHaveBeenCalledWith(request.url)
-    expect((await currentService.get(sessionId))?.attemptNumber).toBe(2)
-  })
-
-  it("does not steal a fresh attempt owned by another process", async () => {
-    const repository = new MemorySessionRepository()
-    await repository.createOrGet(UNAUTHENTICATED_WORKSPACE_ID, request)
-    const fetchPage = vi.fn(async () => ({ finalUrl: request.url, html: fetchedHtml }))
-    const service = new SessionService({
-      repository,
-      fetchPage,
-      clock: () => new Date("2026-08-26T00:00:10.000Z"),
-      pollIntervalMs: 1,
-    })
-
-    const stream = await service.stream(sessionId)
-    if (!stream) throw new Error("Expected a current-state stream")
-    const events = collectEvents(stream.events)
-    setTimeout(() => {
-      const current = repository.records.get(sessionId)
-      if (!current) return
-      repository.records.set(sessionId, {
-        ...current,
-        status: "complete",
-        summary: "Completed by the owning process.",
-        completedAt: new Date("2026-08-26T00:00:11.000Z"),
-        updatedAt: new Date("2026-08-26T00:00:11.000Z"),
-      })
-    }, 5)
-
-    expect((await events).map(({ type }) => type)).toEqual([
-      "session.created",
-      "stage.changed",
-      "session.completed",
-    ])
-    expect(fetchPage).not.toHaveBeenCalled()
-    expect((await service.get(sessionId))?.attemptNumber).toBe(1)
-  })
-
-  it("recovers persisted work when its owning process stops updating it", async () => {
-    const repository = new MemorySessionRepository()
-    await repository.createOrGet(UNAUTHENTICATED_WORKSPACE_ID, request)
-    let now = new Date("2026-08-26T00:00:10.000Z")
-    const fetchPage = vi.fn(async () => ({ finalUrl: request.url, html: fetchedHtml }))
-    const service = new SessionService({
-      repository,
-      fetchPage,
-      clock: () => now,
-      pollIntervalMs: 1,
-      recoveryRetryIntervalMs: 1,
-    })
-
-    const stream = await service.stream(sessionId)
-    if (!stream) throw new Error("Expected a persisted stream")
-    now = new Date("2026-08-26T00:00:31.000Z")
-    await collectEvents(stream.events)
-    await service.waitForIdle(sessionId)
-
-    expect(fetchPage).toHaveBeenCalledOnce()
-    expect(await service.get(sessionId)).toMatchObject({ status: "complete", attemptNumber: 2 })
-  })
-
-  it("disconnects subscribers when another attempt fences the local pipeline", async () => {
-    const repository = new MemorySessionRepository()
-    let resolveFetch: (page: { finalUrl: string; html: string }) => void = () => undefined
-    const fetchPage = vi.fn(
-      () =>
-        new Promise<{ finalUrl: string; html: string }>((resolve) => {
-          resolveFetch = resolve
-        }),
-    )
-    const service = new SessionService({ repository, fetchPage })
     const created = await service.create(request)
     const stream = await service.stream(created.session.id)
-    if (!stream) throw new Error("Expected an active stream")
-    const iterator = stream.events[Symbol.asyncIterator]()
+    if (!stream) throw new Error("Expected stream")
+    const eventsPromise = collect(stream.events)
+    releaseFetch(page)
+    await service.waitForAll()
+    const events = await eventsPromise
 
-    expect((await iterator.next()).value?.type).toBe("session.created")
-    expect((await iterator.next()).value?.type).toBe("stage.changed")
-    const current = repository.records.get(sessionId)
-    if (!current) throw new Error("Expected a persisted session")
-    repository.records.set(sessionId, {
-      ...current,
-      currentAttemptId: "66666666-6666-4666-8666-666666666666",
-      attemptNumber: 2,
+    const deltas = events.filter(
+      (event): event is Extract<SessionStreamEvent, { type: "summary.delta" }> =>
+        event.type === "summary.delta",
+    )
+    expect(deltas.map(({ delta }) => delta)).toEqual(["First ", "second."])
+    expect(deltas.map(({ offset }) => offset)).toEqual([0, 6])
+    expect(new Set(events.map(({ eventId }) => eventId)).size).toBe(events.length)
+    expect(events.at(-1)?.type).toBe("summary.completed")
+    expect(await service.get(created.session.id)).toMatchObject({
+      status: "complete",
+      summary: "First second.",
+      provider: "fake",
+      model: "fake-model",
+      generationVersion: 1,
     })
-    const waiting = iterator.next()
-    resolveFetch({ finalUrl: request.url, html: fetchedHtml })
-    await service.waitForIdle(sessionId)
-
-    await expect(waiting).resolves.toEqual({ done: true, value: undefined })
+    expect(repository.records.get(created.session.id)?.sourceText).toContain("source opens")
   })
 
-  it("rejects new work when the process pipeline capacity is exhausted", async () => {
+  it("persists a typed failure and partial text when the LLM fails mid-stream", async () => {
     const repository = new MemorySessionRepository()
-    let resolveFetch: (page: { finalUrl: string; html: string }) => void = () => undefined
     const service = new SessionService({
       repository,
-      maxConcurrentPipelines: 1,
-      fetchPage: () =>
-        new Promise((resolve) => {
-          resolveFetch = resolve
-        }),
+      llm: new FakeLlm(["Partial", new LlmError("LLM_RATE_LIMITED")]),
+      fetchPage: async () => page,
     })
     const created = await service.create(request)
-    const secondRequest = createSessionRequestSchema.parse({
-      ...request,
-      idempotencyKey: "77777777-7777-4777-8777-777777777777",
-    })
+    await service.waitForAll()
 
-    await expect(service.create(secondRequest)).rejects.toBeInstanceOf(SessionCapacityError)
-    resolveFetch({ finalUrl: request.url, html: fetchedHtml })
-    await service.waitForIdle(created.session.id)
+    expect(await service.get(created.session.id)).toMatchObject({
+      status: "failed",
+      summary: "Partial",
+      failureStage: "summarizing",
+      failureCode: "LLM_RATE_LIMITED",
+    })
+    const stream = await service.stream(created.session.id)
+    expect(stream && (await collect(stream.events)).at(-1)?.type).toBe("summary.failed")
   })
 
-  it("starts every pipeline admitted concurrently up to capacity", async () => {
-    const repository = new MemorySessionRepository()
-    const pendingFetches: Array<(page: { finalUrl: string; html: string }) => void> = []
-    const fetchPage = vi.fn(
-      () =>
-        new Promise<{ finalUrl: string; html: string }>((resolve) => {
-          pendingFetches.push(resolve)
-        }),
-    )
+  it("closes the summary stream when a pipeline failure cannot be persisted", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const repository = new FailingSessionFailurePersistenceRepository()
     const service = new SessionService({
       repository,
-      maxConcurrentPipelines: 8,
-      fetchPage,
+      llm: new FakeLlm([new LlmError("LLM_RATE_LIMITED")]),
+      fetchPage: async () => page,
     })
-    const requests = Array.from({ length: 8 }, (_value, index) =>
-      createSessionRequestSchema.parse({
-        url: `https://example.com/article-${index}`,
-        idempotencyKey: `10000000-0000-4000-8000-${String(index).padStart(12, "0")}`,
+    const created = await service.create(request)
+    const stream = await service.stream(created.session.id)
+    if (!stream) throw new Error("Expected stream")
+    const eventsPromise = collect(stream.events)
+
+    await service.waitForAll()
+    const events = await eventsPromise
+
+    expect(
+      events.some(({ type }) => type === "summary.completed" || type === "summary.failed"),
+    ).toBe(false)
+    expect(consoleError).toHaveBeenCalledOnce()
+    consoleError.mockRestore()
+  })
+
+  it("rejects idempotency-key reuse for a different URL", async () => {
+    const service = new SessionService({
+      repository: new MemorySessionRepository(),
+      llm: new FakeLlm(),
+      fetchPage: async () => page,
+    })
+    await service.create(request)
+    await expect(
+      service.create({ ...request, url: "https://example.org/other" }),
+    ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" })
+    await service.waitForAll()
+  })
+
+  it("admits concurrent new sessions atomically and removes the rejected row", async () => {
+    const repository = new MemorySessionRepository()
+    let releaseFetch!: () => void
+    const fetchGate = new Promise<void>((resolve) => (releaseFetch = resolve))
+    const service = new SessionService({
+      repository,
+      llm: new FakeLlm(),
+      maxConcurrentGenerations: 1,
+      fetchPage: async () => {
+        await fetchGate
+        return page
+      },
+    })
+    const otherRequest = createSessionRequestSchema.parse({
+      url: "https://example.net/other",
+      idempotencyKey: "44444444-4444-4444-8444-444444444444",
+    })
+
+    const outcomes = await Promise.allSettled([
+      service.create(request),
+      service.create(otherRequest),
+    ])
+    expect(outcomes.filter(({ status }) => status === "fulfilled")).toHaveLength(1)
+    expect(outcomes.filter(({ status }) => status === "rejected")).toHaveLength(1)
+    expect(outcomes.find(({ status }) => status === "rejected")).toMatchObject({
+      reason: { code: "RATE_LIMITED" },
+    })
+    expect(repository.records.size).toBe(1)
+
+    releaseFetch()
+    await service.waitForAll()
+  })
+
+  it("lets an idempotent replay bypass admission while rejecting unrelated work", async () => {
+    const repository = new MemorySessionRepository()
+    let releaseFetch!: () => void
+    let markFetchStarted!: () => void
+    const fetchGate = new Promise<void>((resolve) => (releaseFetch = resolve))
+    const fetchStarted = new Promise<void>((resolve) => (markFetchStarted = resolve))
+    const service = new SessionService({
+      repository,
+      llm: new FakeLlm(),
+      maxConcurrentGenerations: 1,
+      fetchPage: async () => {
+        markFetchStarted()
+        await fetchGate
+        return page
+      },
+    })
+    const created = await service.create(request)
+    await fetchStarted
+
+    const replay = await service.create(request)
+    expect(replay).toMatchObject({ created: false, session: { id: created.session.id } })
+    await expect(
+      service.create({
+        url: "https://example.net/rejected",
+        idempotencyKey: "44444444-4444-4444-8444-444444444444",
+      }),
+    ).rejects.toMatchObject({ code: "RATE_LIMITED" })
+    expect(repository.records.size).toBe(1)
+
+    releaseFetch()
+    await service.waitForAll()
+  })
+
+  it("does not expose an unadmitted session to a concurrent idempotent replay", async () => {
+    const repository = new BlockingDeleteRepository()
+    const fetchStarted = deferred<void>()
+    const releaseFetch = deferred<void>()
+    const service = new SessionService({
+      repository,
+      llm: new FakeLlm(),
+      maxConcurrentGenerations: 1,
+      fetchPage: async () => {
+        fetchStarted.resolve()
+        await releaseFetch.promise
+        return page
+      },
+    })
+    await service.create(request)
+    await fetchStarted.promise
+    const rejectedRequest = createSessionRequestSchema.parse({
+      url: "https://example.net/rejected",
+      idempotencyKey: "44444444-4444-4444-8444-444444444444",
+    })
+
+    const firstAttempt = service.create(rejectedRequest)
+    await repository.deleteStarted.promise
+    const replay = service.create(rejectedRequest)
+    let replaySettled = false
+    void replay.then(
+      () => {
+        replaySettled = true
+      },
+      () => {
+        replaySettled = true
+      },
+    )
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(replaySettled).toBe(false)
+
+    repository.releaseDelete.resolve()
+    await expect(firstAttempt).rejects.toMatchObject({ code: "RATE_LIMITED" })
+    await expect(replay).rejects.toMatchObject({ code: "RATE_LIMITED" })
+    expect(repository.records.size).toBe(1)
+
+    releaseFetch.resolve()
+    await service.waitForAll()
+  })
+
+  it("does not start work for a new session deleted before admission completes", async () => {
+    const repository = new BlockingCreateResultRepository()
+    const fetchPage = vi.fn(async () => page)
+    const service = new SessionService({ repository, llm: new FakeLlm(), fetchPage })
+
+    const creation = service.create(request)
+    const sessionId = await repository.createdSessionId.promise
+    expect(await service.delete(sessionId)).toBe(true)
+    repository.releaseCreate.resolve()
+
+    await expect(creation).rejects.toMatchObject({ code: "GENERATION_INTERRUPTED" })
+    expect(fetchPage).not.toHaveBeenCalled()
+    expect(await service.get(sessionId)).toBeNull()
+  })
+
+  it("rejects admission that resumes after shutdown and removes its unstarted row", async () => {
+    const repository = new BlockingCreateResultRepository()
+    const fetchPage = vi.fn(async () => page)
+    const service = new SessionService({ repository, llm: new FakeLlm(), fetchPage })
+
+    const creation = service.create(request)
+    const sessionId = await repository.createdSessionId.promise
+    service.shutdown()
+    repository.releaseCreate.resolve()
+
+    await expect(creation).rejects.toMatchObject({ code: "GENERATION_INTERRUPTED" })
+    await expect(service.create(request)).rejects.toMatchObject({ code: "GENERATION_INTERRUPTED" })
+    expect(fetchPage).not.toHaveBeenCalled()
+    expect(await service.get(sessionId)).toBeNull()
+  })
+
+  it("lists newest sessions, searches persisted fields, and deletes with cascade", async () => {
+    const repository = new MemorySessionRepository()
+    const service = new SessionService({
+      repository,
+      llm: new FakeLlm(),
+      fetchPage: async () => page,
+    })
+    const first = await repository.createOrGet(request)
+    await repository.update(first.session.id, { title: "Needle title", status: "complete" })
+    const second = await repository.createOrGet({
+      url: "https://example.net/newer",
+      idempotencyKey: "44444444-4444-4444-8444-444444444444",
+    })
+    await repository.update(second.session.id, { status: "complete", summary: "Other summary" })
+    await repository.createMessages(first.session.id, "55555555-5555-4555-8555-555555555555", "Hi")
+
+    expect((await service.list({ query: "", limit: 1 })).sessions[0]?.id).toBe(second.session.id)
+    expect(
+      (await service.list({ query: "needle", limit: 20 })).sessions.map(({ id }) => id),
+    ).toEqual([first.session.id])
+    expect(await service.delete(first.session.id)).toBe(true)
+    expect(await service.get(first.session.id)).toBeNull()
+    expect(await repository.listMessages(first.session.id)).toEqual([])
+  })
+
+  it("persists isolated session chat and replays idempotent completion", async () => {
+    const repository = new MemorySessionRepository()
+    const llm = new FakeLlm(["Answer ", "one."])
+    const service = new SessionService({ repository, llm, fetchPage: async () => page })
+    const first = await repository.createOrGet(request)
+    const second = await repository.createOrGet({
+      url: "https://example.net/second",
+      idempotencyKey: "44444444-4444-4444-8444-444444444444",
+    })
+    await repository.update(first.session.id, {
+      status: "complete",
+      sourceText: "First source",
+      summary: "First summary",
+    })
+    await repository.update(second.session.id, {
+      status: "complete",
+      sourceText: "Second source",
+      summary: "Second summary",
+    })
+    const chatRequest = createChatRequestSchema.parse({
+      content: "What happened?",
+      idempotencyKey: "55555555-5555-4555-8555-555555555555",
+    })
+    const firstChat = await service.chat(first.session.id, chatRequest)
+    if (!firstChat) throw new Error("Expected chat")
+    await collect(firstChat.events)
+    await service.waitForAll()
+    const replay = await service.chat(first.session.id, chatRequest)
+    if (!replay) throw new Error("Expected replay")
+    expect((await collect(replay.events)).map(({ type }) => type)).toEqual(["chat.completed"])
+    expect(
+      (await service.messages(first.session.id))?.map(({ role, content }) => ({ role, content })),
+    ).toEqual([
+      { role: "user", content: "What happened?" },
+      { role: "assistant", content: "Answer one." },
+    ])
+    expect(await service.messages(second.session.id)).toEqual([])
+    expect(llm.requests).toHaveLength(1)
+  })
+
+  it("serializes chat admission with deletion and clears the admitted chat", async () => {
+    const repository = new BlockingCreateMessagesRepository()
+    const abortSeen = deferred<void>()
+    const releaseLlm = deferred<void>()
+    let observedAbort = false
+    const llm = new FakeLlm(async function* ({ signal }) {
+      if (signal.aborted) {
+        observedAbort = true
+        abortSeen.resolve()
+        throw new LlmError("GENERATION_INTERRUPTED")
+      }
+      await Promise.race([
+        new Promise<void>((resolve) => {
+          signal.addEventListener(
+            "abort",
+            () => {
+              observedAbort = true
+              abortSeen.resolve()
+              resolve()
+            },
+            { once: true },
+          )
+        }),
+        releaseLlm.promise,
+      ])
+      if (signal.aborted) throw new LlmError("GENERATION_INTERRUPTED")
+      yield "Late answer"
+    })
+    const service = new SessionService({ repository, llm })
+    const created = await repository.createOrGet(request)
+    await repository.update(created.session.id, {
+      status: "complete",
+      sourceText: "Source",
+      summary: "Summary",
+    })
+    const chatRequest = createChatRequestSchema.parse({
+      content: "Question?",
+      idempotencyKey: "55555555-5555-4555-8555-555555555555",
+    })
+
+    const chatPromise = service.chat(created.session.id, chatRequest)
+    await repository.createMessagesStarted.promise
+    const deletePromise = service.delete(created.session.id)
+    let deletionSettled = false
+    void deletePromise.then(() => {
+      deletionSettled = true
+    })
+    await Promise.resolve()
+    await Promise.resolve()
+    expect(deletionSettled).toBe(false)
+
+    repository.releaseCreateMessages.resolve()
+    const stream = await chatPromise
+    if (!stream) throw new Error("Expected chat stream")
+    expect(await deletePromise).toBe(true)
+    await abortSeen.promise
+    expect(observedAbort).toBe(true)
+    expect(await repository.listMessages(created.session.id)).toEqual([])
+    expect(await service.get(created.session.id)).toBeNull()
+    expect(await collect(stream.events)).toEqual([])
+
+    releaseLlm.resolve()
+    await service.waitForAll()
+  })
+
+  it("persists a terminal chat failure when the provider update throws", async () => {
+    const repository = new FailingInitialChatUpdateRepository()
+    const service = new SessionService({ repository, llm: new FakeLlm() })
+    const created = await repository.createOrGet(request)
+    await repository.update(created.session.id, {
+      status: "complete",
+      sourceText: "Source",
+      summary: "Summary",
+    })
+    const chatRequest = createChatRequestSchema.parse({
+      content: "Question?",
+      idempotencyKey: "55555555-5555-4555-8555-555555555555",
+    })
+
+    const stream = await service.chat(created.session.id, chatRequest)
+    if (!stream) throw new Error("Expected chat stream")
+    await service.waitForAll()
+
+    expect(repository.updateMessageAttempts).toBe(2)
+    expect((await repository.listMessages(created.session.id)).at(-1)).toMatchObject({
+      role: "assistant",
+      status: "failed",
+      failureCode: "INTERNAL_ERROR",
+    })
+    expect((await collect(stream.events)).map(({ type }) => type)).toEqual([
+      "chat.created",
+      "chat.failed",
+    ])
+  })
+
+  it("closes the chat stream when a generation failure cannot be persisted", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {})
+    const repository = new FailingChatFailurePersistenceRepository()
+    const service = new SessionService({
+      repository,
+      llm: new FakeLlm([new LlmError("LLM_RATE_LIMITED")]),
+    })
+    const created = await repository.createOrGet(request)
+    await repository.update(created.session.id, {
+      status: "complete",
+      sourceText: "Source",
+      summary: "Summary",
+    })
+    const chatRequest = createChatRequestSchema.parse({
+      content: "Question?",
+      idempotencyKey: "55555555-5555-4555-8555-555555555555",
+    })
+
+    const stream = await service.chat(created.session.id, chatRequest)
+    if (!stream) throw new Error("Expected chat stream")
+    const eventsPromise = collect(stream.events)
+
+    await service.waitForAll()
+
+    expect((await eventsPromise).map(({ type }) => type)).toEqual(["chat.created"])
+    expect(consoleError).toHaveBeenCalledOnce()
+    consoleError.mockRestore()
+  })
+
+  it("includes only complete request pairs in chat history", async () => {
+    const repository = new MemorySessionRepository()
+    const llm = new FakeLlm(["New answer"])
+    const service = new SessionService({ repository, llm })
+    const created = await repository.createOrGet(request)
+    await repository.update(created.session.id, {
+      status: "complete",
+      sourceText: "Source",
+      summary: "Summary",
+    })
+    const complete = await repository.createMessages(
+      created.session.id,
+      "55555555-5555-4555-8555-555555555555",
+      "Complete question",
+    )
+    await repository.updateMessage(complete.assistantMessage.id, {
+      content: "Complete answer",
+      status: "complete",
+      completedAt: new Date(),
+    })
+    const failed = await repository.createMessages(
+      created.session.id,
+      "66666666-6666-4666-8666-666666666666",
+      "Failed question",
+    )
+    await repository.updateMessage(failed.assistantMessage.id, {
+      content: "Failed partial",
+      status: "failed",
+      failureCode: "INTERNAL_ERROR",
+      completedAt: new Date(),
+    })
+    const inFlight = await repository.createMessages(
+      created.session.id,
+      "77777777-7777-4777-8777-777777777777",
+      "In-flight question",
+    )
+    await repository.updateMessage(inFlight.assistantMessage.id, { content: "In-flight partial" })
+    const unmatched = await repository.createMessages(
+      created.session.id,
+      "88888888-8888-4888-8888-888888888888",
+      "Unmatched question",
+    )
+    repository.messagesById.delete(unmatched.assistantMessage.id)
+
+    const stream = await service.chat(
+      created.session.id,
+      createChatRequestSchema.parse({
+        content: "Current question",
+        idempotencyKey: "99999999-9999-4999-8999-999999999999",
       }),
     )
-
-    const created = await Promise.all(requests.map((input) => service.create(input)))
-
-    expect(fetchPage).toHaveBeenCalledTimes(8)
-    for (const resolve of pendingFetches) resolve({ finalUrl: request.url, html: fetchedHtml })
+    if (!stream) throw new Error("Expected chat stream")
+    await collect(stream.events)
     await service.waitForAll()
-    const completed = await Promise.all(created.map(({ session }) => service.get(session.id)))
-    expect(completed).toHaveLength(8)
-    expect(completed.every((session) => session?.status === "complete")).toBe(true)
+
+    expect(llm.requests).toHaveLength(1)
+    expect(llm.requests[0]?.messages.slice(3)).toEqual([
+      { role: "user", content: "Complete question" },
+      { role: "assistant", content: "Complete answer" },
+      { role: "user", content: "Current question" },
+    ])
   })
 
-  it("bounds active streams and rejects stream registration during shutdown", async () => {
-    const repository = new MemorySessionRepository()
-    const created = await repository.createOrGet(UNAUTHENTICATED_WORKSPACE_ID, request)
-    repository.records.set(sessionId, {
-      ...created.session,
-      status: "complete",
-      completedAt: new Date("2026-08-26T00:00:01.000Z"),
-    })
-    const service = new SessionService({ repository, maxConcurrentStreams: 1 })
-    const first = await service.stream(sessionId)
-    if (!first) throw new Error("Expected a terminal stream")
-
-    await expect(service.stream(sessionId)).rejects.toBeInstanceOf(SessionCapacityError)
-    service.closeStreams()
-    await expect(first.events[Symbol.asyncIterator]().next()).resolves.toEqual({
-      done: true,
-      value: undefined,
-    })
-    await expect(service.stream(sessionId)).rejects.toBeInstanceOf(SessionCapacityError)
-  })
-
-  it("serves completion replay through POST, GET, and SSE without a database", async () => {
+  it("delivers immediate chat deltas emitted before stream iteration in one contiguous update", async () => {
     const repository = new MemorySessionRepository()
     const service = new SessionService({
       repository,
-      fetchPage: async () => ({ finalUrl: request.url, html: fetchedHtml }),
+      llm: new FakeLlm(["A", "B"]),
+      partialWriteIntervalMs: 0,
     })
-    const app = createApiApp({ sessionService: service })
-    const post = await app.request("/api/sessions", {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify(request),
+    const created = await repository.createOrGet(request)
+    await repository.update(created.session.id, {
+      status: "complete",
+      sourceText: "Source",
+      summary: "Summary",
     })
-    const accepted = sessionSchema.parse(await post.json())
-    await service.waitForIdle(accepted.id)
+    const chatRequest = createChatRequestSchema.parse({
+      content: "Question?",
+      idempotencyKey: "55555555-5555-4555-8555-555555555555",
+    })
 
-    const get = await app.request(`/api/sessions/${accepted.id}`)
-    const stream = await app.request(`/api/sessions/${accepted.id}/stream`)
-    const streamBody = await stream.text()
+    const stream = await service.chat(created.session.id, chatRequest)
+    if (!stream) throw new Error("Expected chat stream")
+    await service.waitForAll()
+    const events = await collect(stream.events)
 
-    expect(post.status).toBe(202)
-    expect(get.status).toBe(200)
-    expect(sessionSchema.parse(await get.json()).status).toBe("complete")
-    expect(stream.headers.get("content-type")).toContain("text/event-stream")
-    expect(streamBody).toContain("event: stage.changed")
-    expect(streamBody).toContain("event: summary.delta")
-    expect(streamBody).toContain("event: session.completed")
+    expect(events.map(({ type }) => type)).toEqual(["chat.created", "chat.delta", "chat.completed"])
+    expect(events[1]).toMatchObject({ type: "chat.delta", offset: 0, delta: "AB" })
+    expect(events[2]).toMatchObject({ type: "chat.completed", message: { content: "AB" } })
+  })
+
+  it("replays active chat state without starting a second generation", async () => {
+    const repository = new MemorySessionRepository()
+    let release!: () => void
+    let markFirstProcessed!: () => void
+    const gate = new Promise<void>((resolve) => (release = resolve))
+    const firstProcessed = new Promise<void>((resolve) => (markFirstProcessed = resolve))
+    const llm = new FakeLlm(async function* () {
+      yield "A"
+      markFirstProcessed()
+      await gate
+      yield "B"
+    })
+    const service = new SessionService({ repository, llm, partialWriteIntervalMs: 0 })
+    const created = await repository.createOrGet(request)
+    await repository.update(created.session.id, {
+      status: "complete",
+      sourceText: "Source",
+      summary: "Summary",
+    })
+    const chatRequest = createChatRequestSchema.parse({
+      content: "Question?",
+      idempotencyKey: "55555555-5555-4555-8555-555555555555",
+    })
+    const first = await service.chat(created.session.id, chatRequest)
+    if (!first) throw new Error("Expected first chat stream")
+    await firstProcessed
+
+    const replay = await service.chat(created.session.id, chatRequest)
+    if (!replay) throw new Error("Expected replay chat stream")
+    const iterator = replay.events[Symbol.asyncIterator]()
+    expect((await iterator.next()).value?.type).toBe("chat.created")
+    expect((await iterator.next()).value).toMatchObject({ type: "chat.delta", delta: "A" })
+
+    release()
+    const remaining = []
+    for (;;) {
+      const next = await iterator.next()
+      if (next.done) break
+      remaining.push(next.value)
+    }
+    expect(remaining).toMatchObject([
+      { type: "chat.delta", offset: 1, delta: "B" },
+      { type: "chat.completed", message: { content: "AB" } },
+    ])
+    expect(llm.requests).toHaveLength(1)
+    first.close()
+    await service.waitForAll()
+  })
+
+  it("marks stale sessions and messages interrupted during initialization", async () => {
+    const repository = new MemorySessionRepository()
+    const created = await repository.createOrGet(request)
+    const pair = await repository.createMessages(
+      created.session.id,
+      "55555555-5555-4555-8555-555555555555",
+      "Question",
+    )
+    const service = new SessionService({ repository, llm: new FakeLlm() })
+    await service.initialize()
+    expect(await service.get(created.session.id)).toMatchObject({
+      status: "failed",
+      failureCode: "GENERATION_INTERRUPTED",
+    })
+    expect(repository.messagesById.get(pair.assistantMessage.id)).toMatchObject({
+      status: "failed",
+      failureCode: "GENERATION_INTERRUPTED",
+    })
+  })
+
+  it("aborts local generation before deleting persistence", async () => {
+    const repository = new MemorySessionRepository()
+    let entered!: () => void
+    const started = new Promise<void>((resolve) => (entered = resolve))
+    let observedAbort = false
+    const llm = new FakeLlm(async function* ({ signal }) {
+      entered()
+      await new Promise<void>((resolve) =>
+        signal.addEventListener("abort", () => resolve(), { once: true }),
+      )
+      observedAbort = signal.aborted
+      throw new LlmError("GENERATION_INTERRUPTED")
+    })
+    const service = new SessionService({ repository, llm, fetchPage: async () => page })
+    const created = await service.create(request)
+    await started
+    expect(await service.delete(created.session.id)).toBe(true)
+    await service.waitForAll()
+    expect(observedAbort).toBe(true)
+    expect(await service.get(created.session.id)).toBeNull()
+  })
+
+  it("returns one persisted terminal event after a completion raced stream setup", async () => {
+    const repository = new MemorySessionRepository()
+    const service = new SessionService({
+      repository,
+      llm: new FakeLlm(["Done"]),
+      fetchPage: async () => page,
+    })
+    const created = await service.create(request)
+    await service.waitForAll()
+    const stream = await service.stream(created.session.id)
+    if (!stream) throw new Error("Expected stream")
+    const events = await collect(stream.events)
+    expect(events).toHaveLength(1)
+    expect(events[0]?.type).toBe("summary.completed")
+    expect(events[0]?.session.summary).toBe("Done")
+  })
+
+  it("returns the final terminal event when completion races a stale initial read", async () => {
+    const repository = new StaleSessionReadRepository()
+    const generationStarted = deferred<void>()
+    const releaseGeneration = deferred<void>()
+    const service = new SessionService({
+      repository,
+      llm: new FakeLlm(async function* () {
+        generationStarted.resolve()
+        await releaseGeneration.promise
+        yield "Done"
+      }),
+      fetchPage: async () => page,
+    })
+    const created = await service.create(request)
+    await generationStarted.promise
+    repository.arm()
+
+    const streamPromise = service.stream(created.session.id)
+    await repository.readCaptured.promise
+    releaseGeneration.resolve()
+    await service.waitForAll()
+    repository.releaseRead.resolve()
+
+    const stream = await streamPromise
+    if (!stream) throw new Error("Expected stream")
+    const events = await collect(stream.events)
+    expect(events).toHaveLength(1)
+    expect(events[0]).toMatchObject({
+      type: "summary.completed",
+      session: { status: "complete", summary: "Done" },
+    })
   })
 })

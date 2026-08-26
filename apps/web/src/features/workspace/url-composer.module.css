@@ -3,18 +3,8 @@
   z-index: 1;
 }
 
-.controls {
-  display: flex;
-  flex-direction: var(--composer-controls-direction);
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-}
-
 .field {
   position: relative;
-  width: var(--composer-field-width);
-  flex: 0 0 var(--composer-field-flex-basis);
 }
 
 .inputShell {
@@ -100,9 +90,7 @@
 
 .submit {
   position: relative;
-  width: var(--composer-action-width);
   height: var(--control-height);
-  flex: 0 0 var(--composer-action-flex-basis);
   border: var(--border-transparent);
   border-radius: var(--radius-control);
   color: var(--theme-text-disabled);
@@ -147,14 +135,12 @@
 
 .error {
   position: absolute;
-  top: var(--composer-error-top);
   left: var(--space-0);
   width: 100%;
   margin: var(--space-0);
   color: var(--theme-text-danger);
   font-size: var(--font-size-caption);
   line-height: var(--line-height-compact);
-  text-align: var(--composer-error-text-align);
 }
 
 @media (prefers-reduced-motion: reduce) {

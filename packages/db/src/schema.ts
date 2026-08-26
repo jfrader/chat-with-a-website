@@ -48,6 +48,7 @@ export const sessions = pgTable(
     promptVersion: text("prompt_version"),
     currentAttemptId: uuid("current_attempt_id").notNull().defaultRandom(),
     attemptNumber: integer("attempt_number").notNull().default(1),
+    generationVersion: integer("generation_version").notNull().default(0),
     inputTokens: integer("input_tokens"),
     outputTokens: integer("output_tokens"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -74,6 +75,7 @@ export const messages = pgTable(
     sessionId: uuid("session_id")
       .notNull()
       .references(() => sessions.id, { onDelete: "cascade" }),
+    requestId: uuid("request_id").notNull().defaultRandom(),
     role: messageRole("role").notNull(),
     content: text("content").notNull().default(""),
     status: messageStatus("status").notNull(),
@@ -85,9 +87,15 @@ export const messages = pgTable(
     inputTokens: integer("input_tokens"),
     outputTokens: integer("output_tokens"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
     completedAt: timestamp("completed_at", { withTimezone: true }),
   },
   (table) => [
+    uniqueIndex("messages_session_request_role_unique").on(
+      table.sessionId,
+      table.requestId,
+      table.role,
+    ),
     index("messages_session_created_id_index").on(table.sessionId, table.createdAt, table.id),
   ],
 )

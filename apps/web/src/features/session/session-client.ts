@@ -1,31 +1,47 @@
 import {
   type ApiErrorCode,
   apiErrorSchema,
+  type ChatStreamEvent,
+  chatStreamEventSchema,
+  createChatRequestSchema,
   createSessionRequestSchema,
+  type ListSessionsResponse,
+  listSessionsResponseSchema,
+  type MessageDto,
+  messagesResponseSchema,
   type SessionDto,
+  type SummaryStreamEvent,
   sessionSchema,
-  type SessionStreamEvent,
-  sessionStreamEventSchema,
+  summaryStreamEventSchema,
 } from "@profound/contracts"
+import { createParser } from "eventsource-parser"
 
 export class SessionApiError extends Error {
   readonly code: ApiErrorCode
-  readonly retryable: boolean
 
-  constructor(code: ApiErrorCode, message: string, retryable: boolean) {
+  constructor(code: ApiErrorCode, message: string) {
     super(message)
     this.name = "SessionApiError"
     this.code = code
-    this.retryable = retryable
   }
 }
 
 export interface SessionApi {
+  list(query?: string, cursor?: string, limit?: number): Promise<ListSessionsResponse>
   create(url: string, idempotencyKey?: string): Promise<SessionDto>
   get(id: string): Promise<SessionDto>
+  delete(id: string): Promise<void>
+  messages(id: string): Promise<MessageDto[]>
+  chat(
+    id: string,
+    content: string,
+    onEvent: (event: ChatStreamEvent) => void,
+    signal: AbortSignal,
+    idempotencyKey?: string,
+  ): Promise<void>
   stream(
     id: string,
-    onEvent: (event: SessionStreamEvent) => void,
+    onEvent: (event: SummaryStreamEvent) => void,
     signal: AbortSignal,
   ): Promise<void>
 }
@@ -35,14 +51,64 @@ async function throwResponseError(response: Response): Promise<never> {
   const error = apiErrorSchema.safeParse(body)
 
   if (error.success) {
-    throw new SessionApiError(error.data.code, error.data.message, error.data.retryable)
+    throw new SessionApiError(error.data.code, error.data.message)
   }
 
   throw new SessionApiError(
     "INTERNAL_ERROR",
     "The summarization service returned an unexpected response.",
-    true,
   )
+}
+
+async function parseEventStream<T>(
+  response: Response,
+  parse: (input: unknown) => T,
+  onEvent: (event: T) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  if (!response.body) {
+    throw new SessionApiError("INTERNAL_ERROR", "The live response could not be read.")
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let parseError: Error | undefined
+  const parser = createParser({
+    onEvent(event) {
+      try {
+        onEvent(parse(JSON.parse(event.data)))
+      } catch {
+        parseError = new SessionApiError("INTERNAL_ERROR", "The live response was interrupted.")
+      }
+    },
+    onError() {
+      parseError = new SessionApiError("INTERNAL_ERROR", "The live response was interrupted.")
+    },
+  })
+
+  const abort = () => void reader.cancel()
+  signal.addEventListener("abort", abort, { once: true })
+  try {
+    while (!signal.aborted) {
+      const { done, value } = await reader.read()
+      if (done) break
+      parser.feed(decoder.decode(value, { stream: true }))
+      if (parseError) throw parseError
+    }
+    parser.feed(decoder.decode())
+    if (parseError) throw parseError
+  } finally {
+    signal.removeEventListener("abort", abort)
+    reader.releaseLock()
+  }
+}
+
+async function list(query = "", cursor?: string, limit = 100): Promise<ListSessionsResponse> {
+  const search = new URLSearchParams({ query, limit: String(limit) })
+  if (cursor) search.set("cursor", cursor)
+  const response = await fetch(`/api/sessions?${search}`)
+  if (!response.ok) return throwResponseError(response)
+  return listSessionsResponseSchema.parse(await response.json())
 }
 
 async function create(url: string, idempotencyKey = crypto.randomUUID()): Promise<SessionDto> {
@@ -63,60 +129,93 @@ async function get(id: string): Promise<SessionDto> {
   return sessionSchema.parse(await response.json())
 }
 
-function parseSseBlock(block: string): SessionStreamEvent | undefined {
-  const data = block
-    .split("\n")
-    .filter((line) => line.startsWith("data:"))
-    .map((line) => line.slice(5).trimStart())
-    .join("\n")
-
-  return data ? sessionStreamEventSchema.parse(JSON.parse(data)) : undefined
+async function deleteSession(id: string): Promise<void> {
+  const response = await fetch(`/api/sessions/${encodeURIComponent(id)}`, { method: "DELETE" })
+  if (!response.ok) return throwResponseError(response)
+  if (response.status !== 204) {
+    throw new SessionApiError("INTERNAL_ERROR", "The service returned an unexpected response.")
+  }
 }
 
-async function stream(
+async function messages(id: string): Promise<MessageDto[]> {
+  const response = await fetch(`/api/sessions/${encodeURIComponent(id)}/messages`)
+  if (!response.ok) return throwResponseError(response)
+  return messagesResponseSchema.parse(await response.json()).messages
+}
+
+async function chat(
   id: string,
-  onEvent: (event: SessionStreamEvent) => void,
+  content: string,
+  onEvent: (event: ChatStreamEvent) => void,
   signal: AbortSignal,
+  idempotencyKey = crypto.randomUUID(),
 ): Promise<void> {
-  const response = await fetch(`/api/sessions/${encodeURIComponent(id)}/stream`, {
-    headers: { Accept: "text/event-stream" },
+  const request = createChatRequestSchema.parse({ content, idempotencyKey })
+  const response = await fetch(`/api/sessions/${encodeURIComponent(id)}/messages`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
+    body: JSON.stringify(request),
     signal,
   })
-
   if (!response.ok) return throwResponseError(response)
-  if (!response.body) {
-    throw new SessionApiError("GENERATION_INTERRUPTED", "Live progress was interrupted.", true)
-  }
-
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  let buffer = ""
-  let pendingCarriageReturn = false
-
-  try {
-    while (true) {
-      const { done, value } = await reader.read()
-      let decoded: string = `${pendingCarriageReturn ? "\r" : ""}${decoder.decode(value, { stream: !done })}`
-      pendingCarriageReturn = !done && decoded.endsWith("\r")
-      if (pendingCarriageReturn) decoded = decoded.slice(0, -1)
-      buffer += decoded.replaceAll("\r\n", "\n").replaceAll("\r", "\n")
-
-      let boundary = buffer.indexOf("\n\n")
-      while (boundary >= 0) {
-        const event = parseSseBlock(buffer.slice(0, boundary))
-        if (event) onEvent(event)
-        buffer = buffer.slice(boundary + 2)
-        boundary = buffer.indexOf("\n\n")
-      }
-
-      if (done) break
-    }
-
-    const finalEvent = parseSseBlock(buffer)
-    if (finalEvent) onEvent(finalEvent)
-  } finally {
-    reader.releaseLock()
+  let terminalReceived = false
+  await parseEventStream(
+    response,
+    (input) => chatStreamEventSchema.parse(input),
+    (event) => {
+      terminalReceived = event.type === "chat.completed" || event.type === "chat.failed"
+      onEvent(event)
+    },
+    signal,
+  )
+  if (!signal.aborted && !terminalReceived) {
+    throw new SessionApiError("INTERNAL_ERROR", "The chat response was interrupted. Try again.")
   }
 }
 
-export const sessionApi: SessionApi = { create, get, stream }
+function stream(
+  id: string,
+  onEvent: (event: SummaryStreamEvent) => void,
+  signal: AbortSignal,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const source = new EventSource(`/api/sessions/${encodeURIComponent(id)}/stream`)
+    let settled = false
+
+    const finish = (error?: Error) => {
+      if (settled) return
+      settled = true
+      source.close()
+      signal.removeEventListener("abort", onAbort)
+      if (error) reject(error)
+      else resolve()
+    }
+    const onAbort = () => finish()
+
+    source.onmessage = (message) => {
+      try {
+        const event = summaryStreamEventSchema.parse(JSON.parse(message.data))
+        onEvent(event)
+        if (event.type === "summary.completed" || event.type === "summary.failed") finish()
+      } catch {
+        finish(new SessionApiError("INTERNAL_ERROR", "Live progress was interrupted."))
+      }
+    }
+    source.onerror = () => {
+      finish(new SessionApiError("INTERNAL_ERROR", "Live progress was interrupted."))
+    }
+
+    if (signal.aborted) finish()
+    else signal.addEventListener("abort", onAbort, { once: true })
+  })
+}
+
+export const sessionApi: SessionApi = {
+  list,
+  create,
+  get,
+  delete: deleteSession,
+  messages,
+  chat,
+  stream,
+}

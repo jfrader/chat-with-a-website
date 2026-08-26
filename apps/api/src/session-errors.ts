@@ -1,7 +1,8 @@
+import { randomUUID } from "node:crypto"
 import type { ApiErrorCode, ApiErrorDto, SessionStage } from "@profound/contracts"
 import { apiErrorSchema } from "@profound/contracts"
 
-const errorDetails: Record<ApiErrorCode, { message: string; retryable: boolean }> = {
+const errorDefinitions: Record<ApiErrorCode, { message: string; retryable: boolean }> = {
   INVALID_URL: { message: "The request contains an invalid URL.", retryable: false },
   URL_NOT_ALLOWED: { message: "The destination is not allowed.", retryable: false },
   FETCH_TIMEOUT: { message: "The destination took too long to respond.", retryable: true },
@@ -12,12 +13,16 @@ const errorDetails: Record<ApiErrorCode, { message: string; retryable: boolean }
   },
   EMPTY_CONTENT: { message: "No readable content was found on the webpage.", retryable: false },
   CONTENT_TOO_LARGE: { message: "The webpage is too large to process.", retryable: false },
-  PROVIDER_RATE_LIMITED: { message: "The summary provider is rate limited.", retryable: true },
-  PROVIDER_UNAVAILABLE: { message: "The summary provider is unavailable.", retryable: true },
-  GENERATION_INTERRUPTED: { message: "Summary generation was interrupted.", retryable: true },
+  LLM_UNAVAILABLE: { message: "The language model is currently unavailable.", retryable: true },
+  LLM_RATE_LIMITED: { message: "The language model is temporarily rate limited.", retryable: true },
+  GENERATION_INTERRUPTED: { message: "Generation was interrupted.", retryable: true },
+  INVALID_MESSAGE: { message: "The chat message is invalid.", retryable: false },
+  IDEMPOTENCY_CONFLICT: {
+    message: "The idempotency key was already used for different input.",
+    retryable: false,
+  },
   SESSION_NOT_FOUND: { message: "The requested session was not found.", retryable: false },
-  SESSION_IN_PROGRESS: { message: "The session is still in progress.", retryable: true },
-  RATE_LIMITED: { message: "Too many requests were received.", retryable: true },
+  RATE_LIMITED: { message: "Too many generations are currently active.", retryable: true },
   INTERNAL_ERROR: { message: "An unexpected error occurred.", retryable: true },
 }
 
@@ -25,23 +30,37 @@ export class SessionPipelineError extends Error {
   readonly code: ApiErrorCode
 
   constructor(code: ApiErrorCode, options?: ErrorOptions) {
-    super(errorDetails[code].message, options)
+    super(errorDefinitions[code].message, options)
     this.name = "SessionPipelineError"
     this.code = code
   }
 }
 
-export const createApiError = (code: ApiErrorCode): ApiErrorDto =>
+export class ServiceError extends Error {
+  readonly code: ApiErrorCode
+
+  constructor(code: ApiErrorCode, options?: ErrorOptions) {
+    super(errorDefinitions[code].message, options)
+    this.name = "ServiceError"
+    this.code = code
+  }
+}
+
+export const createApiError = (code: ApiErrorCode, requestId = randomUUID()): ApiErrorDto =>
   apiErrorSchema.parse({
     code,
-    ...errorDetails[code],
-    requestId: crypto.randomUUID(),
+    message: errorDefinitions[code].message,
+    requestId,
+    retryable: errorDefinitions[code].retryable,
   })
 
 export const asPipelineFailure = (
   error: unknown,
   stage: SessionStage,
 ): { code: ApiErrorCode; stage: SessionStage } => ({
-  code: error instanceof SessionPipelineError ? error.code : "INTERNAL_ERROR",
+  code:
+    error instanceof SessionPipelineError || error instanceof ServiceError
+      ? error.code
+      : "INTERNAL_ERROR",
   stage,
 })

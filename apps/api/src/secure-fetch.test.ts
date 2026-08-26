@@ -170,6 +170,23 @@ describe("secure page fetching", () => {
     )
   })
 
+  it("propagates caller cancellation without weakening the request timeout", async () => {
+    const controller = new AbortController()
+    const result = fetchPublicPage("https://slow.example", {
+      fetch: vi.fn<typeof fetch>(
+        (_input, init) =>
+          new Promise<Response>((_resolve, reject) => {
+            init?.signal?.addEventListener("abort", () => reject(new Error("cancelled")))
+          }),
+      ),
+      resolver: publicResolver,
+      signal: controller.signal,
+      timeoutMs: 10_000,
+    })
+    controller.abort()
+    await expect(result).rejects.toMatchObject({ code: "GENERATION_INTERRUPTED" })
+  })
+
   it("applies the request deadline while resolving DNS", async () => {
     await expect(
       fetchPublicPage("https://slow.example", {

@@ -1,263 +1,423 @@
-import type { SessionDto } from "@profound/contracts"
-import { render, screen, waitFor } from "@testing-library/react"
+import type { ChatStreamEvent, SummaryStreamEvent } from "@profound/contracts"
+import { act, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
-import { describe, expect, it, vi } from "vitest"
-import { SessionApiError, type SessionApi } from "../session/session-client"
-import { WorkspaceShell } from "./workspace-shell"
+import { afterEach, describe, expect, it, vi } from "vitest"
+import {
+  assistantMessageId,
+  createMessage,
+  createSession,
+  requestId,
+  secondSessionId,
+  sessionId,
+} from "../../test/fixtures"
+import { createTestApi, renderApp } from "../../test/render-app"
+import { SessionApiError } from "../session/session-client"
 
-const attemptId = "2cd772f1-4a4e-48f1-b5a9-b9ac1e956ccd"
-const recoveredAttemptId = "3de88302-5b5f-40f2-a6ba-cab6e07c3dde"
+afterEach(() => vi.unstubAllGlobals())
 
-function createSession(overrides: Partial<SessionDto> = {}): SessionDto {
-  return {
-    id: "0f4d59b6-8a0f-40cf-a680-fbd4aaf4600a",
-    originalUrl: "https://tryprofound.com",
-    canonicalUrl: "https://tryprofound.com/",
-    finalUrl: null,
-    host: "tryprofound.com",
-    title: null,
-    siteName: null,
-    description: null,
-    summary: "",
-    status: "fetching",
-    failureStage: null,
-    failureCode: null,
-    sourceWordCount: 0,
-    sourceTruncated: false,
-    provider: null,
-    model: null,
-    attemptId,
-    attemptNumber: 1,
-    inputTokens: null,
-    outputTokens: null,
-    createdAt: "2026-08-26T12:00:00.000Z",
-    updatedAt: "2026-08-26T12:00:00.000Z",
-    completedAt: null,
-    ...overrides,
-  }
-}
+describe("workspace routing and history", () => {
+  it("searches persisted history, reports no results, and selects a session route", async () => {
+    const user = userEvent.setup()
+    const first = createSession()
+    const second = createSession({
+      id: secondSessionId,
+      title: "Research distribution systems",
+      originalUrl: "https://example.com/distribution",
+      canonicalUrl: "https://example.com/distribution",
+      finalUrl: "https://example.com/distribution",
+      host: "example.com",
+    })
+    const list = vi.fn(async (query = "") => ({
+      sessions: [first, second].filter((session) =>
+        `${session.title} ${session.host}`.toLowerCase().includes(query.toLowerCase()),
+      ),
+      nextCursor: null,
+    }))
+    const get = vi.fn(async (id: string) => (id === first.id ? first : second))
+    const { router } = renderApp(createTestApi({ list, get }))
 
-function createApi(
-  created: SessionDto,
-  stream: SessionApi["stream"] = async () => {},
-  latest = created,
-): SessionApi {
-  return {
-    create: vi.fn().mockResolvedValue(created),
-    get: vi.fn().mockResolvedValue(latest),
-    stream: vi.fn(stream),
-  }
-}
+    const firstTitle = await screen.findByText("A field guide to AI visibility", {
+      selector: "strong",
+    })
+    const firstButton = firstTitle.closest("button")
+    if (!firstButton) throw new Error("Expected a session selection button")
+    await user.click(firstButton)
+    expect(await screen.findByRole("heading", { level: 1, name: first.title ?? "" })).toBeVisible()
+    expect(router.state.location.pathname).toBe(`/sessions/${first.id}`)
 
-describe("empty workspace shell", () => {
-  it("presents the designed empty state", () => {
-    render(<WorkspaceShell />)
+    await user.click(screen.getByRole("button", { name: `Actions for ${first.title}` }))
+    expect(screen.getByRole("button", { name: "Delete summary" })).toBeVisible()
+    const secondTitle = screen.getByText(second.title ?? "", { selector: "strong" })
+    const secondButton = secondTitle.closest("button")
+    if (!secondButton) throw new Error("Expected a second session selection button")
+    await user.click(secondButton)
+    expect(screen.queryByRole("button", { name: "Delete summary" })).not.toBeInTheDocument()
+    expect(router.state.location.pathname).toBe(`/sessions/${second.id}`)
 
-    expect(screen.getByRole("heading", { name: "Let’s get to it" })).toBeVisible()
-    expect(
-      screen.getByText("Paste a URL to summarize and understand any content instantly"),
-    ).toBeVisible()
-    expect(screen.getByText("No summaries yet")).toBeVisible()
-    expect(screen.getByPlaceholderText("https://example.com")).toBeVisible()
-    expect(screen.getByRole("button", { name: "Summarize" })).toBeDisabled()
-    expect(screen.queryByText("Chat")).not.toBeInTheDocument()
+    const search = screen.getByRole("searchbox", { name: "Search summaries" })
+    await user.clear(search)
+    await user.type(search, "missing")
+    expect(await screen.findByText("No summaries match your search")).toBeVisible()
+    expect(list).toHaveBeenCalledWith("missing")
+    expect(router.state.location.search).toEqual({ query: "missing" })
   })
 
-  it("shows inline validation for malformed URLs", async () => {
+  it("confirms deletion, updates caches, and returns home after deleting the selected session", async () => {
     const user = userEvent.setup()
-    render(<WorkspaceShell />)
+    const selected = createSession()
+    let deleted = false
+    const remove = vi.fn(async () => {
+      deleted = true
+    })
+    const list = vi.fn(async () => ({ sessions: deleted ? [] : [selected], nextCursor: null }))
+    const { router } = renderApp(
+      createTestApi({ list, get: async () => selected, delete: remove }),
+      `/sessions/${selected.id}`,
+    )
 
-    const input = screen.getByRole("textbox", { name: "Webpage URL" })
-    await user.type(input, "not a url")
+    await screen.findByRole("heading", { level: 1, name: selected.title ?? "" })
+    const menuTrigger = screen.getByRole("button", { name: `Actions for ${selected.title}` })
+    await user.click(menuTrigger)
+    await user.click(screen.getByRole("button", { name: "Delete summary" }))
+    let dialog = screen.getByRole("alertdialog", { name: "Remove this summary?" })
+    expect(dialog).toHaveTextContent("cannot be undone")
+    const cancel = within(dialog).getByRole("button", { name: "Cancel" })
+    const confirm = within(dialog).getByRole("button", { name: "Delete" })
+    await waitFor(() => expect(cancel).toHaveFocus())
     await user.tab()
+    expect(confirm).toHaveFocus()
+    await user.tab()
+    expect(cancel).toHaveFocus()
+    await user.keyboard("{Escape}")
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    await waitFor(() => expect(menuTrigger).toHaveFocus())
 
-    expect(input).toHaveAttribute("aria-invalid", "true")
-    expect(screen.getByText("Enter a complete http or https URL.")).toBeVisible()
+    await user.click(menuTrigger)
+    await user.click(screen.getByRole("button", { name: "Delete summary" }))
+    dialog = screen.getByRole("alertdialog", { name: "Remove this summary?" })
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }))
+
+    expect(await screen.findByRole("heading", { name: "Let’s get to it" })).toBeVisible()
+    expect(remove).toHaveBeenCalledWith(selected.id)
+    expect(router.state.location.pathname).toBe("/")
   })
 
-  it("starts a real session and presents the generating state", async () => {
+  it("loads older persisted summaries from the next cursor page", async () => {
     const user = userEvent.setup()
-    const processingSession = createSession({
-      title: "Profound vs 7 Top AI Visibility Platforms",
-      status: "summarizing",
+    const newest = createSession()
+    const older = createSession({
+      id: secondSessionId,
+      title: "An older summary",
+      originalUrl: "https://example.com/older",
+      canonicalUrl: "https://example.com/older",
+      finalUrl: "https://example.com/older",
     })
-    const api = createApi(
-      createSession(),
-      async (_id, onEvent, signal) => {
-        onEvent({ type: "stage.changed", attemptId, stage: "summarizing" })
-        await new Promise<void>((resolve) => signal.addEventListener("abort", () => resolve()))
-      },
-      processingSession,
+    const list = vi.fn(async (_query = "", cursor?: string) =>
+      cursor
+        ? { sessions: [older], nextCursor: null }
+        : { sessions: [newest], nextCursor: "next-page" },
     )
-    render(<WorkspaceShell api={api} />)
+    renderApp(createTestApi({ list }))
 
-    await user.type(screen.getByRole("textbox", { name: "Webpage URL" }), "https://tryprofound.com")
+    expect(await screen.findByText(newest.title ?? "", { selector: "strong" })).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Load older summaries" }))
+    expect(await screen.findByText("An older summary", { selector: "strong" })).toBeVisible()
+    expect(list).toHaveBeenLastCalledWith("", "next-page")
+  })
 
-    const submit = screen.getByRole("button", { name: "Summarize" })
-    expect(submit).toBeEnabled()
-    await user.click(submit)
+  it("removes mobile dialog semantics when the viewport changes to desktop", async () => {
+    const listeners = new Set<() => void>()
+    let matches = true
+    const mediaQuery = {
+      get matches() {
+        return matches
+      },
+      media: "(max-width: 720px)",
+      onchange: null,
+      addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
+      removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),
+    } as unknown as MediaQueryList
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => mediaQuery),
+    )
+    const user = userEvent.setup()
+    renderApp(createTestApi())
 
-    expect(api.create).toHaveBeenCalledWith("https://tryprofound.com", expect.any(String))
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "Profound vs 7 Top AI Visibility Platforms",
+    await user.click(await screen.findByRole("button", { name: "Open summary history" }))
+    expect(screen.getByRole("dialog", { name: "Summary history" })).toHaveAttribute(
+      "aria-modal",
+      "true",
+    )
+
+    act(() => {
+      matches = false
+      for (const listener of listeners) listener()
+    })
+
+    expect(screen.queryByRole("dialog", { name: "Summary history" })).not.toBeInTheDocument()
+    expect(screen.getByRole("complementary", { name: "Summary history" })).toBeVisible()
+  })
+})
+
+describe("progressive summary and safe failures", () => {
+  it("shows authoritative summary text before a terminal event arrives", async () => {
+    const initial = createSession({
+      summary: "",
+      status: "summarizing",
+      completedAt: null,
+      outputTokens: null,
+    })
+    const partial = createSession({
+      summary: "## Early finding\n\nThe streamed evidence is already readable.",
+      status: "summarizing",
+      completedAt: null,
+      outputTokens: null,
+    })
+    const stream = vi.fn(
+      async (_id: string, onEvent: (event: SummaryStreamEvent) => void, signal: AbortSignal) => {
+        onEvent({
+          type: "summary.delta",
+          eventId: "1:0:delta",
+          version: 1,
+          offset: 0,
+          delta: partial.summary,
+          session: partial,
+        })
+        await new Promise<void>((resolve) =>
+          signal.addEventListener("abort", () => resolve(), { once: true }),
+        )
+      },
+    )
+    renderApp(
+      createTestApi({
+        list: async () => ({ sessions: [initial], nextCursor: null }),
+        get: async () => initial,
+        stream,
       }),
-    ).toBeVisible()
+      `/sessions/${sessionId}`,
+    )
+
+    expect(await screen.findByRole("heading", { level: 2, name: "Early finding" })).toBeVisible()
+    expect(screen.getByText("The streamed evidence is already readable.")).toBeVisible()
     expect(screen.getByRole("status")).toHaveTextContent("Generating the summary")
-    expect(screen.getByText("https://tryprofound.com")).toBeVisible()
-    expect(api.stream).toHaveBeenCalled()
+    expect(screen.queryByText("Summary ready.")).not.toBeInTheDocument()
   })
 
-  it("applies a streamed completion and starts another summary", async () => {
+  it("keeps safe create errors beside the URL composer", async () => {
     const user = userEvent.setup()
-    const processingSession = createSession()
-    const completedSession = createSession({
-      finalUrl: "https://tryprofound.com/",
-      title: "AI visibility starts with answer engine insights",
-      description: "Understand how your brand appears in AI answers.",
-      summary: "Profound measures brand visibility across answer engines.",
-      status: "complete",
-      sourceWordCount: 640,
-      provider: "local",
-      model: "extractive-v1",
-      completedAt: "2026-08-26T12:00:02.000Z",
-    })
-    const api = createApi(
-      processingSession,
-      async (_id, onEvent) => {
-        onEvent({ type: "session.completed", attemptId, session: completedSession })
-      },
-      completedSession,
+    const create = vi
+      .fn()
+      .mockRejectedValue(
+        new SessionApiError("URL_NOT_ALLOWED", "That destination cannot be accessed safely."),
+      )
+    renderApp(createTestApi({ create }))
+
+    await user.type(
+      await screen.findByRole("textbox", { name: "Webpage URL" }),
+      "https://127.0.0.1",
     )
-    render(<WorkspaceShell api={api} />)
-
-    await user.type(screen.getByRole("textbox", { name: "Webpage URL" }), "https://tryprofound.com")
-    await user.click(screen.getByRole("button", { name: "Summarize" }))
-
-    expect(
-      await screen.findByRole("heading", {
-        level: 1,
-        name: "AI visibility starts with answer engine insights",
-      }),
-    ).toBeVisible()
-    expect(
-      screen.getByText("Profound measures brand visibility across answer engines."),
-    ).toBeVisible()
-    expect(screen.getByRole("status")).toHaveTextContent("Summary ready.")
-
-    await user.click(screen.getByRole("button", { name: "Start a new summary" }))
-    expect(screen.getByRole("heading", { name: "Let’s get to it" })).toBeVisible()
-  })
-
-  it("reconnects live progress after a nonterminal stream closes", async () => {
-    const user = userEvent.setup()
-    const processingSession = createSession()
-    const completedSession = createSession({
-      status: "complete",
-      title: "Recovered summary",
-      summary: "The reconnected stream delivered the result.",
-      completedAt: "2026-08-26T12:00:02.000Z",
-      updatedAt: "2026-08-26T12:00:02.000Z",
-    })
-    let streamCalls = 0
-    const api = createApi(processingSession, async (_id, onEvent) => {
-      streamCalls += 1
-      if (streamCalls === 2) {
-        onEvent({ type: "session.completed", attemptId, session: completedSession })
-      }
-    })
-    render(<WorkspaceShell api={api} />)
-
-    await user.type(screen.getByRole("textbox", { name: "Webpage URL" }), "https://tryprofound.com")
-    await user.click(screen.getByRole("button", { name: "Summarize" }))
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Recovered summary" }),
-    ).toBeVisible()
-    await waitFor(() => expect(api.stream).toHaveBeenCalledTimes(2))
-  })
-
-  it("does not let a stale metadata response replace terminal state", async () => {
-    const user = userEvent.setup()
-    const processingSession = createSession({
-      status: "summarizing",
-      attemptId: recoveredAttemptId,
-      attemptNumber: 2,
-    })
-    const staleMetadata = createSession({
-      status: "complete",
-      title: "Stale completed metadata",
-      completedAt: "2026-08-26T12:00:01.000Z",
-      updatedAt: "2026-08-26T12:00:01.000Z",
-    })
-    const completedSession = createSession({
-      status: "complete",
-      title: "Current completed summary",
-      summary: "Terminal state wins.",
-      attemptId: recoveredAttemptId,
-      attemptNumber: 2,
-      completedAt: "2026-08-26T12:00:02.000Z",
-      updatedAt: "2026-08-26T12:00:02.000Z",
-    })
-    let resolveMetadata: (session: SessionDto) => void = () => undefined
-    const metadata = new Promise<SessionDto>((resolve) => {
-      resolveMetadata = resolve
-    })
-    const api = createApi(processingSession, async (_id, onEvent) => {
-      onEvent({ type: "stage.changed", attemptId: recoveredAttemptId, stage: "summarizing" })
-      onEvent({
-        type: "session.completed",
-        attemptId: recoveredAttemptId,
-        session: completedSession,
-      })
-      resolveMetadata(staleMetadata)
-    })
-    vi.mocked(api.get).mockImplementationOnce(() => metadata)
-    render(<WorkspaceShell api={api} />)
-
-    await user.type(screen.getByRole("textbox", { name: "Webpage URL" }), "https://tryprofound.com")
-    await user.click(screen.getByRole("button", { name: "Summarize" }))
-
-    expect(
-      await screen.findByRole("heading", { level: 1, name: "Current completed summary" }),
-    ).toBeVisible()
-    expect(
-      screen.queryByRole("heading", { level: 1, name: "Stale completed metadata" }),
-    ).not.toBeInTheDocument()
-  })
-
-  it("keeps safe API failures in the composer", async () => {
-    const user = userEvent.setup()
-    const api = createApi(createSession())
-    vi.mocked(api.create).mockRejectedValue(
-      new SessionApiError("URL_NOT_ALLOWED", "That destination cannot be accessed safely.", false),
-    )
-    render(<WorkspaceShell api={api} />)
-
-    await user.type(screen.getByRole("textbox", { name: "Webpage URL" }), "https://127.0.0.1")
     await user.click(screen.getByRole("button", { name: "Summarize" }))
 
     expect(await screen.findByText("That destination cannot be accessed safely.")).toBeVisible()
     expect(screen.getByRole("heading", { name: "Let’s get to it" })).toBeVisible()
-
-    const firstKey = vi.mocked(api.create).mock.calls[0]?.[1]
-    await user.click(screen.getByRole("button", { name: "Summarize" }))
-    expect(vi.mocked(api.create).mock.calls[1]?.[1]).toBe(firstKey)
   })
 
-  it("collapses and restores the history rail", async () => {
+  it("announces terminal summary failures", async () => {
+    const failed = createSession({
+      status: "failed",
+      summary: "",
+      failureCode: "LLM_UNAVAILABLE",
+      completedAt: new Date().toISOString(),
+    })
+    renderApp(createTestApi({ get: async () => failed }), `/sessions/${failed.id}`)
+
+    const alert = await screen.findByRole("alert")
+    expect(alert).toHaveTextContent("We couldn’t summarize this page")
+    expect(alert).toHaveTextContent("summary provider is temporarily unavailable")
+  })
+})
+
+describe("summary chat", () => {
+  it("opens chat, sends a message, and renders streamed assistant text", async () => {
     const user = userEvent.setup()
-    render(<WorkspaceShell />)
-
-    await user.click(screen.getByRole("button", { name: "Collapse summary history" }))
-    const expandButton = screen.getByRole("button", { name: "Expand summary history" })
-    expect(expandButton).toHaveAttribute("aria-expanded", "false")
-
-    await user.click(expandButton)
-    expect(screen.getByRole("button", { name: "Collapse summary history" })).toHaveAttribute(
-      "aria-expanded",
-      "true",
+    const session = createSession()
+    const userMessage = createMessage()
+    const assistant = createMessage({
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      status: "streaming",
+      completedAt: null,
+      provider: "openai",
+      model: "gpt-test",
+      attemptId: "b37f7595-142b-42f8-afd1-7020760a9c5c",
+    })
+    let persistedMessages = [] as ReturnType<typeof createMessage>[]
+    const chat = vi.fn(
+      async (_id: string, _content: string, onEvent: (event: ChatStreamEvent) => void) => {
+        onEvent({
+          type: "chat.created",
+          eventId: "created",
+          requestId,
+          offset: 0,
+          userMessage,
+          assistantMessage: assistant,
+        })
+        onEvent({
+          type: "chat.delta",
+          eventId: "delta",
+          requestId,
+          offset: 0,
+          messageId: assistant.id,
+          delta: "Evidence matters.",
+        })
+        const completed = {
+          ...assistant,
+          content: "Evidence matters.",
+          status: "complete" as const,
+          completedAt: "2026-08-26T12:01:03.000Z",
+        }
+        onEvent({
+          type: "chat.completed",
+          eventId: "completed",
+          requestId,
+          offset: 17,
+          message: completed,
+        })
+        persistedMessages = [userMessage, completed]
+      },
     )
+    renderApp(
+      createTestApi({
+        list: async () => ({ sessions: [session], nextCursor: null }),
+        get: async () => session,
+        messages: async () => persistedMessages,
+        chat,
+      }),
+      `/sessions/${session.id}`,
+    )
+
+    const chatTrigger = await screen.findByRole("button", { name: "Chat about this" })
+    await user.click(chatTrigger)
+    const input = await screen.findByRole("textbox", { name: "Ask about this summary" })
+    await user.type(input, "What matters most?")
+    await user.click(screen.getByRole("button", { name: "Send message" }))
+
+    expect(await screen.findByText("Evidence matters.")).toBeVisible()
+    expect(chat).toHaveBeenCalledWith(
+      session.id,
+      "What matters most?",
+      expect.any(Function),
+      expect.any(AbortSignal),
+      expect.any(String),
+    )
+    await user.keyboard("{Escape}")
+    expect(
+      screen.queryByRole("dialog", { name: "Chat about this summary" }),
+    ).not.toBeInTheDocument()
+    await waitFor(() => expect(chatTrigger).toHaveFocus())
+  })
+
+  it("preserves partial failed answers with clear feedback", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const userMessage = createMessage()
+    const failed = createMessage({
+      id: assistantMessageId,
+      role: "assistant",
+      content: "A partial answer",
+      status: "failed",
+      failureCode: "GENERATION_INTERRUPTED",
+      provider: "openai",
+      model: "gpt-test",
+      attemptId: "b37f7595-142b-42f8-afd1-7020760a9c5c",
+    })
+    let persistedMessages = [] as ReturnType<typeof createMessage>[]
+    const chat = vi.fn(
+      async (_id: string, _content: string, onEvent: (event: ChatStreamEvent) => void) => {
+        onEvent({
+          type: "chat.created",
+          eventId: "created",
+          requestId,
+          offset: 0,
+          userMessage,
+          assistantMessage: {
+            ...failed,
+            content: "",
+            status: "streaming",
+            failureCode: null,
+            completedAt: null,
+          },
+        })
+        onEvent({
+          type: "chat.failed",
+          eventId: "failed",
+          requestId,
+          offset: failed.content.length,
+          message: failed,
+          error: {
+            code: "GENERATION_INTERRUPTED",
+            message: "Generation was interrupted.",
+            retryable: true,
+            requestId,
+          },
+        })
+        persistedMessages = [userMessage, failed]
+      },
+    )
+    renderApp(
+      createTestApi({
+        list: async () => ({ sessions: [session], nextCursor: null }),
+        get: async () => session,
+        messages: async () => persistedMessages,
+        chat,
+      }),
+      `/sessions/${session.id}`,
+    )
+
+    await user.click(await screen.findByRole("button", { name: "Chat about this" }))
+    await user.type(screen.getByRole("textbox", { name: "Ask about this summary" }), "Explain this")
+    await user.click(screen.getByRole("button", { name: "Send message" }))
+
+    expect(await screen.findByText("A partial answer")).toBeVisible()
+    expect(screen.getByText("Response interrupted. The partial answer is preserved.")).toBeVisible()
+  })
+
+  it("reuses the idempotency key when a transport retry resends the same message", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const keys: string[] = []
+    const chat = vi.fn(
+      async (
+        _id: string,
+        _content: string,
+        _onEvent: (event: ChatStreamEvent) => void,
+        _signal: AbortSignal,
+        idempotencyKey: string,
+      ) => {
+        keys.push(idempotencyKey)
+        if (keys.length === 1) throw new Error("Connection interrupted")
+      },
+    )
+    renderApp(
+      createTestApi({
+        list: async () => ({ sessions: [session], nextCursor: null }),
+        get: async () => session,
+        chat,
+      }),
+      `/sessions/${session.id}`,
+    )
+
+    await user.click(await screen.findByRole("button", { name: "Chat about this" }))
+    const input = screen.getByRole("textbox", { name: "Ask about this summary" })
+    await user.type(input, "Retry this question")
+    await user.click(screen.getByRole("button", { name: "Send message" }))
+    expect(await screen.findByText("Connection interrupted")).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Send message" }))
+
+    await waitFor(() => expect(chat).toHaveBeenCalledTimes(2))
+    expect(keys).toHaveLength(2)
+    expect(keys[1]).toBe(keys[0])
   })
 })

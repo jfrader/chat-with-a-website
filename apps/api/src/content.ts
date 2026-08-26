@@ -1,4 +1,3 @@
-import { createHash } from "node:crypto"
 import { load } from "cheerio"
 import { SessionPipelineError } from "./session-errors"
 
@@ -15,7 +14,6 @@ export type ExtractedPage = {
   siteName: string | null
   description: string | null
   sourceText: string
-  sourceHash: string
   sourceWordCount: number
   sourceTruncated: boolean
 }
@@ -92,7 +90,6 @@ export function extractReadableContent(html: string, finalUrl: string): Extracte
     siteName,
     description,
     sourceText,
-    sourceHash: createHash("sha256").update(sourceText).digest("hex"),
     sourceWordCount,
     sourceTruncated,
   }

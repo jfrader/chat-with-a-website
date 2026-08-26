@@ -10,11 +10,12 @@ export const apiErrorCodes = [
   "UNSUPPORTED_CONTENT_TYPE",
   "EMPTY_CONTENT",
   "CONTENT_TOO_LARGE",
-  "PROVIDER_RATE_LIMITED",
-  "PROVIDER_UNAVAILABLE",
+  "LLM_UNAVAILABLE",
+  "LLM_RATE_LIMITED",
   "GENERATION_INTERRUPTED",
+  "INVALID_MESSAGE",
+  "IDEMPOTENCY_CONFLICT",
   "SESSION_NOT_FOUND",
-  "SESSION_IN_PROGRESS",
   "RATE_LIMITED",
   "INTERNAL_ERROR",
 ] as const
@@ -63,6 +64,13 @@ export const createSessionRequestSchema = z.object({
 })
 export type CreateSessionRequest = z.infer<typeof createSessionRequestSchema>
 
+export const listSessionsQuerySchema = z.object({
+  query: z.string().trim().max(200).default(""),
+  cursor: z.string().max(512).optional(),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
+export type ListSessionsQuery = z.infer<typeof listSessionsQuerySchema>
+
 export const sessionStatusSchema = z.enum([
   "fetching",
   "extracting",
@@ -94,6 +102,7 @@ export const sessionSchema = z.object({
   model: z.string().nullable(),
   attemptId: z.uuid(),
   attemptNumber: z.number().int().positive(),
+  generationVersion: z.number().int().nonnegative(),
   inputTokens: z.number().int().nonnegative().nullable(),
   outputTokens: z.number().int().nonnegative().nullable(),
   createdAt: z.iso.datetime(),
@@ -102,55 +111,90 @@ export const sessionSchema = z.object({
 })
 export type SessionDto = z.infer<typeof sessionSchema>
 
+export const listSessionsResponseSchema = z.object({
+  sessions: z.array(sessionSchema),
+  nextCursor: z.string().nullable(),
+})
+export type ListSessionsResponse = z.infer<typeof listSessionsResponseSchema>
+
 export const messageRoleSchema = z.enum(["user", "assistant"])
+export type MessageRole = z.infer<typeof messageRoleSchema>
 export const messageStatusSchema = z.enum(["streaming", "complete", "failed"])
+export type MessageStatus = z.infer<typeof messageStatusSchema>
 
 export const messageSchema = z.object({
   id: z.uuid(),
   sessionId: z.uuid(),
+  requestId: z.uuid(),
   role: messageRoleSchema,
   content: z.string(),
   status: messageStatusSchema,
   failureCode: apiErrorCodeSchema.nullable(),
   provider: z.string().nullable(),
   model: z.string().nullable(),
+  attemptId: z.uuid().nullable(),
   attemptNumber: z.number().int().positive(),
   inputTokens: z.number().int().nonnegative().nullable(),
   outputTokens: z.number().int().nonnegative().nullable(),
   createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
   completedAt: z.iso.datetime().nullable(),
 })
 export type MessageDto = z.infer<typeof messageSchema>
 
-const attemptEventSchema = z.object({ attemptId: z.uuid() })
+export const messagesResponseSchema = z.object({ messages: z.array(messageSchema) })
+export type MessagesResponse = z.infer<typeof messagesResponseSchema>
 
-export const sessionStreamEventSchema = z.discriminatedUnion("type", [
-  attemptEventSchema.extend({ type: z.literal("session.created"), session: sessionSchema }),
-  attemptEventSchema.extend({ type: z.literal("stage.changed"), stage: sessionStageSchema }),
-  attemptEventSchema.extend({ type: z.literal("summary.delta"), delta: z.string().min(1) }),
-  attemptEventSchema.extend({ type: z.literal("session.completed"), session: sessionSchema }),
-  attemptEventSchema.extend({
-    type: z.literal("session.failed"),
-    session: sessionSchema,
+export const createChatRequestSchema = z.object({
+  content: z.string().trim().min(1).max(4_000),
+  idempotencyKey: z.uuid(),
+})
+export type CreateChatRequest = z.infer<typeof createChatRequestSchema>
+
+const summaryEventBaseSchema = z.object({
+  eventId: z.string().min(1),
+  version: z.number().int().nonnegative(),
+  offset: z.number().int().nonnegative(),
+  session: sessionSchema,
+})
+
+export const summaryStreamEventSchema = z.discriminatedUnion("type", [
+  summaryEventBaseSchema.extend({ type: z.literal("summary.snapshot") }),
+  summaryEventBaseSchema.extend({
+    type: z.literal("summary.delta"),
+    delta: z.string().min(1),
+  }),
+  summaryEventBaseSchema.extend({ type: z.literal("summary.completed") }),
+  summaryEventBaseSchema.extend({
+    type: z.literal("summary.failed"),
     error: apiErrorSchema,
   }),
 ])
-export type SessionStreamEvent = z.infer<typeof sessionStreamEventSchema>
+export type SummaryStreamEvent = z.infer<typeof summaryStreamEventSchema>
+
+export const sessionStreamEventSchema = summaryStreamEventSchema
+export type SessionStreamEvent = SummaryStreamEvent
+
+const chatEventBaseSchema = z.object({
+  eventId: z.string().min(1),
+  requestId: z.uuid(),
+  offset: z.number().int().nonnegative(),
+})
 
 export const chatStreamEventSchema = z.discriminatedUnion("type", [
-  attemptEventSchema.extend({
-    type: z.literal("message.created"),
+  chatEventBaseSchema.extend({
+    type: z.literal("chat.created"),
     userMessage: messageSchema,
     assistantMessage: messageSchema,
   }),
-  attemptEventSchema.extend({
-    type: z.literal("message.delta"),
+  chatEventBaseSchema.extend({
+    type: z.literal("chat.delta"),
     messageId: z.uuid(),
     delta: z.string().min(1),
   }),
-  attemptEventSchema.extend({ type: z.literal("message.completed"), message: messageSchema }),
-  attemptEventSchema.extend({
-    type: z.literal("message.failed"),
+  chatEventBaseSchema.extend({ type: z.literal("chat.completed"), message: messageSchema }),
+  chatEventBaseSchema.extend({
+    type: z.literal("chat.failed"),
     message: messageSchema,
     error: apiErrorSchema,
   }),

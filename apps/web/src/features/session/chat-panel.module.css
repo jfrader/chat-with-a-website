@@ -1,0 +1,175 @@
+.panel {
+  border-left: var(--border-subtle);
+}
+
+.header {
+  min-height: var(--layout-sidebar-active-header-height);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-4);
+  border-bottom: var(--border-subtle);
+}
+
+.header > div {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.header h2 {
+  margin: var(--space-0);
+  font-size: var(--font-size-body);
+  font-weight: var(--font-weight-semibold);
+}
+.header button {
+  width: var(--control-touch-target);
+  height: var(--control-touch-target);
+  border: var(--border-none);
+  color: var(--theme-text-muted);
+  background: var(--theme-surface-transparent);
+  cursor: pointer;
+}
+
+.messages {
+  min-height: var(--space-0);
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-5) var(--space-4);
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-scrollbar-thumb) var(--theme-surface-transparent);
+}
+
+.chatState,
+.chatError,
+.empty p {
+  margin: var(--space-0);
+  color: var(--theme-text-muted);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-reading);
+}
+
+.chatError {
+  color: var(--theme-text-danger);
+}
+
+.empty {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  text-align: center;
+}
+
+.empty > span {
+  color: var(--theme-focus-ring);
+}
+
+.message {
+  position: relative;
+  max-width: var(--layout-chat-message-width);
+  margin-bottom: var(--space-5);
+  color: var(--theme-text-primary);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-reading);
+}
+
+.message > div {
+  white-space: pre-wrap;
+}
+.user {
+  margin-left: auto;
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-subtle);
+  border-radius: var(--radius-chat-message);
+  background: var(--theme-gradient-chat-message);
+}
+.assistant {
+  margin-right: auto;
+}
+
+.caret {
+  display: inline-block;
+  width: var(--space-px);
+  height: var(--line-height-label);
+  margin-left: var(--space-1);
+  background: var(--theme-focus-ring);
+  animation: chat-caret var(--motion-duration-caret) steps(1) infinite;
+  vertical-align: text-bottom;
+}
+
+.failedMessage {
+  margin: var(--space-2) var(--space-0) var(--space-0);
+  color: var(--theme-text-danger);
+  font-size: var(--font-size-caption);
+}
+
+.composer {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin: var(--space-4);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  border: var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--theme-gradient-control);
+  box-shadow: var(--theme-shadow-control);
+}
+
+.composer textarea {
+  min-width: var(--space-0);
+  max-height: var(--control-chat-input-max-height);
+  flex: 1;
+  resize: none;
+  padding: var(--space-2) var(--space-0);
+  border: var(--border-none);
+  outline: var(--border-none);
+  color: var(--theme-text-primary);
+  background: var(--theme-surface-transparent);
+  font-size: var(--font-size-label);
+  line-height: var(--line-height-body);
+}
+
+.composer textarea::placeholder {
+  color: var(--theme-text-dim);
+}
+.composer button {
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
+  flex: 0 0 var(--icon-size-lg);
+  border: var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--theme-text-primary);
+  background: var(--theme-gradient-action);
+  cursor: pointer;
+}
+.composer button:disabled {
+  color: var(--theme-text-disabled);
+  background: var(--theme-gradient-control-idle);
+  cursor: default;
+}
+
+.composerError {
+  position: absolute;
+  right: var(--space-3);
+  bottom: calc(100% + var(--space-2));
+  left: var(--space-3);
+  margin: var(--space-0);
+  color: var(--theme-text-danger);
+  font-size: var(--font-size-caption);
+  line-height: var(--line-height-compact);
+}
+
+@keyframes chat-caret {
+  50% {
+    opacity: var(--opacity-hidden);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .caret {
+    animation: none;
+  }
+}

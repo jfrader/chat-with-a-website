@@ -1,4 +1,5 @@
 import react from "@vitejs/plugin-react"
+import tailwindcss from "@tailwindcss/vite"
 import { defineConfig } from "vitest/config"
 
 const apiProxy = {
@@ -7,7 +8,7 @@ const apiProxy = {
 }
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), tailwindcss()],
   server: {
     port: 4310,
     strictPort: true,

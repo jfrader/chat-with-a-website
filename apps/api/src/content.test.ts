@@ -47,7 +47,6 @@ describe("content extraction", () => {
     )
     expect(extracted.sourceText).not.toContain("Navigation should disappear")
     expect(extracted.sourceText).not.toContain("secret")
-    expect(extracted.sourceHash).toMatch(/^[a-f\d]{64}$/)
     expect(extracted.sourceWordCount).toBeGreaterThan(10)
   })
 

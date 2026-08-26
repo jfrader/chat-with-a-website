@@ -1,12 +1,36 @@
 import type { ApiErrorCode, SessionDto, SessionStage } from "@profound/contracts"
-import { useEffect, useRef, useState } from "react"
+import { lazy, Suspense } from "react"
+import { useSession } from "./session-queries"
+import { useSummaryStream } from "./session-stream"
 import styles from "./session-workspace.module.css"
 
 interface SessionWorkspaceProps {
-  connectionError: string | undefined
+  onOpenChat: (prompt?: string) => void
   onReset: () => void
-  session: SessionDto
+  sessionId: string
 }
+
+function SummaryLoadError(_props: SessionWorkspaceProps & { connectionError?: string }) {
+  return (
+    <section className={styles.failed} role="alert">
+      <p className={styles.failureLabel}>Summary view unavailable</p>
+      <h1>We couldn’t open this summary</h1>
+      <p>Reload the page to retry loading the summary view.</p>
+      <button type="button" onClick={() => window.location.reload()}>
+        Reload page
+      </button>
+    </section>
+  )
+}
+
+const SummaryArticle = lazy(async () => {
+  try {
+    const module = await import("./summary-article")
+    return { default: module.SummaryArticle }
+  } catch {
+    return { default: SummaryLoadError }
+  }
+})
 
 const stageLabels: Record<SessionStage, string> = {
   fetching: "Fetching the webpage",
@@ -22,12 +46,13 @@ const failureMessages: Record<ApiErrorCode, string> = {
   UNSUPPORTED_CONTENT_TYPE: "That URL did not return a supported webpage.",
   EMPTY_CONTENT: "No readable content was found on the webpage.",
   CONTENT_TOO_LARGE: "The webpage is too large to summarize.",
-  PROVIDER_RATE_LIMITED: "The summary service is temporarily rate limited.",
-  PROVIDER_UNAVAILABLE: "The summary service is temporarily unavailable.",
-  GENERATION_INTERRUPTED: "Summary generation was interrupted.",
+  LLM_UNAVAILABLE: "The summary provider is temporarily unavailable.",
+  LLM_RATE_LIMITED: "The summary provider is busy. Try again shortly.",
+  GENERATION_INTERRUPTED: "The summary generation was interrupted.",
+  INVALID_MESSAGE: "That message could not be sent.",
+  IDEMPOTENCY_CONFLICT: "That request conflicts with an earlier request.",
   SESSION_NOT_FOUND: "This summary session could not be found.",
-  SESSION_IN_PROGRESS: "This summary is still being generated.",
-  RATE_LIMITED: "Too many summaries were requested. Please try again shortly.",
+  RATE_LIMITED: "Too many requests were made. Try again shortly.",
   INTERNAL_ERROR: "An unexpected error interrupted the summary.",
 }
 
@@ -40,9 +65,14 @@ function splitGeneratingTitle(title: string) {
   }
 }
 
-function GeneratingSession({ connectionError, session }: Omit<SessionWorkspaceProps, "onReset">) {
+function GeneratingSession({
+  connectionError,
+  session,
+}: {
+  connectionError?: string
+  session: SessionDto
+}) {
   if (session.status === "complete" || session.status === "failed") return null
-
   const fallbackTitle =
     session.status === "fetching"
       ? `Reading ${session.host}`
@@ -52,10 +82,13 @@ function GeneratingSession({ connectionError, session }: Omit<SessionWorkspacePr
   const title = splitGeneratingTitle(session.title ?? fallbackTitle)
 
   return (
-    <section className={styles.generating} aria-labelledby="session-title">
+    <section
+      className={`${styles.generating} pt-[var(--space-25)] pr-[var(--layout-generating-inline-padding)] pb-6 pl-[var(--layout-generating-inline-padding)] max-[1335px]:px-[clamp(var(--space-8),10vw,var(--space-40))] max-[720px]:pt-[var(--space-18)] max-[720px]:px-6 max-[720px]:pb-5`}
+      aria-labelledby="session-title"
+    >
       <div className={styles.glow} aria-hidden="true" />
       <h1
-        className={styles.generatingTitle}
+        className={`${styles.generatingTitle} w-full max-w-[var(--layout-summary-width)] text-[var(--font-size-title)] leading-8 whitespace-nowrap max-[720px]:text-2xl max-[720px]:whitespace-normal`}
         id="session-title"
         aria-label={session.title ?? fallbackTitle}
       >
@@ -66,38 +99,21 @@ function GeneratingSession({ connectionError, session }: Omit<SessionWorkspacePr
           </span>
         ) : null}
       </h1>
-      {connectionError ? <p className={styles.connectionError}>{connectionError}</p> : null}
-      <div className={styles.sourcePill}>{session.originalUrl}</div>
+      <div className={`${styles.stage} w-full max-w-[var(--layout-summary-width)]`} role="status">
+        <span aria-hidden="true" />
+        {connectionError ?? stageLabels[session.status]}
+      </div>
+      <div className={`${styles.sourcePill} bottom-6 max-[720px]:bottom-5`}>
+        {session.originalUrl}
+      </div>
     </section>
   )
 }
 
-function CompletedSession({ onReset, session }: SessionWorkspaceProps) {
-  const paragraphs = session.summary.split(/\n{2,}/).filter(Boolean)
-
-  return (
-    <article className={styles.completed} aria-labelledby="session-title">
-      <header className={styles.completedHeader}>
-        <h1 id="session-title">{session.title ?? session.host}</h1>
-        {session.description ? <p>{session.description}</p> : null}
-      </header>
-      <div className={styles.summary}>
-        {paragraphs.map((paragraph) => (
-          <p key={paragraph}>{paragraph}</p>
-        ))}
-      </div>
-      <button className={styles.completedReset} type="button" onClick={onReset}>
-        Start a new summary
-      </button>
-    </article>
-  )
-}
-
-function FailedSession({ onReset, session }: SessionWorkspaceProps) {
+function FailedSession({ onReset, session }: { onReset: () => void; session: SessionDto }) {
   const message = failureMessages[session.failureCode ?? "INTERNAL_ERROR"]
-
   return (
-    <section className={styles.failed} aria-labelledby="session-title">
+    <section className={styles.failed} role="alert" aria-labelledby="session-title">
       <p className={styles.failureLabel}>Summary interrupted</p>
       <h1 id="session-title">We couldn’t summarize this page</h1>
       <p>{message}</p>
@@ -109,50 +125,55 @@ function FailedSession({ onReset, session }: SessionWorkspaceProps) {
 }
 
 export function SessionWorkspace(props: SessionWorkspaceProps) {
-  const [announcement, setAnnouncement] = useState("")
-  const hadConnectionError = useRef(false)
+  const detail = useSession(props.sessionId)
+  const connectionError = useSummaryStream(detail.data)
 
-  useEffect(() => {
-    if (props.session.status === "complete") {
-      hadConnectionError.current = false
-      setAnnouncement("Summary ready.")
-      return
-    }
-    if (props.session.status === "failed") {
-      hadConnectionError.current = false
-      setAnnouncement(
-        `Summary interrupted. ${failureMessages[props.session.failureCode ?? "INTERNAL_ERROR"]}`,
-      )
-      return
-    }
-    if (props.connectionError) {
-      hadConnectionError.current = true
-      setAnnouncement(props.connectionError)
-      return
-    }
-    if (hadConnectionError.current) {
-      hadConnectionError.current = false
-      setAnnouncement("Live progress reconnected.")
-      return
-    }
-    setAnnouncement(stageLabels[props.session.status])
-  }, [props.connectionError, props.session.failureCode, props.session.status])
-
-  const workspace =
-    props.session.status === "complete" ? (
-      <CompletedSession {...props} />
-    ) : props.session.status === "failed" ? (
-      <FailedSession {...props} />
-    ) : (
-      <GeneratingSession session={props.session} connectionError={props.connectionError} />
+  if (detail.isLoading) {
+    return (
+      <section className={`${styles.generating} grid place-items-center`} aria-live="polite">
+        <div className={`${styles.stage} w-auto`} role="status">
+          <span aria-hidden="true" />
+          Opening summary…
+        </div>
+      </section>
     )
+  }
+  if (detail.error || !detail.data) {
+    return (
+      <section className={styles.failed} role="alert">
+        <p className={styles.failureLabel}>Summary unavailable</p>
+        <h1>This summary couldn’t be loaded</h1>
+        <p>{detail.error?.message ?? "The summary could not be loaded."}</p>
+        <button type="button" onClick={props.onReset}>
+          Return home
+        </button>
+      </section>
+    )
+  }
 
-  return (
-    <>
-      <p className="sr-only" role="status">
-        {announcement}
-      </p>
-      {workspace}
-    </>
-  )
+  const session = detail.data
+  if (session.summary) {
+    return (
+      <Suspense
+        fallback={
+          <section className={`${styles.generating} grid place-items-center`} aria-live="polite">
+            <div className={`${styles.stage} w-auto`} role="status">
+              <span aria-hidden="true" />
+              Opening summary…
+            </div>
+          </section>
+        }
+      >
+        <SummaryArticle
+          sessionId={props.sessionId}
+          onOpenChat={props.onOpenChat}
+          onReset={props.onReset}
+          {...(connectionError ? { connectionError } : {})}
+        />
+      </Suspense>
+    )
+  }
+  if (session.status === "failed")
+    return <FailedSession session={session} onReset={props.onReset} />
+  return <GeneratingSession session={session} {...(connectionError ? { connectionError } : {})} />
 }

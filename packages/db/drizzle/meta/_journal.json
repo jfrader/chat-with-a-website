@@ -8,6 +8,13 @@
       "when": 1787699163519,
       "tag": "0000_ambiguous_starhawk",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1787773138515,
+      "tag": "0001_soft_shard",
+      "breakpoints": true
     }
   ]
 }

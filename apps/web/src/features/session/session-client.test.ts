@@ -1,149 +1,243 @@
-import type { SessionDto, SessionStreamEvent } from "@profound/contracts"
+import type { ChatStreamEvent, SummaryStreamEvent } from "@profound/contracts"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import {
+  assistantMessageId,
+  createMessage,
+  createSession,
+  requestId,
+  sessionId,
+} from "../../test/fixtures"
 import { sessionApi } from "./session-client"
 
-const session: SessionDto = {
-  id: "0f4d59b6-8a0f-40cf-a680-fbd4aaf4600a",
-  originalUrl: "https://tryprofound.com",
-  canonicalUrl: "https://tryprofound.com/",
-  finalUrl: null,
-  host: "tryprofound.com",
-  title: null,
-  siteName: null,
-  description: null,
-  summary: "",
-  status: "fetching",
-  failureStage: null,
-  failureCode: null,
-  sourceWordCount: 0,
-  sourceTruncated: false,
-  provider: null,
-  model: null,
-  attemptId: "2cd772f1-4a4e-48f1-b5a9-b9ac1e956ccd",
-  attemptNumber: 1,
-  inputTokens: null,
-  outputTokens: null,
-  createdAt: "2026-08-26T12:00:00.000Z",
-  updatedAt: "2026-08-26T12:00:00.000Z",
-  completedAt: null,
+class FakeEventSource {
+  static instances: FakeEventSource[] = []
+  readonly close = vi.fn()
+  readonly url: string
+  onerror: ((event: Event) => void) | null = null
+  onmessage: ((event: MessageEvent<string>) => void) | null = null
+
+  constructor(url: string | URL) {
+    this.url = String(url)
+    FakeEventSource.instances.push(this)
+  }
+
+  emit(event: SummaryStreamEvent) {
+    this.onmessage?.({ data: JSON.stringify(event) } as MessageEvent<string>)
+  }
+
+  emitError() {
+    this.onerror?.(new Event("error"))
+  }
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  FakeEventSource.instances = []
+  vi.unstubAllGlobals()
+})
 
 describe("session API client", () => {
-  it("creates a session with a generated idempotency key", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json(session, { status: 202 }))
+  it("validates list, create, detail, messages, and delete responses", async () => {
+    const session = createSession()
+    const message = createMessage()
+    const fetchMock = vi.fn(async (input: string | URL | Request, init?: RequestInit) => {
+      const url = String(input)
+      if (url.startsWith("/api/sessions?")) {
+        return Response.json({ sessions: [session], nextCursor: null })
+      }
+      if (url === "/api/sessions" && init?.method === "POST") {
+        return Response.json(session, { status: 202 })
+      }
+      if (url.endsWith("/messages")) return Response.json({ messages: [message] })
+      if (init?.method === "DELETE") return new Response(null, { status: 204 })
+      return Response.json(session)
+    })
     vi.stubGlobal("fetch", fetchMock)
 
-    await expect(sessionApi.create("https://tryprofound.com")).resolves.toEqual(session)
+    await expect(sessionApi.list("visibility")).resolves.toEqual({
+      sessions: [session],
+      nextCursor: null,
+    })
+    await expect(sessionApi.create(session.originalUrl, requestId)).resolves.toEqual(session)
+    await expect(sessionApi.get(session.id)).resolves.toEqual(session)
+    await expect(sessionApi.messages(session.id)).resolves.toEqual([message])
+    await expect(sessionApi.delete(session.id)).resolves.toBeUndefined()
 
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(fetchMock).toHaveBeenCalledWith("/api/sessions", expect.any(Object))
-    expect(init.method).toBe("POST")
-    expect(JSON.parse(String(init.body))).toMatchObject({
-      url: "https://tryprofound.com",
-      idempotencyKey: expect.any(String),
+    expect(fetchMock).toHaveBeenCalledWith("/api/sessions?query=visibility&limit=100")
+    const createCall = fetchMock.mock.calls.find(([, init]) => init?.method === "POST")
+    expect(JSON.parse(String(createCall?.[1]?.body))).toEqual({
+      url: session.originalUrl,
+      idempotencyKey: requestId,
     })
   })
 
-  it("uses a caller-provided idempotency key for retries", async () => {
-    const fetchMock = vi.fn().mockResolvedValue(Response.json(session, { status: 200 }))
-    vi.stubGlobal("fetch", fetchMock)
-    const idempotencyKey = "2cd772f1-4a4e-48f1-b5a9-b9ac1e956ccd"
-
-    await sessionApi.create("https://tryprofound.com", idempotencyKey)
-
-    const [, init] = fetchMock.mock.calls[0] as [string, RequestInit]
-    expect(JSON.parse(String(init.body))).toMatchObject({ idempotencyKey })
-  })
-
-  it("parses validated events across split CRLF chunks", async () => {
-    const encoder = new TextEncoder()
-    const completedSession = { ...session, status: "complete" as const }
-    const firstEvent = {
-      type: "stage.changed",
-      attemptId: "2cd772f1-4a4e-48f1-b5a9-b9ac1e956ccd",
-      stage: "extracting",
-    } satisfies SessionStreamEvent
-    const secondEvent = {
-      type: "session.completed",
-      attemptId: "2cd772f1-4a4e-48f1-b5a9-b9ac1e956ccd",
-      session: completedSession,
-    } satisfies SessionStreamEvent
-    const body = new ReadableStream({
-      start(controller) {
-        controller.enqueue(
-          encoder.encode(`event: stage.changed\r\ndata: ${JSON.stringify(firstEvent)}\r`),
-        )
-        controller.enqueue(
-          encoder.encode(
-            `\n\r\nevent: session.completed\r\ndata: ${JSON.stringify(secondEvent)}\r\n\r\n`,
-          ),
-        )
-        controller.close()
-      },
-    })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })))
-    const events: SessionStreamEvent[] = []
-
-    await sessionApi.stream(session.id, (event) => events.push(event), new AbortController().signal)
-
-    expect(events).toEqual([firstEvent, secondEvent])
-  })
-
-  it("parses event streams that use CR-only line endings", async () => {
-    const event = {
-      type: "stage.changed",
-      attemptId: session.attemptId,
-      stage: "extracting",
-    } satisfies SessionStreamEvent
-    const body = new ReadableStream({
-      start(controller) {
-        controller.enqueue(new TextEncoder().encode(`data: ${JSON.stringify(event)}\r\r`))
-        controller.close()
-      },
-    })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })))
-    const events: SessionStreamEvent[] = []
-
-    await sessionApi.stream(
-      session.id,
-      (streamEvent) => events.push(streamEvent),
+  it("parses authoritative summary events and closes on completion", async () => {
+    vi.stubGlobal("EventSource", FakeEventSource)
+    const events: SummaryStreamEvent[] = []
+    const completed = createSession()
+    const streaming = sessionApi.stream(
+      sessionId,
+      (event) => events.push(event),
       new AbortController().signal,
     )
+    const source = FakeEventSource.instances[0]
+    if (!source) throw new Error("Expected EventSource")
 
-    expect(events).toEqual([event])
+    source.emit({
+      type: "summary.completed",
+      eventId: "1:65:completed",
+      version: 1,
+      offset: completed.summary.length,
+      session: completed,
+    })
+
+    await expect(streaming).resolves.toBeUndefined()
+    expect(events[0]).toMatchObject({ type: "summary.completed", session: completed })
+    expect(source.close).toHaveBeenCalledOnce()
   })
 
-  it("preserves a CRLF split between multiline data fields", async () => {
-    const event = {
-      type: "stage.changed",
-      attemptId: session.attemptId,
-      stage: "extracting",
-    } satisfies SessionStreamEvent
-    const serialized = JSON.stringify(event)
-    const splitAt = serialized.indexOf('"attemptId"')
-    const body = new ReadableStream({
-      start(controller) {
-        const encoder = new TextEncoder()
-        controller.enqueue(encoder.encode(`data: ${serialized.slice(0, splitAt)}\r`))
-        controller.enqueue(encoder.encode(`\ndata: ${serialized.slice(splitAt)}\r\n\r\n`))
-        controller.close()
-      },
-    })
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(body, { status: 200 })))
-    const events: SessionStreamEvent[] = []
+  it("rejects instead of allowing an unbounded native reconnect loop", async () => {
+    vi.stubGlobal("EventSource", FakeEventSource)
+    const streaming = sessionApi.stream(sessionId, () => {}, new AbortController().signal)
+    const source = FakeEventSource.instances[0]
+    if (!source) throw new Error("Expected EventSource")
 
-    await sessionApi.stream(
-      session.id,
-      (streamEvent) => events.push(streamEvent),
+    source.emitError()
+
+    await expect(streaming).rejects.toMatchObject({
+      code: "INTERNAL_ERROR",
+      message: "Live progress was interrupted.",
+    })
+    expect(source.close).toHaveBeenCalledOnce()
+  })
+
+  it("parses fetch-based chat SSE deltas and terminal messages", async () => {
+    const user = createMessage()
+    const assistant = createMessage({
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      status: "streaming",
+      completedAt: null,
+      provider: "openai",
+      model: "gpt-test",
+      attemptId: "b37f7595-142b-42f8-afd1-7020760a9c5c",
+    })
+    const completed = {
+      ...assistant,
+      content: "Evidence matters.",
+      status: "complete" as const,
+      completedAt: "2026-08-26T12:01:03.000Z",
+    }
+    const events: ChatStreamEvent[] = [
+      {
+        type: "chat.created",
+        eventId: "created",
+        requestId,
+        offset: 0,
+        userMessage: user,
+        assistantMessage: assistant,
+      },
+      {
+        type: "chat.delta",
+        eventId: "delta",
+        requestId,
+        offset: 0,
+        messageId: assistant.id,
+        delta: "Evidence matters.",
+      },
+      {
+        type: "chat.completed",
+        eventId: "complete",
+        requestId,
+        offset: completed.content.length,
+        message: completed,
+      },
+    ]
+    const body = events
+      .map((event) => `id: ${event.eventId}\ndata: ${JSON.stringify(event)}\n\n`)
+      .join("")
+    vi.stubGlobal(
+      "fetch",
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(body, { headers: { "Content-Type": "text/event-stream" } }),
+        ),
+    )
+    const received: ChatStreamEvent[] = []
+
+    await sessionApi.chat(
+      sessionId,
+      "What matters?",
+      (event) => received.push(event),
       new AbortController().signal,
+      requestId,
     )
 
-    expect(events).toEqual([event])
+    expect(received).toEqual(events)
   })
 
-  it("surfaces the API's safe error envelope", async () => {
+  it("rejects a chat stream that ends before a terminal event", async () => {
+    const user = createMessage()
+    const assistant = createMessage({
+      id: assistantMessageId,
+      role: "assistant",
+      content: "",
+      status: "streaming",
+      completedAt: null,
+    })
+    const created: ChatStreamEvent = {
+      type: "chat.created",
+      eventId: "created",
+      requestId,
+      offset: 0,
+      userMessage: user,
+      assistantMessage: assistant,
+    }
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(`data: ${JSON.stringify(created)}\n\n`, {
+          headers: { "Content-Type": "text/event-stream" },
+        }),
+      ),
+    )
+
+    await expect(
+      sessionApi.chat(
+        sessionId,
+        "What matters?",
+        () => {},
+        new AbortController().signal,
+        requestId,
+      ),
+    ).rejects.toMatchObject({
+      code: "INTERNAL_ERROR",
+      message: "The chat response was interrupted. Try again.",
+    })
+  })
+
+  it("stops an aborted chat stream without reporting an interruption", async () => {
+    const controller = new AbortController()
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        new Response(
+          new ReadableStream({
+            start() {},
+          }),
+          { headers: { "Content-Type": "text/event-stream" } },
+        ),
+      ),
+    )
+
+    const chat = sessionApi.chat(sessionId, "What matters?", () => {}, controller.signal, requestId)
+    controller.abort()
+
+    await expect(chat).resolves.toBeUndefined()
+  })
+
+  it("surfaces only the API safe error envelope", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn().mockResolvedValue(
@@ -152,7 +246,7 @@ describe("session API client", () => {
             code: "URL_NOT_ALLOWED",
             message: "That destination cannot be accessed safely.",
             retryable: false,
-            requestId: "04f9a8ac-239d-40d3-9768-3e2f64a4f524",
+            requestId,
           },
           { status: 400 },
         ),
@@ -162,7 +256,6 @@ describe("session API client", () => {
     await expect(sessionApi.create("https://127.0.0.1")).rejects.toMatchObject({
       code: "URL_NOT_ALLOWED",
       message: "That destination cannot be accessed safely.",
-      retryable: false,
     })
   })
 })

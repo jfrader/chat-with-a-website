@@ -58,8 +58,12 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
       <label className="sr-only" htmlFor={inputId}>
         Webpage URL
       </label>
-      <div className={styles.controls}>
-        <div className={styles.field}>
+      <div
+        className={`${styles.controls} flex flex-row items-center justify-center gap-2 max-[600px]:flex-col`}
+      >
+        <div
+          className={`${styles.field} w-[var(--control-composer-field-width)] flex-[0_0_var(--control-composer-field-width)] max-[600px]:w-[min(var(--control-composer-field-width),calc(100vw-var(--space-8)))] max-[600px]:flex-[0_0_auto]`}
+        >
           <div className={styles.inputShell}>
             <span className={styles.inputIcon} aria-hidden="true">
               <img src="/assets/link.svg" alt="" />
@@ -87,14 +91,22 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
             />
           </div>
           <p
-            className={feedback?.kind === "error" ? styles.error : "sr-only"}
+            className={
+              feedback?.kind === "error"
+                ? `${styles.error} top-[var(--space-15)] text-left max-[600px]:top-[var(--space-30)] max-[600px]:text-center`
+                : "sr-only"
+            }
             id={`${inputId}-message`}
             aria-live="polite"
           >
             {feedback?.message}
           </p>
         </div>
-        <button className={styles.submit} type="submit" disabled={!result.success || submitting}>
+        <button
+          className={`${styles.submit} w-[var(--control-composer-action-width)] flex-[0_0_var(--control-composer-action-width)] max-[600px]:w-[min(var(--control-composer-field-width),calc(100vw-var(--space-8)))] max-[600px]:flex-[0_0_var(--control-height)]`}
+          type="submit"
+          disabled={!result.success || submitting}
+        >
           <span>{submitting ? "Starting…" : "Summarize"}</span>
         </button>
       </div>
