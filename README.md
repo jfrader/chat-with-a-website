@@ -79,6 +79,17 @@ PostgreSQL repository tests; use a disposable database because those tests trunc
 - Suggested follow-up prompts as the additional user-facing experience requested by the brief.
 - Responsive history and chat drawers with keyboard, focus, reduced-motion, and touch support.
 
+## Design decisions
+
+The summary remains the dominant reading surface, with history providing orientation and chat acting
+as contextual secondary tooling. On narrower screens, those supporting surfaces become modal drawers
+instead of compressing the article. Static Figma-specific visuals stay in token-backed CSS Modules;
+Tailwind utilities express responsive layout changes beside the components they affect.
+
+Suggested follow-up prompts are the deliberate addition beyond the brief. They turn a completed
+summary into clear next actions, reduce blank-composer friction, and open the same source-grounded chat
+flow rather than introducing another product surface.
+
 ## Architecture
 
 ```text
@@ -142,3 +153,7 @@ Horizontal scaling would require moving admission and execution to a durable que
 an owner/lease, publishing deltas through shared infrastructure, and routing SSE subscribers across
 instances. PostgreSQL full-text search and tenant-scoped authorization would replace the current
 challenge-sized literal search and unauthenticated workspace.
+
+With more time, the next product improvements would be authenticated workspaces, durable resumable
+jobs, richer source context such as pasted text or files, and production observability for model cost,
+latency, and stream failures.
