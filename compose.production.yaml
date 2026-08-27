@@ -37,8 +37,8 @@ services:
       NODE_ENV: production
       PORT: 4311
       LLM_API_KEY: ${LLM_API_KEY:-}
-      LLM_MODEL: ${LLM_MODEL:-gpt-4o-mini}
-      LLM_BASE_URL: ${LLM_BASE_URL:-}
+      LLM_MODEL: ${LLM_MODEL:-deepseek-v4-flash}
+      LLM_BASE_URL: ${LLM_BASE_URL:-https://api.deepseek.com}
     depends_on:
       migrate:
         condition: service_completed_successfully

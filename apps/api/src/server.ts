@@ -11,8 +11,11 @@ import { SessionService } from "./session-service"
 const environmentSchema = z.object({
   DATABASE_URL: z.string().min(1),
   LLM_API_KEY: z.preprocess((value) => value || undefined, z.string().min(1).optional()),
-  LLM_BASE_URL: z.preprocess((value) => value || undefined, z.string().url().optional()),
-  LLM_MODEL: z.string().min(1).default("gpt-4o-mini"),
+  LLM_BASE_URL: z.preprocess(
+    (value) => value || undefined,
+    z.string().url().default("https://api.deepseek.com"),
+  ),
+  LLM_MODEL: z.string().min(1).default("deepseek-v4-flash"),
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().positive().max(65_535).default(4311),
 })

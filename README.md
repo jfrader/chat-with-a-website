@@ -6,7 +6,7 @@ source-grounded follow-up chat.
 
 ## Development
 
-Copy the example environment and provide an OpenAI-compatible API key:
+Copy the example environment and provide a DeepSeek API key:
 
 ```sh
 cp .env.example .env
@@ -127,9 +127,9 @@ generations, and sends prompts that forbid following source-page instructions.
 | Variable | Purpose | Default |
 | --- | --- | --- |
 | `DATABASE_URL` | PostgreSQL connection string | Required |
-| `LLM_API_KEY` | OpenAI-compatible API key | No generation without it |
-| `LLM_MODEL` | Chat-completions model | `gpt-4o-mini` |
-| `LLM_BASE_URL` | Optional compatible provider endpoint | OpenAI |
+| `LLM_API_KEY` | DeepSeek or compatible-provider API key | No generation without it |
+| `LLM_MODEL` | Chat-completions model | `deepseek-v4-flash` |
+| `LLM_BASE_URL` | OpenAI-compatible provider endpoint | `https://api.deepseek.com` |
 | `PORT` | Hono API port | `4311` |
 | `API_PROXY_TARGET` | Vite development API target | `http://localhost:4311` |
 
