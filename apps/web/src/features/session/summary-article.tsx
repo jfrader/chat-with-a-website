@@ -48,10 +48,7 @@ function SummaryHeader({ session }: { session: SessionDto }) {
           <span>{session.sourceWordCount.toLocaleString()} source words</span>
         ) : null}
       </div>
-      <h1
-        className="text-[var(--font-size-title)] leading-8 max-mobile:text-2xl"
-        id="session-title"
-      >
+      <h1 className="text-(--font-size-title) leading-8 max-mobile:text-2xl" id="session-title">
         {title}
       </h1>
       {session.description ? <p className={styles.description}>{session.description}</p> : null}
@@ -139,7 +136,7 @@ export function SummaryArticle({
 
   return (
     <article
-      className={`${styles.article} h-full w-full max-w-[var(--workspace-summary-width)] overflow-y-auto pt-[var(--space-12-5)] pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-[var(--space-22)]`}
+      className={`${styles.article} h-full w-full max-w-(--workspace-summary-width) overflow-y-auto pt-(--space-12-5) pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-(--space-22)`}
       aria-labelledby="session-title"
     >
       {session.status === "complete" ? (

@@ -69,7 +69,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
       </label>
       <div className="flex flex-row items-center justify-center gap-2 max-compact:flex-col">
         <div
-          className={`${styles.field} w-[var(--url-composer-field-width)] flex-[0_0_var(--url-composer-field-width)] max-compact:w-[min(var(--url-composer-field-width),calc(100vw-var(--space-8)))] max-compact:flex-[0_0_auto]`}
+          className={`${styles.field} w-(--url-composer-field-width) flex-[0_0_var(--url-composer-field-width)] max-compact:w-[min(var(--url-composer-field-width),calc(100vw-var(--space-8)))] max-compact:flex-[0_0_auto]`}
         >
           <ComposerField>
             <span className={styles.inputIcon} aria-hidden="true">
@@ -97,7 +97,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
           <p
             className={
               feedback?.kind === "error"
-                ? `${styles.error} top-[var(--space-15)] text-left max-compact:top-[var(--space-30)] max-compact:text-center`
+                ? `${styles.error} top-(--space-15) text-left max-compact:top-(--space-30) max-compact:text-center`
                 : "sr-only"
             }
             id={`${inputId}-message`}
@@ -107,7 +107,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
           </p>
         </div>
         <button
-          className={`${styles.submit} ${borderStyles.gradientBorder} w-[var(--url-composer-action-width)] flex-[0_0_var(--url-composer-action-width)] max-compact:w-[min(var(--url-composer-field-width),calc(100vw-var(--space-8)))] max-compact:flex-[0_0_var(--control-height)]`}
+          className={`${styles.submit} ${borderStyles.gradientBorder} w-(--url-composer-action-width) flex-[0_0_var(--url-composer-action-width)] max-compact:w-[min(var(--url-composer-field-width),calc(100vw-var(--space-8)))] max-compact:flex-[0_0_var(--control-height)]`}
           type="submit"
           disabled={!value.trim() || submitting}
         >

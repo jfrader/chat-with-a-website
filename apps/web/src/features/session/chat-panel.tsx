@@ -169,9 +169,9 @@ export function ChatPanel({ initialPrompt, modal, onClose, sessionId }: ChatPane
 
   return (
     <>
-      {modal ? <Scrim className="z-[21]" onClick={onClose} /> : null}
+      {modal ? <Scrim className="z-21" onClick={onClose} /> : null}
       <aside
-        className={`${styles.panel} relative z-[6] flex h-full w-[var(--chat-panel-width)] min-w-0 flex-[0_0_var(--chat-panel-width)] flex-col overflow-hidden bg-[var(--theme-surface-navigation)] max-chat:fixed max-chat:inset-y-0 max-chat:right-0 max-chat:z-[22] max-chat:h-svh max-chat:bg-[var(--theme-surface-navigation-solid)] max-mobile:left-0 max-mobile:w-full max-mobile:flex-[0_0_auto]`}
+        className={`${styles.panel} relative z-6 flex h-full w-(--chat-panel-width) min-w-0 flex-[0_0_var(--chat-panel-width)] flex-col overflow-hidden bg-(--theme-surface-navigation) max-chat:fixed max-chat:inset-y-0 max-chat:right-0 max-chat:z-22 max-chat:h-svh max-chat:bg-(--theme-surface-navigation-solid) max-mobile:left-0 max-mobile:w-full max-mobile:flex-[0_0_auto]`}
         aria-label="Chat about this summary"
         aria-modal={modal || undefined}
         role="dialog"

@@ -80,12 +80,12 @@ function GeneratingSession({
 
   return (
     <section
-      className={`${styles.generating} pt-[var(--space-25)] pr-[var(--session-generating-inline-padding)] pb-6 pl-[var(--session-generating-inline-padding)] max-content:px-[clamp(var(--space-8),10vw,var(--space-40))] max-mobile:pt-[var(--space-18)] max-mobile:px-6 max-mobile:pb-5`}
+      className={`${styles.generating} pt-(--space-25) pr-(--session-generating-inline-padding) pb-6 pl-(--session-generating-inline-padding) max-content:px-[clamp(var(--space-8),10vw,var(--space-40))] max-mobile:pt-(--space-18) max-mobile:px-6 max-mobile:pb-5`}
       aria-labelledby="session-title"
     >
       <div className={styles.glow} aria-hidden="true" />
       <h1
-        className={`${styles.generatingTitle} w-full max-w-[var(--workspace-summary-width)] text-[var(--font-size-title)] leading-8 whitespace-nowrap max-mobile:text-2xl max-mobile:whitespace-normal`}
+        className={`${styles.generatingTitle} w-full max-w-(--workspace-summary-width) text-(--font-size-title) leading-8 whitespace-nowrap max-mobile:text-2xl max-mobile:whitespace-normal`}
         id="session-title"
         aria-label={session.title ?? fallbackTitle}
       >
@@ -96,10 +96,7 @@ function GeneratingSession({
           </span>
         ) : null}
       </h1>
-      <div
-        className={`${styles.stage} w-full max-w-[var(--workspace-summary-width)]`}
-        role="status"
-      >
+      <div className={`${styles.stage} w-full max-w-(--workspace-summary-width)`} role="status">
         <ActiveStatusDot />
         {connectionError ?? stageLabels[session.status]}
       </div>

@@ -75,10 +75,10 @@ function MobileHeader({
   onOpenHistory,
 }: MobileHeaderProps) {
   const buttonClass =
-    "grid size-11 cursor-pointer place-items-center border-0 bg-transparent text-[var(--theme-text-primary)]"
+    "grid size-11 cursor-pointer place-items-center border-0 bg-transparent text-(--theme-text-primary)"
 
   return (
-    <header className="relative z-[3] hidden min-h-14 items-center justify-between border-b border-[var(--theme-line-subtle-color)] bg-[var(--theme-surface-navigation-solid)] p-2 max-mobile:flex">
+    <header className="relative z-3 hidden min-h-14 items-center justify-between border-b border-(--theme-line-subtle-color) bg-(--theme-surface-navigation-solid) p-2 max-mobile:flex">
       <button
         ref={historyTriggerRef}
         className={buttonClass}
@@ -131,12 +131,12 @@ function EmptyWorkspace({
           aria-labelledby="workspace-heading"
         >
           <div
-            className={`${styles.glow} absolute top-[var(--workspace-empty-glow-offset)] left-1/2 z-[-1] h-[var(--workspace-glow-height)] w-[var(--workspace-glow-width)] max-w-none -translate-x-1/2 pointer-events-none select-none max-compact:h-[var(--workspace-glow-mobile-height)] max-compact:w-[var(--workspace-glow-mobile-width)]`}
+            className={`${styles.glow} absolute top-(--workspace-empty-glow-offset) left-1/2 z-[-1] h-(--workspace-glow-height) w-(--workspace-glow-width) max-w-none -translate-x-1/2 pointer-events-none select-none max-compact:h-(--workspace-glow-mobile-height) max-compact:w-(--workspace-glow-mobile-width)`}
             aria-hidden="true"
           />
           <div className={`${styles.copy} mb-10 max-compact:mb-8`}>
             <h1 id="workspace-heading">Let’s get to it</h1>
-            <p className="max-w-none text-lg leading-6 max-mobile:max-w-[var(--workspace-copy-max-width)] max-mobile:text-base max-mobile:leading-[var(--workspace-mobile-copy-line-height)]">
+            <p className="max-w-none text-lg leading-6 max-mobile:max-w-(--workspace-copy-max-width) max-mobile:text-base max-mobile:leading-(--workspace-mobile-copy-line-height)">
               Paste a URL to summarize and understand any content instantly
             </p>
           </div>

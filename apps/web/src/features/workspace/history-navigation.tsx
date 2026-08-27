@@ -36,7 +36,7 @@ interface HistoryHeaderProps extends HistoryNavigationProps {
 function HistoryHeader({ collapsed, mobileOpen, onCloseMobile, onToggle }: HistoryHeaderProps) {
   return (
     <header
-      className={`${styles.header} relative z-[2] flex h-16 w-full items-center justify-between border-b border-[var(--theme-line-subtle-color)] px-6 py-4 max-mobile:h-12 max-mobile:border-b-0 max-mobile:px-4 max-mobile:py-2`}
+      className={`${styles.header} relative z-2 flex h-16 w-full items-center justify-between border-b border-(--theme-line-subtle-color) px-6 py-4 max-mobile:h-12 max-mobile:border-b-0 max-mobile:px-4 max-mobile:py-2`}
     >
       <img className={styles.logo} src="/assets/profound-mark.svg" alt="Profound" />
       {mobileOpen ? (
@@ -376,7 +376,7 @@ export function HistoryNavigation({ mobileOpen, onCloseMobile }: HistoryNavigati
     trapFocus(event, navigation.current)
   }
 
-  const className = `${styles.navigation} ${collapsedClass} ${mobileClass} relative z-[5] h-full w-80 min-w-0 flex-[0_0_20rem] overflow-hidden border-r border-[var(--theme-line-subtle-color)] bg-[var(--theme-surface-navigation)] max-mobile:fixed max-mobile:inset-y-0 max-mobile:left-0 max-mobile:z-[21] max-mobile:h-svh max-mobile:w-[min(var(--history-mobile-drawer-width),100%)] max-mobile:flex-[0_0_auto] max-mobile:border-r-0 max-mobile:bg-[var(--theme-surface-navigation-solid)]`
+  const className = `${styles.navigation} ${collapsedClass} ${mobileClass} relative z-5 h-full w-80 min-w-0 flex-[0_0_20rem] overflow-hidden border-r border-(--theme-line-subtle-color) bg-(--theme-surface-navigation) max-mobile:fixed max-mobile:inset-y-0 max-mobile:left-0 max-mobile:z-21 max-mobile:h-svh max-mobile:w-[min(var(--history-mobile-drawer-width),100%)] max-mobile:flex-[0_0_auto] max-mobile:border-r-0 max-mobile:bg-(--theme-surface-navigation-solid)`
   const content = (
     <>
       <HistoryHeader
