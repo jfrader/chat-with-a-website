@@ -55,7 +55,12 @@ function MobileHeader({
       </button>
       <img className="size-6" src="/assets/profound-mark.svg" alt="Profound" />
       {canChat ? (
-        <button className={buttonClass} type="button" onClick={onOpenChat} aria-label="Open chat">
+        <button
+          className={buttonClass}
+          type="button"
+          onClick={() => onOpenChat?.()}
+          aria-label="Open chat"
+        >
           <span aria-hidden="true">✦</span>
         </button>
       ) : (

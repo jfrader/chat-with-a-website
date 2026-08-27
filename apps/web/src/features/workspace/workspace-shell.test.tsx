@@ -1,5 +1,5 @@
 import type { ChatStreamEvent, SummaryStreamEvent } from "@profound/contracts"
-import { act, screen, waitFor, within } from "@testing-library/react"
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import {
@@ -337,6 +337,15 @@ describe("progressive summary and safe failures", () => {
 })
 
 describe("summary chat", () => {
+  it("opens chat from the mobile header without using the click event as a prompt", async () => {
+    const session = createSession()
+    renderApp(createTestApi({ get: async () => session }), `/sessions/${session.id}`)
+
+    fireEvent.click(await screen.findByRole("button", { name: "Open chat", hidden: true }))
+
+    expect(await screen.findByRole("textbox", { name: "Ask about this summary" })).toHaveValue("")
+  })
+
   it("opens chat, sends a message, and renders streamed assistant text", async () => {
     const user = userEvent.setup()
     const session = createSession()

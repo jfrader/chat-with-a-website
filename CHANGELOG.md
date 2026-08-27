@@ -12,3 +12,4 @@
 - Rebuilt the URL workspace to match the supplied Profound design, including its focused empty state, FE 6 generation state, stable inline validation, completed summaries, responsive history, and contextual chat.
 - Improved stream recovery and cached-data resilience while hardening generated images and streamed chat announcements.
 - Set DeepSeek V4 Flash as the default hosted summarization and chat model.
+- Fixed the mobile chat shortcut so it opens with an empty composer instead of event text.
