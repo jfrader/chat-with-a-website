@@ -1,12 +1,18 @@
 import type { ComponentPropsWithoutRef } from "react"
 import styles from "./composer-control.module.css"
+import borderStyles from "./gradient-border.module.css"
 
 type ComposerFieldProps = ComponentPropsWithoutRef<"div"> & {
   multiline?: boolean
 }
 
 export function ComposerField({ className, multiline = false, ...props }: ComposerFieldProps) {
-  const classes = [styles.field, multiline ? styles.multiline : undefined, className]
+  const classes = [
+    styles.field,
+    borderStyles.gradientBorder,
+    multiline ? styles.multiline : undefined,
+    className,
+  ]
     .filter(Boolean)
     .join(" ")
 

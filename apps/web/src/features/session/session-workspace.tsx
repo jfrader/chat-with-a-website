@@ -1,5 +1,8 @@
-import type { ApiErrorCode, SessionDto, SessionStage } from "@profound/contracts"
+import type { ApiErrorCode, SessionDto } from "@profound/contracts"
 import { lazy, Suspense } from "react"
+import { ActiveStatusDot } from "../../components/activity-indicator"
+import borderStyles from "../../components/gradient-border.module.css"
+import { stageLabels } from "./session-labels"
 import { useSession } from "./session-queries"
 import { useSummaryStream } from "./session-stream"
 import styles from "./session-workspace.module.css"
@@ -31,12 +34,6 @@ const SummaryArticle = lazy(async () => {
     return { default: SummaryLoadError }
   }
 })
-
-const stageLabels: Record<SessionStage, string> = {
-  fetching: "Fetching the webpage",
-  extracting: "Extracting readable content",
-  summarizing: "Generating the summary",
-}
 
 const failureMessages: Record<ApiErrorCode, string> = {
   INVALID_URL: "That URL is not valid.",
@@ -83,12 +80,12 @@ function GeneratingSession({
 
   return (
     <section
-      className={`${styles.generating} pt-[var(--space-25)] pr-[var(--layout-generating-inline-padding)] pb-6 pl-[var(--layout-generating-inline-padding)] max-[1335px]:px-[clamp(var(--space-8),10vw,var(--space-40))] max-[720px]:pt-[var(--space-18)] max-[720px]:px-6 max-[720px]:pb-5`}
+      className={`${styles.generating} pt-[var(--space-25)] pr-[var(--session-generating-inline-padding)] pb-6 pl-[var(--session-generating-inline-padding)] max-content:px-[clamp(var(--space-8),10vw,var(--space-40))] max-mobile:pt-[var(--space-18)] max-mobile:px-6 max-mobile:pb-5`}
       aria-labelledby="session-title"
     >
       <div className={styles.glow} aria-hidden="true" />
       <h1
-        className={`${styles.generatingTitle} w-full max-w-[var(--layout-summary-width)] text-[var(--font-size-title)] leading-8 whitespace-nowrap max-[720px]:text-2xl max-[720px]:whitespace-normal`}
+        className={`${styles.generatingTitle} w-full max-w-[var(--workspace-summary-width)] text-[var(--font-size-title)] leading-8 whitespace-nowrap max-mobile:text-2xl max-mobile:whitespace-normal`}
         id="session-title"
         aria-label={session.title ?? fallbackTitle}
       >
@@ -99,11 +96,16 @@ function GeneratingSession({
           </span>
         ) : null}
       </h1>
-      <div className={`${styles.stage} w-full max-w-[var(--layout-summary-width)]`} role="status">
-        <span aria-hidden="true" />
+      <div
+        className={`${styles.stage} w-full max-w-[var(--workspace-summary-width)]`}
+        role="status"
+      >
+        <ActiveStatusDot />
         {connectionError ?? stageLabels[session.status]}
       </div>
-      <div className={`${styles.sourcePill} bottom-6 max-[720px]:bottom-5`}>
+      <div
+        className={`${styles.sourcePill} ${borderStyles.gradientBorder} bottom-6 max-mobile:bottom-5`}
+      >
         {session.originalUrl}
       </div>
     </section>
@@ -132,7 +134,7 @@ export function SessionWorkspace(props: SessionWorkspaceProps) {
     return (
       <section className={`${styles.generating} grid place-items-center`} aria-live="polite">
         <div className={`${styles.stage} w-auto`} role="status">
-          <span aria-hidden="true" />
+          <ActiveStatusDot />
           Opening summary…
         </div>
       </section>
@@ -158,7 +160,7 @@ export function SessionWorkspace(props: SessionWorkspaceProps) {
         fallback={
           <section className={`${styles.generating} grid place-items-center`} aria-live="polite">
             <div className={`${styles.stage} w-auto`} role="status">
-              <span aria-hidden="true" />
+              <ActiveStatusDot />
               Opening summary…
             </div>
           </section>

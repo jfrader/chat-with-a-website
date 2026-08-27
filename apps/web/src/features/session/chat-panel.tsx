@@ -1,6 +1,9 @@
 import { createChatRequestSchema, type MessageDto } from "@profound/contracts"
 import { type FormEvent, type KeyboardEvent, useId, useRef, useState } from "react"
+import { StreamingCaret } from "../../components/activity-indicator"
 import { ComposerField, ComposerIconButton } from "../../components/composer-control"
+import { Scrim } from "../../components/scrim"
+import { trapFocus } from "../../components/trap-focus"
 import styles from "./chat-panel.module.css"
 import { useMessages, useSendMessage } from "./session-queries"
 
@@ -11,29 +14,6 @@ interface ChatPanelProps {
   sessionId: string
 }
 
-function trapFocus(event: KeyboardEvent<HTMLElement>) {
-  if (event.key !== "Tab") return
-  const focusable = Array.from(
-    event.currentTarget.querySelectorAll<HTMLElement>(
-      'button:not([disabled]), textarea:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-    ),
-  )
-  const first = focusable.at(0)
-  const last = focusable.at(-1)
-  if (!first || !last) return
-
-  if (!event.currentTarget.contains(document.activeElement)) {
-    event.preventDefault()
-    ;(event.shiftKey ? last : first).focus()
-  } else if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
 function ChatMessage({ message }: { message: MessageDto }) {
   return (
     <article className={`${styles.message} ${styles[message.role]}`}>
@@ -41,7 +21,7 @@ function ChatMessage({ message }: { message: MessageDto }) {
       <div>{message.content || (message.status === "streaming" ? "Thinking…" : "")}</div>
       {message.status === "streaming" ? (
         <>
-          <span className={styles.caret} aria-hidden="true" />
+          <StreamingCaret inline />
           <span className="sr-only">Assistant is responding</span>
         </>
       ) : null}
@@ -123,7 +103,7 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
 
   return (
     <form
-      className={`${styles.composer} max-[720px]:mb-[max(var(--space-4),env(safe-area-inset-bottom))]`}
+      className={`${styles.composer} max-mobile:mb-[max(var(--space-4),env(safe-area-inset-bottom))]`}
       onSubmit={submit}
     >
       <label className="sr-only" htmlFor={inputId}>
@@ -184,29 +164,21 @@ export function ChatPanel({ initialPrompt, modal, onClose, sessionId }: ChatPane
       onClose()
       return
     }
-    if (modal) trapFocus(event)
+    if (modal) trapFocus(event, event.currentTarget)
   }
 
   return (
     <>
-      {modal ? (
-        <button
-          className="fixed inset-0 z-[21] border-0 bg-[var(--theme-surface-scrim)]"
-          type="button"
-          aria-hidden="true"
-          tabIndex={-1}
-          onClick={onClose}
-        />
-      ) : null}
+      {modal ? <Scrim className="z-[21]" onClick={onClose} /> : null}
       <aside
-        className={`${styles.panel} relative z-[6] flex h-full w-[var(--layout-chat-width)] min-w-0 flex-[0_0_var(--layout-chat-width)] flex-col overflow-hidden bg-[var(--theme-surface-navigation)] max-[1100px]:fixed max-[1100px]:inset-y-0 max-[1100px]:right-0 max-[1100px]:z-[22] max-[1100px]:h-svh max-[1100px]:bg-[var(--theme-surface-navigation-solid)] max-[720px]:left-0 max-[720px]:w-full max-[720px]:flex-[0_0_auto]`}
+        className={`${styles.panel} relative z-[6] flex h-full w-[var(--chat-panel-width)] min-w-0 flex-[0_0_var(--chat-panel-width)] flex-col overflow-hidden bg-[var(--theme-surface-navigation)] max-chat:fixed max-chat:inset-y-0 max-chat:right-0 max-chat:z-[22] max-chat:h-svh max-chat:bg-[var(--theme-surface-navigation-solid)] max-mobile:left-0 max-mobile:w-full max-mobile:flex-[0_0_auto]`}
         aria-label="Chat about this summary"
         aria-modal={modal || undefined}
         role="dialog"
         onKeyDown={handleKeyDown}
       >
         <header
-          className={`${styles.header} max-[720px]:pt-[max(var(--space-2),env(safe-area-inset-top))]`}
+          className={`${styles.header} max-mobile:pt-[max(var(--space-2),env(safe-area-inset-top))]`}
         >
           <div>
             <span aria-hidden="true">✦</span>

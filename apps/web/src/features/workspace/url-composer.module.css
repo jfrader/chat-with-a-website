@@ -1,25 +1,25 @@
 .composer {
+  --url-composer-field-width: 320px;
+  --url-composer-action-width: 108px;
+  --url-composer-border-idle: linear-gradient(180deg, rgb(255 255 255 / 20%), transparent);
+  --url-composer-shadow-idle: inset 0 -1px rgb(255 255 255 / 20%);
+  --url-composer-shadow-action:
+    0 17px 36px rgb(0 0 0 / 10%), 0 66px 66px rgb(0 0 0 / 9%),
+    inset 0 -4px 12px rgb(255 255 255 / 15%), inset 0 -12px 36px rgb(255 255 255 / 15%),
+    inset 0 4px 8px rgb(255 255 255 / 10%), inset 0 -1px rgb(255 255 255 / 25%),
+    inset 0 0 12px rgb(255 255 255 / 30%);
+  --url-composer-hover-brightness: 1.12;
+  --url-composer-active-scale: 0.98;
+  --url-composer-hover-transform: translateY(calc(var(--space-px) * -1));
+  --url-composer-active-transform: translateY(var(--space-0))
+    scale(var(--url-composer-active-scale));
+
   position: relative;
   z-index: 1;
 }
 
 .field {
   position: relative;
-}
-
-.submit::before {
-  content: "";
-  position: absolute;
-  inset: var(--space-0);
-  padding: var(--space-px);
-  border-radius: inherit;
-  background: var(--theme-gradient-border);
-  pointer-events: none;
-  -webkit-mask:
-    var(--theme-mask-solid) content-box,
-    var(--theme-mask-solid);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
 }
 
 .inputIcon {
@@ -36,13 +36,15 @@
 }
 
 .submit {
+  --gradient-border-background: var(--url-composer-border-idle);
+
   position: relative;
   height: var(--control-height);
   border: var(--border-transparent);
   border-radius: var(--radius-control);
   color: var(--theme-text-disabled);
   background: var(--theme-gradient-control-idle);
-  box-shadow: var(--theme-shadow-control-idle);
+  box-shadow: var(--url-composer-shadow-idle);
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-body);
@@ -55,10 +57,6 @@
     box-shadow var(--motion-duration-standard) var(--motion-easing-standard);
 }
 
-.submit::before {
-  background: var(--theme-gradient-border-idle);
-}
-
 .submit span {
   position: relative;
   z-index: 1;
@@ -67,17 +65,17 @@
 .submit:not(:disabled) {
   color: var(--theme-text-primary);
   background: var(--theme-gradient-action);
-  box-shadow: var(--theme-shadow-action);
+  box-shadow: var(--url-composer-shadow-action);
   cursor: pointer;
 }
 
 .submit:not(:disabled):hover {
-  filter: brightness(var(--brightness-action-hover));
-  transform: var(--transform-action-hover);
+  filter: brightness(var(--url-composer-hover-brightness));
+  transform: var(--url-composer-hover-transform);
 }
 
 .submit:not(:disabled):active {
-  transform: var(--transform-action-active);
+  transform: var(--url-composer-active-transform);
 }
 
 .error {

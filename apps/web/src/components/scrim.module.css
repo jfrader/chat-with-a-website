@@ -1,0 +1,6 @@
+.scrim {
+  position: fixed;
+  inset: var(--space-0);
+  border: var(--border-none);
+  background: var(--theme-surface-scrim);
+}

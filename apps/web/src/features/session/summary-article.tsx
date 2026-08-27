@@ -1,14 +1,10 @@
-import type { SessionDto, SessionStage } from "@profound/contracts"
+import type { SessionDto } from "@profound/contracts"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { ActiveStatusDot, StreamingCaret } from "../../components/activity-indicator"
+import { stageLabels } from "./session-labels"
 import { useSession } from "./session-queries"
 import styles from "./summary-article.module.css"
-
-const stageLabels: Record<SessionStage, string> = {
-  fetching: "Fetching the webpage",
-  extracting: "Extracting readable content",
-  summarizing: "Generating the summary",
-}
 
 const suggestions = [
   "What are the three most important takeaways?",
@@ -53,7 +49,7 @@ function SummaryHeader({ session }: { session: SessionDto }) {
         ) : null}
       </div>
       <h1
-        className="text-[var(--font-size-title)] leading-8 max-[720px]:text-2xl"
+        className="text-[var(--font-size-title)] leading-8 max-mobile:text-2xl"
         id="session-title"
       >
         {title}
@@ -67,9 +63,9 @@ function SummaryProgress({ status }: { status: SessionDto["status"] }) {
   if (status === "complete" || status === "failed") return null
   return (
     <div className={styles.progress} role="status" aria-live="polite">
-      <span className={styles.progressDot} aria-hidden="true" />
+      <ActiveStatusDot />
       <span>{stageLabels[status]}</span>
-      <span className={styles.streamingCaret} aria-hidden="true" />
+      <StreamingCaret />
     </div>
   )
 }
@@ -116,7 +112,7 @@ function FollowUpSuggestions({ onOpenChat }: { onOpenChat: (prompt: string) => v
 function SummaryFooter({ onReset, session }: { onReset: () => void; session: SessionDto }) {
   return (
     <footer
-      className={`${styles.footer} flex flex-row items-center max-[720px]:flex-col max-[720px]:items-start`}
+      className={`${styles.footer} flex flex-row items-center max-mobile:flex-col max-mobile:items-start`}
     >
       <p>
         {session.provider && session.model
@@ -143,7 +139,7 @@ export function SummaryArticle({
 
   return (
     <article
-      className={`${styles.article} h-full w-full max-w-[var(--layout-summary-width)] overflow-y-auto pt-[var(--space-12-5)] pb-24 max-[1335px]:px-8 max-[720px]:px-6 max-[720px]:pt-10 max-[720px]:pb-[var(--space-22)]`}
+      className={`${styles.article} h-full w-full max-w-[var(--workspace-summary-width)] overflow-y-auto pt-[var(--space-12-5)] pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-[var(--space-22)]`}
       aria-labelledby="session-title"
     >
       {session.status === "complete" ? (

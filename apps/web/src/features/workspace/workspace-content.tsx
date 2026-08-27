@@ -1,24 +1,12 @@
 import { useNavigate } from "@tanstack/react-router"
-import { type FormEvent, type RefObject, useRef, useState, useSyncExternalStore } from "react"
+import { type FormEvent, type RefObject, useRef, useState } from "react"
 import { ComposerField, ComposerIconButton } from "../../components/composer-control"
+import { useMediaQuery } from "../../components/use-media-query"
 import { ChatPanel } from "../session/chat-panel"
 import { useCreateSession, useSession } from "../session/session-queries"
 import { SessionWorkspace } from "../session/session-workspace"
 import { UrlComposer } from "./url-composer"
 import styles from "./workspace-shell.module.css"
-
-const chatOverlayQuery = "(max-width: 1100px)"
-
-function subscribeToChatOverlay(onChange: () => void) {
-  if (typeof window.matchMedia !== "function") return () => {}
-  const query = window.matchMedia(chatOverlayQuery)
-  query.addEventListener("change", onChange)
-  return () => query.removeEventListener("change", onChange)
-}
-
-function getChatOverlay() {
-  return typeof window.matchMedia === "function" && window.matchMedia(chatOverlayQuery).matches
-}
 
 interface WorkspaceContentProps {
   historyOpen: boolean
@@ -52,7 +40,7 @@ function SessionChatEntry({ chatOpen, onOpenChat }: SessionChatEntryProps) {
 
   return (
     <form
-      className={`${styles.chatEntry} ${chatOpen ? styles.chatEntryHidden : ""} flex max-[720px]:hidden`}
+      className={`${styles.chatEntry} ${chatOpen ? styles.chatEntryHidden : ""} flex max-mobile:hidden`}
       aria-hidden={chatOpen || undefined}
       inert={chatOpen}
       onSubmit={submit}
@@ -90,7 +78,7 @@ function MobileHeader({
     "grid size-11 cursor-pointer place-items-center border-0 bg-transparent text-[var(--theme-text-primary)]"
 
   return (
-    <header className="relative z-[3] hidden min-h-14 items-center justify-between border-b border-[var(--theme-line-subtle-color)] bg-[var(--theme-surface-navigation-solid)] p-2 max-[720px]:flex">
+    <header className="relative z-[3] hidden min-h-14 items-center justify-between border-b border-[var(--theme-line-subtle-color)] bg-[var(--theme-surface-navigation-solid)] p-2 max-mobile:flex">
       <button
         ref={historyTriggerRef}
         className={buttonClass}
@@ -139,16 +127,16 @@ function EmptyWorkspace({
       <MobileHeader historyTriggerRef={historyTriggerRef} onOpenHistory={onOpenHistory} />
       <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
         <section
-          className="absolute top-[calc(50%-var(--layout-prompt-offset))] left-1/2 w-[min(var(--layout-prompt-max-width),calc(100%-var(--space-12)))] -translate-x-1/2 -translate-y-1/2 max-[720px]:top-[calc(50%-var(--layout-prompt-mobile-offset))] max-[720px]:w-[min(var(--layout-prompt-max-width),calc(100%-var(--space-8)))] max-[600px]:top-1/2"
+          className="absolute top-[calc(50%-var(--workspace-prompt-offset))] left-1/2 w-[min(var(--workspace-prompt-max-width),calc(100%-var(--space-12)))] -translate-x-1/2 -translate-y-1/2 max-mobile:top-[calc(50%-var(--workspace-prompt-mobile-offset))] max-mobile:w-[min(var(--workspace-prompt-max-width),calc(100%-var(--space-8)))] max-compact:top-1/2"
           aria-labelledby="workspace-heading"
         >
           <div
-            className={`${styles.glow} absolute top-[var(--layout-empty-glow-offset)] left-1/2 z-[-1] h-[var(--layout-glow-height)] w-[var(--layout-glow-width)] max-w-none -translate-x-1/2 pointer-events-none select-none max-[600px]:h-[var(--layout-glow-mobile-height)] max-[600px]:w-[var(--layout-glow-mobile-width)]`}
+            className={`${styles.glow} absolute top-[var(--workspace-empty-glow-offset)] left-1/2 z-[-1] h-[var(--workspace-glow-height)] w-[var(--workspace-glow-width)] max-w-none -translate-x-1/2 pointer-events-none select-none max-compact:h-[var(--workspace-glow-mobile-height)] max-compact:w-[var(--workspace-glow-mobile-width)]`}
             aria-hidden="true"
           />
-          <div className={`${styles.copy} mb-10 max-[600px]:mb-8`}>
+          <div className={`${styles.copy} mb-10 max-compact:mb-8`}>
             <h1 id="workspace-heading">Let’s get to it</h1>
-            <p className="max-w-none text-lg leading-6 max-[720px]:max-w-[var(--layout-copy-max-width)] max-[720px]:text-base max-[720px]:leading-[var(--line-height-mobile-copy)]">
+            <p className="max-w-none text-lg leading-6 max-mobile:max-w-[var(--workspace-copy-max-width)] max-mobile:text-base max-mobile:leading-[var(--workspace-mobile-copy-line-height)]">
               Paste a URL to summarize and understand any content instantly
             </p>
           </div>
@@ -167,7 +155,7 @@ function SelectedWorkspace({
 }: Required<WorkspaceContentProps>) {
   const navigate = useNavigate()
   const detail = useSession(sessionId)
-  const chatOverlay = useSyncExternalStore(subscribeToChatOverlay, getChatOverlay, () => false)
+  const chatOverlay = useMediaQuery("(max-width: 1100px)")
   const [chatOpen, setChatOpen] = useState(false)
   const [suggestedPrompt, setSuggestedPrompt] = useState<string>()
   const chatTriggerRef = useRef<HTMLElement>(null)

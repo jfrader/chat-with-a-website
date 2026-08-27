@@ -1,6 +1,8 @@
 import type { SessionDto } from "@profound/contracts"
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { type KeyboardEvent, useDeferredValue, useRef, useState } from "react"
+import { Scrim } from "../../components/scrim"
+import { trapFocus } from "../../components/trap-focus"
 import { useDeleteSession, useSessions } from "../session/session-queries"
 import styles from "./history-navigation.module.css"
 
@@ -26,29 +28,6 @@ function filenameFor(session: SessionDto) {
   return `${base || "summary"}.md`
 }
 
-function trapFocus(event: KeyboardEvent<HTMLElement>, container: HTMLElement) {
-  if (event.key !== "Tab") return
-  const focusable = Array.from(
-    container.querySelectorAll<HTMLElement>(
-      'button:not([disabled]):not([aria-hidden="true"]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
-    ),
-  )
-  const first = focusable.at(0)
-  const last = focusable.at(-1)
-  if (!first || !last) return
-
-  if (!container.contains(document.activeElement)) {
-    event.preventDefault()
-    ;(event.shiftKey ? last : first).focus()
-  } else if (event.shiftKey && document.activeElement === first) {
-    event.preventDefault()
-    last.focus()
-  } else if (!event.shiftKey && document.activeElement === last) {
-    event.preventDefault()
-    first.focus()
-  }
-}
-
 interface HistoryHeaderProps extends HistoryNavigationProps {
   collapsed: boolean
   onToggle: () => void
@@ -57,13 +36,13 @@ interface HistoryHeaderProps extends HistoryNavigationProps {
 function HistoryHeader({ collapsed, mobileOpen, onCloseMobile, onToggle }: HistoryHeaderProps) {
   return (
     <header
-      className={`${styles.header} relative z-[2] flex h-16 w-full items-center justify-between border-b border-[var(--theme-line-subtle-color)] px-6 py-4 max-[720px]:h-12 max-[720px]:border-b-0 max-[720px]:px-4 max-[720px]:py-2`}
+      className={`${styles.header} relative z-[2] flex h-16 w-full items-center justify-between border-b border-[var(--theme-line-subtle-color)] px-6 py-4 max-mobile:h-12 max-mobile:border-b-0 max-mobile:px-4 max-mobile:py-2`}
     >
       <img className={styles.logo} src="/assets/profound-mark.svg" alt="Profound" />
       {mobileOpen ? (
         <button
           ref={(node) => node?.focus()}
-          className={`${styles.mobileClose} hidden max-[720px]:grid`}
+          className={`${styles.mobileClose} hidden max-mobile:grid`}
           type="button"
           onClick={onCloseMobile}
           aria-label="Close summary history"
@@ -72,7 +51,7 @@ function HistoryHeader({ collapsed, mobileOpen, onCloseMobile, onToggle }: Histo
         </button>
       ) : null}
       <button
-        className={`${styles.toggle} grid max-[720px]:hidden`}
+        className={`${styles.toggle} grid max-mobile:hidden`}
         type="button"
         aria-controls="summary-history-content"
         aria-expanded={!collapsed}
@@ -208,6 +187,9 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
     finishSummaryAction("Markdown downloaded")
   }
 
+  const statusClass =
+    session.status === "complete" || session.status === "failed" ? styles[session.status] : ""
+
   return (
     <article
       className={`${styles.sessionCard} ${selected ? styles.selected : ""}`}
@@ -233,7 +215,7 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
         <span className={styles.sessionDescription}>
           {session.description ?? session.originalUrl}
         </span>
-        <span className={`${styles.status} ${styles[session.status]}`}>
+        <span className={`${styles.status} ${statusClass}`}>
           <span aria-hidden="true" />
           {statusLabels[session.status]}
         </span>
@@ -315,7 +297,7 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
 
   return (
     <div
-      className={`${styles.content} absolute inset-x-0 top-16 bottom-28 flex flex-col px-4 py-5 max-[720px]:top-12 max-[720px]:px-3`}
+      className={`${styles.content} absolute inset-x-0 top-16 bottom-28 flex flex-col px-4 py-5 max-mobile:top-12 max-mobile:px-3`}
       id="summary-history-content"
       aria-hidden={hidden}
       inert={hidden}
@@ -381,8 +363,8 @@ export function HistoryNavigation({ mobileOpen, onCloseMobile }: HistoryNavigati
   const navigation = useRef<HTMLDivElement>(null)
   const collapsedClass = collapsed && !mobileOpen ? styles.collapsed : ""
   const mobileClass = mobileOpen
-    ? "max-[720px]:visible max-[720px]:translate-x-0"
-    : "max-[720px]:invisible max-[720px]:-translate-x-full"
+    ? "max-mobile:visible max-mobile:translate-x-0"
+    : "max-mobile:invisible max-mobile:-translate-x-full"
 
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (!mobileOpen || !navigation.current) return
@@ -394,7 +376,7 @@ export function HistoryNavigation({ mobileOpen, onCloseMobile }: HistoryNavigati
     trapFocus(event, navigation.current)
   }
 
-  const className = `${styles.navigation} ${collapsedClass} ${mobileClass} relative z-[5] h-full w-80 min-w-0 flex-[0_0_20rem] overflow-hidden border-r border-[var(--theme-line-subtle-color)] bg-[var(--theme-surface-navigation)] max-[720px]:fixed max-[720px]:inset-y-0 max-[720px]:left-0 max-[720px]:z-[21] max-[720px]:h-svh max-[720px]:w-[min(var(--layout-mobile-drawer-width),100%)] max-[720px]:flex-[0_0_auto] max-[720px]:border-r-0 max-[720px]:bg-[var(--theme-surface-navigation-solid)]`
+  const className = `${styles.navigation} ${collapsedClass} ${mobileClass} relative z-[5] h-full w-80 min-w-0 flex-[0_0_20rem] overflow-hidden border-r border-[var(--theme-line-subtle-color)] bg-[var(--theme-surface-navigation)] max-mobile:fixed max-mobile:inset-y-0 max-mobile:left-0 max-mobile:z-[21] max-mobile:h-svh max-mobile:w-[min(var(--history-mobile-drawer-width),100%)] max-mobile:flex-[0_0_auto] max-mobile:border-r-0 max-mobile:bg-[var(--theme-surface-navigation-solid)]`
   const content = (
     <>
       <HistoryHeader
@@ -433,13 +415,7 @@ export function HistoryNavigation({ mobileOpen, onCloseMobile }: HistoryNavigati
 
   return (
     <>
-      <button
-        className={`${styles.scrim} fixed inset-0 z-20 hidden h-full w-full border-0 max-[720px]:block`}
-        type="button"
-        aria-hidden="true"
-        tabIndex={-1}
-        onClick={onCloseMobile}
-      />
+      <Scrim className="z-20 hidden max-mobile:block" onClick={onCloseMobile} />
       <div
         ref={navigation}
         className={className}

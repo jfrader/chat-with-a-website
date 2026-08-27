@@ -3,6 +3,23 @@
   --composer-field-padding: var(--space-0) var(--space-4);
   --composer-field-font-size: var(--font-size-body);
   --composer-field-placeholder-color: var(--theme-text-disabled);
+  --composer-field-background: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 11%),
+    rgb(255 255 255 / 16%)
+  );
+  --composer-field-focus-border: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 58%),
+    rgb(203 114 255 / 24%)
+  );
+  --composer-field-invalid-shadow:
+    0 0 0 1px rgb(255 93 97 / 75%), 0 17px 36px rgb(0 0 0 / 10%),
+    inset 0 -1px rgb(255 255 255 / 20%);
+  --composer-field-autofill-shadow: 0 0 0 1000px transparent inset;
+  --composer-field-autofill-duration: 9999s;
+  --composer-field-easing-out: ease-out;
+  --composer-field-textarea-max-height: 120px;
 
   position: relative;
   width: 100%;
@@ -15,32 +32,17 @@
   padding: var(--composer-field-padding);
   border: var(--border-transparent);
   border-radius: var(--radius-control);
-  background: var(--theme-gradient-control);
+  background: var(--composer-field-background);
   box-shadow: var(--theme-shadow-control);
   transition: box-shadow var(--motion-duration-standard) var(--motion-easing-standard);
 }
 
-.field::before {
-  content: "";
-  position: absolute;
-  inset: var(--space-0);
-  padding: var(--space-px);
-  border-radius: inherit;
-  background: var(--theme-gradient-border);
-  pointer-events: none;
-  -webkit-mask:
-    var(--theme-mask-solid) content-box,
-    var(--theme-mask-solid);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-}
-
-.field:has(> :is(input, textarea):focus-visible)::before {
-  background: var(--theme-gradient-border-focus);
+.field:has(> :is(input, textarea):focus-visible) {
+  --gradient-border-background: var(--composer-field-focus-border);
 }
 
 .field:has(> :is(input, textarea)[aria-invalid="true"]) {
-  box-shadow: var(--theme-shadow-control-invalid);
+  box-shadow: var(--composer-field-invalid-shadow);
 }
 
 .field > :is(input, textarea) {
@@ -73,8 +75,9 @@
 .field > input:-webkit-autofill:hover,
 .field > input:-webkit-autofill:focus {
   -webkit-text-fill-color: var(--theme-text-primary);
-  box-shadow: var(--theme-shadow-autofill);
-  transition: background-color var(--motion-duration-autofill) var(--motion-easing-out);
+  box-shadow: var(--composer-field-autofill-shadow);
+  transition: background-color var(--composer-field-autofill-duration)
+    var(--composer-field-easing-out);
 }
 
 .multiline {
@@ -88,7 +91,7 @@
 }
 
 .multiline > textarea {
-  max-height: var(--control-chat-input-max-height);
+  max-height: var(--composer-field-textarea-max-height);
   resize: none;
   padding: var(--space-2) var(--space-0);
 }

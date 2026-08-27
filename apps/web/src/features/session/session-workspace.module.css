@@ -6,7 +6,26 @@
 }
 
 .generating {
+  --session-generating-inline-padding: 322px;
+  --session-generating-transition-offset: 240px;
+  --session-generation-glow-top: 661px;
+  --session-generation-glow-offset-x: -7px;
+  --session-source-background: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 7%),
+    rgb(255 255 255 / 10%)
+  );
+  --session-source-blur: 3.5px;
+  --session-title-blur: 1.5px;
+  --session-title-blur-start: 2px;
+  --session-title-blur-end: 1px;
+  --session-generating-duration: 1.8s;
+
   overflow: hidden;
+}
+
+.failed {
+  --session-failure-action-min-width: 168px;
 }
 
 .generatingTitle {
@@ -21,23 +40,23 @@
 .blurredTitle {
   position: absolute;
   top: var(--space-0);
-  left: var(--layout-generating-transition-offset);
-  filter: blur(var(--blur-transition));
+  left: var(--session-generating-transition-offset);
+  filter: blur(var(--session-title-blur));
   white-space: nowrap;
-  animation: resolve-title var(--motion-duration-generating) var(--motion-easing-in-out) infinite
+  animation: resolve-title var(--session-generating-duration) var(--motion-easing-in-out) infinite
     alternate;
 }
 
 .glow {
   position: absolute;
   z-index: -1;
-  top: var(--layout-generation-glow-top);
-  left: calc(50% + var(--layout-generation-glow-offset-x));
-  width: var(--layout-glow-width);
-  height: var(--layout-glow-height);
+  top: var(--session-generation-glow-top);
+  left: calc(50% + var(--session-generation-glow-offset-x));
+  width: var(--workspace-glow-width);
+  height: var(--workspace-glow-height);
   max-width: none;
-  transform: var(--transform-center-x);
-  background: var(--theme-composer-glow);
+  transform: var(--workspace-center-x);
+  background: var(--workspace-composer-glow);
   pointer-events: none;
   user-select: none;
 }
@@ -45,38 +64,23 @@
 .sourcePill {
   position: absolute;
   left: 50%;
-  max-width: min(var(--layout-prompt-max-width), calc(100% - var(--space-12)));
+  max-width: min(var(--workspace-prompt-max-width), calc(100% - var(--space-12)));
   height: var(--control-height);
   display: flex;
   align-items: center;
   overflow: hidden;
   padding: var(--space-0) var(--space-6);
-  transform: var(--transform-center-x);
+  transform: var(--workspace-center-x);
   border: var(--border-transparent);
   border-radius: var(--radius-pill);
   color: var(--theme-text-primary);
-  background: var(--theme-gradient-source);
+  background: var(--session-source-background);
   box-shadow: var(--theme-shadow-control);
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
   text-overflow: ellipsis;
   white-space: nowrap;
-  backdrop-filter: blur(var(--blur-source));
-}
-
-.sourcePill::before {
-  content: "";
-  position: absolute;
-  inset: var(--space-0);
-  padding: var(--space-px);
-  border-radius: inherit;
-  background: var(--theme-gradient-border);
-  pointer-events: none;
-  -webkit-mask:
-    var(--theme-mask-solid) content-box,
-    var(--theme-mask-solid);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
+  backdrop-filter: blur(var(--session-source-blur));
 }
 
 .stage {
@@ -89,16 +93,8 @@
   line-height: var(--line-height-label);
 }
 
-.stage > span {
-  width: var(--status-dot-size);
-  height: var(--status-dot-size);
-  border-radius: var(--radius-pill);
-  background: var(--theme-status-active);
-  box-shadow: var(--theme-shadow-status);
-}
-
 .failed {
-  width: min(var(--layout-prompt-max-width), calc(100% - var(--space-12)));
+  width: min(var(--workspace-prompt-max-width), calc(100% - var(--space-12)));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -122,7 +118,7 @@
 }
 
 .failed > p:not(.failureLabel) {
-  max-width: var(--layout-copy-max-width);
+  max-width: var(--workspace-copy-max-width);
   margin: var(--space-3) var(--space-0) var(--space-7);
   color: var(--theme-text-secondary);
   font-size: var(--font-size-body);
@@ -130,7 +126,7 @@
 }
 
 .failed button {
-  min-width: var(--control-failure-action-min-width);
+  min-width: var(--session-failure-action-min-width);
   padding: var(--space-3-75) var(--space-6);
   border: var(--border-strong);
   border-radius: var(--radius-pill);
@@ -142,12 +138,12 @@
 @keyframes resolve-title {
   from {
     opacity: var(--opacity-transition-start);
-    filter: blur(var(--blur-transition-start));
+    filter: blur(var(--session-title-blur-start));
   }
 
   to {
     opacity: var(--opacity-visible);
-    filter: blur(var(--blur-transition-end));
+    filter: blur(var(--session-title-blur-end));
   }
 }
 

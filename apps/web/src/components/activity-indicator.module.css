@@ -1,0 +1,40 @@
+.statusDot {
+  --activity-dot-size: 6px;
+  --activity-dot-shadow: 0 0 14px rgb(182 106 240 / 75%);
+
+  width: var(--activity-dot-size);
+  height: var(--activity-dot-size);
+  border-radius: var(--radius-pill);
+  background: var(--theme-status-active);
+  box-shadow: var(--activity-dot-shadow);
+}
+
+.streamingCaret {
+  --streaming-caret-height: var(--line-height-compact);
+  --streaming-caret-duration: 900ms;
+
+  width: var(--space-px);
+  height: var(--streaming-caret-height);
+  display: inline-block;
+  background: var(--theme-focus-ring);
+  animation: streaming-caret var(--streaming-caret-duration) steps(1) infinite;
+}
+
+.inlineCaret {
+  --streaming-caret-height: var(--line-height-label);
+
+  margin-left: var(--space-1);
+  vertical-align: text-bottom;
+}
+
+@keyframes streaming-caret {
+  50% {
+    opacity: var(--opacity-hidden);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streamingCaret {
+    animation: none;
+  }
+}

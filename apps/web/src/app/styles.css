@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+@custom-variant max-content (@media (width <= 1335px));
+@custom-variant max-chat (@media (width <= 1100px));
+@custom-variant max-mobile (@media (width <= 720px));
+@custom-variant max-compact (@media (width <= 600px));
+
 :root {
   --theme-surface-app: #000;
   --theme-surface-navigation: rgb(0 0 0 / 30%);
@@ -23,64 +28,19 @@
   --theme-focus-ring: #cb72ff;
   --theme-line-subtle-color: rgb(255 255 255 / 10%);
   --theme-line-strong-color: rgb(255 255 255 / 50%);
-  --theme-mask-color: #fff;
   --theme-scrollbar-thumb: rgb(255 255 255 / 18%);
-  --theme-gradient-control: linear-gradient(180deg, rgb(255 255 255 / 11%), rgb(255 255 255 / 16%));
   --theme-gradient-control-idle: linear-gradient(
     180deg,
     rgb(255 255 255 / 6%),
     rgb(255 255 255 / 12%)
   );
-  --theme-gradient-source: linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 10%));
   --theme-gradient-action: linear-gradient(180deg, rgb(120 50 160 / 40%), rgb(192 138 226 / 40%));
-  --theme-gradient-session-card: linear-gradient(
-    120deg,
-    rgb(120 50 160 / 18%),
-    rgb(255 255 255 / 7%)
-  );
-  --theme-gradient-chat-message: linear-gradient(
-    150deg,
-    rgb(120 50 160 / 24%),
-    rgb(255 255 255 / 8%)
-  );
-  --theme-gradient-skeleton: linear-gradient(
-    100deg,
-    rgb(255 255 255 / 4%),
-    rgb(255 255 255 / 9%),
-    rgb(255 255 255 / 4%)
-  );
   --theme-gradient-border: linear-gradient(180deg, rgb(255 255 255 / 30%), transparent);
-  --theme-gradient-border-focus: linear-gradient(
-    180deg,
-    rgb(255 255 255 / 58%),
-    rgb(203 114 255 / 24%)
-  );
-  --theme-gradient-border-idle: linear-gradient(180deg, rgb(255 255 255 / 20%), transparent);
-  --theme-mask-solid: linear-gradient(var(--theme-mask-color) 0 0);
   --theme-shadow-control:
     0 17px 36px rgb(0 0 0 / 10%), 0 66px 66px rgb(0 0 0 / 9%), inset 0 -1px rgb(255 255 255 / 20%);
-  --theme-shadow-control-invalid:
-    0 0 0 1px rgb(255 93 97 / 75%), 0 17px 36px rgb(0 0 0 / 10%),
-    inset 0 -1px rgb(255 255 255 / 20%);
-  --theme-shadow-control-idle: inset 0 -1px rgb(255 255 255 / 20%);
-  --theme-shadow-action:
-    0 17px 36px rgb(0 0 0 / 10%), 0 66px 66px rgb(0 0 0 / 9%),
-    inset 0 -4px 12px rgb(255 255 255 / 15%), inset 0 -12px 36px rgb(255 255 255 / 15%),
-    inset 0 4px 8px rgb(255 255 255 / 10%), inset 0 -1px rgb(255 255 255 / 25%),
-    inset 0 0 12px rgb(255 255 255 / 30%);
-  --theme-shadow-action-compact:
-    inset 0 -4px 12px rgb(255 255 255 / 15%), inset 0 0 12px rgb(255 255 255 / 30%);
-  --theme-shadow-autofill: 0 0 0 1000px transparent inset;
-  --theme-shadow-menu: 0 16px 40px rgb(0 0 0 / 55%);
-  --theme-shadow-dialog: 0 28px 90px rgb(0 0 0 / 70%);
-  --theme-shadow-status: 0 0 14px rgb(182 106 240 / 75%);
-  --theme-workspace-background:
-    url("/assets/workspace-background.svg") center top / 100% 100% no-repeat;
-  --theme-composer-glow: url("/assets/url-composer-glow.svg") center / 100% 100% no-repeat;
 
   --space-0: 0;
   --space-px: 1px;
-  --space-0-5: 2px;
   --space-1: 4px;
   --space-1-5: 6px;
   --space-2: 8px;
@@ -98,57 +58,20 @@
   --space-15: 60px;
   --space-18: 72px;
   --space-22: 88px;
-  --space-24: 96px;
   --space-25: 100px;
-  --space-28: 112px;
   --space-30: 120px;
   --space-40: 160px;
 
   --layout-viewport-min-width: 320px;
-  --layout-sidebar-width: 320px;
-  --layout-sidebar-collapsed-width: 48px;
-  --layout-sidebar-active-header-height: 64px;
-  --layout-summary-width: 656px;
-  --layout-chat-width: 400px;
-  --layout-chat-message-width: 280px;
-  --layout-chat-entry-width: 480px;
-  --layout-dialog-width: 420px;
-  --layout-mobile-drawer-width: 320px;
-  --layout-session-menu-width: 168px;
-  --layout-prompt-max-width: 560px;
-  --layout-copy-max-width: 420px;
-  --layout-reference-background-height: 954px;
-  --layout-generating-inline-padding: 322px;
-  --layout-generating-transition-offset: 240px;
-  --layout-generation-glow-top: 661px;
-  --layout-generation-glow-offset-x: -7px;
-  --layout-glow-width: 766px;
-  --layout-glow-height: 492px;
-  --layout-glow-mobile-width: 680px;
-  --layout-glow-mobile-height: 438px;
-  --layout-prompt-offset: 56px;
-  --layout-prompt-mobile-offset: 24px;
-  --layout-empty-glow-offset: -106px;
 
-  --control-composer-field-width: 320px;
-  --control-composer-action-width: 108px;
   --control-height: 52px;
-  --control-history-action-height: 48px;
-  --control-mobile-header-height: 56px;
   --control-touch-target: 44px;
-  --control-chat-input-max-height: 120px;
-  --control-history-card-min-height: 128px;
-  --control-history-skeleton-height: 92px;
-  --control-failure-action-min-width: 168px;
   --icon-size-xs: 12px;
   --icon-size-sm: 16px;
   --icon-size-md: 24px;
   --icon-size-lg: 32px;
-  --status-dot-size: 6px;
 
   --radius-card: 8px;
-  --radius-chat-message: 18px;
-  --radius-small: 5px;
   --radius-control: 26px;
   --radius-pill: 1000px;
 
@@ -166,8 +89,6 @@
   --line-height-label: 18px;
   --line-height-body: 20px;
   --line-height-reading: 22px;
-  --line-height-mobile-copy: 23px;
-  --line-height-copy: 24px;
   --line-height-title: 32px;
   --line-height-display: 36px;
   --line-height-longform: 1.6;
@@ -176,45 +97,18 @@
   --tracking-title: -0.25px;
   --tracking-label: 0.08em;
 
-  --motion-duration-quick: 100ms;
-  --motion-duration-logo: 120ms;
   --motion-duration-standard: 160ms;
-  --motion-duration-layout: 180ms;
-  --motion-duration-generating: 1.8s;
-  --motion-duration-spinner: 900ms;
-  --motion-duration-skeleton: 1.4s;
-  --motion-duration-caret: 900ms;
-  --motion-duration-autofill: 9999s;
   --motion-easing-standard: ease;
   --motion-easing-in-out: ease-in-out;
-  --motion-easing-out: ease-out;
-  --blur-source: 3.5px;
   --blur-control: 18px;
-  --blur-transition: 1.5px;
-  --blur-transition-start: 2px;
-  --blur-transition-end: 1px;
-  --brightness-icon-hover: 1.55;
-  --brightness-action-hover: 1.12;
-  --scale-action-active: 0.98;
   --opacity-transition-start: 0.64;
   --opacity-hidden: 0;
   --opacity-visible: 1;
-  --transform-center: translate(-50%, -50%);
-  --transform-center-x: translateX(-50%);
-  --transform-history-collapsed: rotate(180deg);
-  --transform-action-hover: translateY(calc(var(--space-px) * -1));
-  --transform-action-active: translateY(var(--space-0)) scale(var(--scale-action-active));
-  --transform-spinner: rotate(360deg);
-  --transform-drawer-closed: translateX(-100%);
-  --transform-drawer-open: translateX(0);
-  --transform-chat-closed: translateX(100%);
-  --transform-chat-open: translateX(0);
 
   --border-none: 0;
   --border-transparent: 1px solid transparent;
   --border-subtle: 1px solid var(--theme-line-subtle-color);
   --border-strong: 1px solid var(--theme-line-strong-color);
-  --border-loader: 2px solid var(--theme-line-subtle-color);
   --border-accent: 2px solid var(--theme-focus-ring);
   --font-family-mono: ui-monospace, "SFMono-Regular", Consolas, monospace;
   --focus-outline: 2px solid var(--theme-focus-ring);

@@ -77,21 +77,6 @@
   font-size: var(--font-size-label);
 }
 
-.progressDot {
-  width: var(--status-dot-size);
-  height: var(--status-dot-size);
-  border-radius: var(--radius-pill);
-  background: var(--theme-status-active);
-  box-shadow: var(--theme-shadow-status);
-}
-
-.streamingCaret {
-  width: var(--space-px);
-  height: var(--line-height-compact);
-  background: var(--theme-focus-ring);
-  animation: caret var(--motion-duration-caret) steps(1) infinite;
-}
-
 .summary {
   margin-top: var(--space-8);
   color: var(--theme-text-primary);
@@ -215,16 +200,7 @@
   font-size: var(--font-size-caption);
 }
 
-@keyframes caret {
-  50% {
-    opacity: var(--opacity-hidden);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .streamingCaret {
-    animation: none;
-  }
   .footer button,
   .suggestionList button {
     transition: none;
