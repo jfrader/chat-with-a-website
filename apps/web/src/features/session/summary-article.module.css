@@ -45,17 +45,6 @@
   line-height: var(--line-height-longform);
 }
 
-.actions {
-  min-width: var(--space-0);
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-top: var(--space-5);
-  padding: var(--space-0);
-  border: var(--border-none);
-}
-
-.actions button,
 .footer button,
 .suggestionList button {
   min-height: var(--control-touch-target);
@@ -72,19 +61,11 @@
     background var(--motion-duration-standard) var(--motion-easing-standard);
 }
 
-.actions button:hover,
 .footer button:hover,
 .suggestionList button:hover {
   border-color: var(--theme-line-strong-color);
   color: var(--theme-text-primary);
   background: var(--theme-surface-hover);
-}
-
-.actionFeedback {
-  min-height: var(--line-height-compact);
-  margin-top: var(--space-2);
-  color: var(--theme-text-secondary);
-  font-size: var(--font-size-caption);
 }
 
 .progress {
@@ -244,7 +225,6 @@
   .streamingCaret {
     animation: none;
   }
-  .actions button,
   .footer button,
   .suggestionList button {
     transition: none;

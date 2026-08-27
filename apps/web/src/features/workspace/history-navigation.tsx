@@ -17,6 +17,15 @@ const statusLabels: Record<SessionDto["status"], string> = {
   failed: "Failed",
 }
 
+function filenameFor(session: SessionDto) {
+  const base = (session.title ?? session.host)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 72)
+  return `${base || "summary"}.md`
+}
+
 function trapFocus(event: KeyboardEvent<HTMLElement>, container: HTMLElement) {
   if (event.key !== "Tab") return
   const focusable = Array.from(
@@ -161,12 +170,42 @@ interface SessionCardProps {
 function SessionCard({ onSelect, selected, session }: SessionCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+  const [actionFeedback, setActionFeedback] = useState<string>()
   const menuTrigger = useRef<HTMLButtonElement>(null)
 
   function closeActions() {
     setMenuOpen(false)
     setDeleteOpen(false)
     requestAnimationFrame(() => menuTrigger.current?.focus())
+  }
+
+  function finishSummaryAction(message: string) {
+    setActionFeedback(message)
+    setMenuOpen(false)
+    requestAnimationFrame(() => menuTrigger.current?.focus())
+    window.setTimeout(() => setActionFeedback(undefined), 2_000)
+  }
+
+  async function copySummary() {
+    try {
+      await navigator.clipboard.writeText(session.summary)
+      finishSummaryAction("Summary copied")
+    } catch {
+      finishSummaryAction("Copy failed. Select the summary text to copy it manually.")
+    }
+  }
+
+  function downloadSummary() {
+    const title = session.title ?? session.host
+    const sourceUrl = session.finalUrl ?? session.canonicalUrl
+    const markdown = `# ${title}\n\nSource: ${sourceUrl}\n\n${session.summary}\n`
+    const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }))
+    const link = document.createElement("a")
+    link.href = url
+    link.download = filenameFor(session)
+    link.click()
+    URL.revokeObjectURL(url)
+    finishSummaryAction("Markdown downloaded")
   }
 
   return (
@@ -212,7 +251,14 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
       </button>
       {menuOpen ? (
         <div className={styles.menu} id={`session-actions-${session.id}`}>
+          <button type="button" disabled={!session.summary} onClick={() => void copySummary()}>
+            Copy
+          </button>
+          <button type="button" disabled={!session.summary} onClick={downloadSummary}>
+            Download Markdown
+          </button>
           <button
+            className={styles.dangerAction}
             type="button"
             onClick={() => {
               setMenuOpen(false)
@@ -223,6 +269,9 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
           </button>
         </div>
       ) : null}
+      <span className="sr-only" aria-live="polite">
+        {actionFeedback}
+      </span>
       {deleteOpen ? <DeleteSessionDialog session={session} onClose={closeActions} /> : null}
     </article>
   )

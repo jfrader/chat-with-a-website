@@ -13,3 +13,4 @@
 - Improved stream recovery and cached-data resilience while hardening generated images and streamed chat announcements.
 - Set DeepSeek V4 Flash as the default hosted summarization and chat model.
 - Fixed the mobile chat shortcut so it opens with an empty composer instead of event text.
+- Aligned completed sessions with the supplied design by moving summary actions into history, adding the bottom chat entry, expanding the chat rail, and preserving richer history previews.

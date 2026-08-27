@@ -1,5 +1,5 @@
 import { useNavigate } from "@tanstack/react-router"
-import { type RefObject, useRef, useState, useSyncExternalStore } from "react"
+import { type FormEvent, type RefObject, useRef, useState, useSyncExternalStore } from "react"
 import { ChatPanel } from "../session/chat-panel"
 import { useCreateSession, useSession } from "../session/session-queries"
 import { SessionWorkspace } from "../session/session-workspace"
@@ -31,6 +31,50 @@ interface MobileHeaderProps {
   historyTriggerRef: RefObject<HTMLButtonElement | null>
   onOpenChat?: () => void
   onOpenHistory: () => void
+}
+
+interface SessionChatEntryProps {
+  chatOpen: boolean
+  onOpenChat: (prompt?: string) => void
+}
+
+function SessionChatEntry({ chatOpen, onOpenChat }: SessionChatEntryProps) {
+  const [draft, setDraft] = useState("")
+  const prompt = draft.trim()
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!prompt) return
+    setDraft("")
+    onOpenChat(prompt)
+  }
+
+  return (
+    <form
+      className={`${styles.chatEntry} ${chatOpen ? styles.chatEntryHidden : ""} flex max-[720px]:hidden`}
+      aria-hidden={chatOpen || undefined}
+      inert={chatOpen}
+      onSubmit={submit}
+    >
+      <button type="button" onClick={() => onOpenChat()} aria-label="Open empty chat">
+        <span aria-hidden="true">+</span>
+      </button>
+      <label className="sr-only" htmlFor="session-chat-entry">
+        Ask about this summary
+      </label>
+      <input
+        id="session-chat-entry"
+        type="text"
+        maxLength={4_000}
+        placeholder="Ask me about this summary…"
+        value={draft}
+        onChange={(event) => setDraft(event.target.value)}
+      />
+      <button type="submit" disabled={!prompt} aria-label="Open chat with question">
+        <span aria-hidden="true">↑</span>
+      </button>
+    </form>
+  )
 }
 
 function MobileHeader({
@@ -159,6 +203,9 @@ function SelectedWorkspace({
         />
         <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
           <SessionWorkspace sessionId={sessionId} onOpenChat={openChat} onReset={reset} />
+          {detail.data?.status === "complete" ? (
+            <SessionChatEntry chatOpen={chatOpen} onOpenChat={openChat} />
+          ) : null}
         </main>
       </div>
       {chatOpen && detail.data?.status === "complete" ? (

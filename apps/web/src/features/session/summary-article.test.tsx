@@ -23,13 +23,22 @@ describe("completed summary actions", () => {
     Object.defineProperty(URL, "revokeObjectURL", { configurable: true, value: revokeObjectUrl })
     const click = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {})
 
-    renderApp(createTestApi({ get: async () => session }), `/sessions/${session.id}`)
+    renderApp(
+      createTestApi({
+        list: async () => ({ sessions: [session], nextCursor: null }),
+        get: async () => session,
+      }),
+      `/sessions/${session.id}`,
+    )
 
     expect(await screen.findByText("Summary ready.")).toBeInTheDocument()
+    const menuTrigger = await screen.findByRole("button", { name: `Actions for ${session.title}` })
+    await user.click(menuTrigger)
     await user.click(screen.getByRole("button", { name: "Copy" }))
     expect(writeText).toHaveBeenCalledWith(session.summary)
     expect(screen.getByText("Summary copied")).toBeVisible()
 
+    await user.click(menuTrigger)
     await user.click(screen.getByRole("button", { name: "Download Markdown" }))
     expect(createObjectUrl).toHaveBeenCalledWith(expect.any(Blob))
     expect(click).toHaveBeenCalledOnce()

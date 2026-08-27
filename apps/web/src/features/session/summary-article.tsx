@@ -1,5 +1,4 @@
 import type { SessionDto, SessionStage } from "@profound/contracts"
-import { useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { useSession } from "./session-queries"
@@ -34,39 +33,9 @@ function safeSourceUrl(session: SessionDto) {
   }
 }
 
-function filenameFor(session: SessionDto) {
-  const base = (session.title ?? session.host)
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-|-$/g, "")
-    .slice(0, 72)
-  return `${base || "summary"}.md`
-}
-
-function SummaryHeader({ onOpenChat, session }: { onOpenChat: () => void; session: SessionDto }) {
-  const [copyFeedback, setCopyFeedback] = useState<string>()
+function SummaryHeader({ session }: { session: SessionDto }) {
   const sourceUrl = safeSourceUrl(session)
   const title = session.title ?? session.host
-
-  async function copySummary() {
-    try {
-      await navigator.clipboard.writeText(session.summary)
-      setCopyFeedback("Summary copied")
-    } catch {
-      setCopyFeedback("Copy failed. Select the summary text to copy it manually.")
-    }
-    window.setTimeout(() => setCopyFeedback(undefined), 2_000)
-  }
-
-  function downloadSummary() {
-    const markdown = `# ${title}\n\nSource: ${sourceUrl ?? session.originalUrl}\n\n${session.summary}\n`
-    const url = URL.createObjectURL(new Blob([markdown], { type: "text/markdown;charset=utf-8" }))
-    const link = document.createElement("a")
-    link.href = url
-    link.download = filenameFor(session)
-    link.click()
-    URL.revokeObjectURL(url)
-  }
 
   return (
     <header className={styles.header}>
@@ -90,23 +59,6 @@ function SummaryHeader({ onOpenChat, session }: { onOpenChat: () => void; sessio
         {title}
       </h1>
       {session.description ? <p className={styles.description}>{session.description}</p> : null}
-      <fieldset className={styles.actions}>
-        <legend className="sr-only">Summary actions</legend>
-        <button type="button" onClick={copySummary}>
-          Copy
-        </button>
-        <button type="button" onClick={downloadSummary}>
-          Download Markdown
-        </button>
-        {session.status === "complete" ? (
-          <button type="button" onClick={onOpenChat}>
-            Chat about this
-          </button>
-        ) : null}
-      </fieldset>
-      <p className={styles.actionFeedback} aria-live="polite">
-        {copyFeedback}
-      </p>
     </header>
   )
 }
@@ -199,7 +151,7 @@ export function SummaryArticle({
           Summary ready.
         </p>
       ) : null}
-      <SummaryHeader session={session} onOpenChat={() => onOpenChat()} />
+      <SummaryHeader session={session} />
       <SummaryProgress status={session.status} />
       <SummaryMarkdown streaming={!terminal} summary={session.summary} />
       {connectionError ? (

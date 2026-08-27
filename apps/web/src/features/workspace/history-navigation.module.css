@@ -158,7 +158,17 @@
   font-size: var(--font-size-caption);
   line-height: var(--line-height-compact);
   text-overflow: ellipsis;
+}
+
+.sessionUrl {
   white-space: nowrap;
+}
+
+.sessionDescription {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .status {
@@ -201,6 +211,7 @@
   z-index: 4;
   top: var(--space-10);
   right: var(--space-2);
+  width: var(--layout-session-menu-width);
   padding: var(--space-1);
   border: var(--border-subtle);
   border-radius: var(--radius-card);
@@ -209,11 +220,12 @@
 }
 
 .menu button {
+  width: 100%;
   min-height: var(--control-touch-target);
   padding: var(--space-2) var(--space-4);
   border: var(--border-none);
   border-radius: var(--radius-small);
-  color: var(--theme-text-danger);
+  color: var(--theme-text-secondary);
   background: var(--theme-surface-transparent);
   font-size: var(--font-size-label);
   white-space: nowrap;
@@ -222,6 +234,15 @@
 
 .menu button:hover {
   background: var(--theme-surface-hover);
+}
+
+.menu button:disabled {
+  color: var(--theme-text-disabled);
+  cursor: default;
+}
+
+.menu .dangerAction {
+  color: var(--theme-text-danger);
 }
 
 .bottom {

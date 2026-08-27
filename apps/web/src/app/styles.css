@@ -104,10 +104,12 @@
   --layout-sidebar-collapsed-width: 48px;
   --layout-sidebar-active-header-height: 64px;
   --layout-summary-width: 656px;
-  --layout-chat-width: 360px;
+  --layout-chat-width: 400px;
   --layout-chat-message-width: 280px;
+  --layout-chat-entry-width: 480px;
   --layout-dialog-width: 420px;
   --layout-mobile-drawer-width: 320px;
+  --layout-session-menu-width: 168px;
   --layout-prompt-max-width: 560px;
   --layout-copy-max-width: 420px;
   --layout-reference-background-height: 954px;
@@ -130,7 +132,7 @@
   --control-mobile-header-height: 56px;
   --control-touch-target: 44px;
   --control-chat-input-max-height: 120px;
-  --control-history-card-min-height: 112px;
+  --control-history-card-min-height: 128px;
   --control-history-skeleton-height: 92px;
   --control-failure-action-min-width: 168px;
   --icon-size-xs: 12px;

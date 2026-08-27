@@ -21,6 +21,68 @@
   background: var(--theme-composer-glow);
 }
 
+.chatEntry {
+  position: absolute;
+  z-index: 3;
+  bottom: var(--space-6);
+  left: 50%;
+  width: min(var(--layout-chat-entry-width), calc(100% - var(--space-12)));
+  height: var(--control-height);
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  transform: var(--transform-center-x);
+  border: var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--theme-gradient-control);
+  box-shadow: var(--theme-shadow-control);
+  backdrop-filter: blur(var(--blur-control));
+  transition: opacity var(--motion-duration-standard) var(--motion-easing-standard);
+}
+
+.chatEntryHidden {
+  opacity: var(--opacity-hidden);
+  pointer-events: none;
+}
+
+.chatEntry:focus-within {
+  outline: var(--focus-outline);
+  outline-offset: var(--focus-outline-offset);
+}
+
+.chatEntry input {
+  min-width: var(--space-0);
+  height: 100%;
+  flex: 1;
+  padding: var(--space-0);
+  border: var(--border-none);
+  outline: var(--border-none);
+  color: var(--theme-text-primary);
+  background: var(--theme-surface-transparent);
+  font-size: var(--font-size-label);
+}
+
+.chatEntry input::placeholder {
+  color: var(--theme-text-dim);
+}
+
+.chatEntry button {
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
+  flex: 0 0 var(--icon-size-lg);
+  border: var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--theme-text-primary);
+  background: var(--theme-gradient-action);
+  cursor: pointer;
+}
+
+.chatEntry button:disabled {
+  color: var(--theme-text-disabled);
+  background: var(--theme-gradient-control-idle);
+  cursor: default;
+}
+
 .copy {
   position: relative;
   z-index: 1;
@@ -92,6 +154,10 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .chatEntry {
+    transition: none;
+  }
+
   .detailLoader {
     animation: none;
   }

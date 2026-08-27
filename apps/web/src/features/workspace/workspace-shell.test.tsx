@@ -346,6 +346,21 @@ describe("summary chat", () => {
     expect(await screen.findByRole("textbox", { name: "Ask about this summary" })).toHaveValue("")
   })
 
+  it("opens chat from the summary composer with the question ready", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    renderApp(createTestApi({ get: async () => session }), `/sessions/${session.id}`)
+
+    const entry = await screen.findByRole("textbox", { name: "Ask about this summary" })
+    await user.type(entry, "What should I verify next?")
+    await user.click(screen.getByRole("button", { name: "Open chat with question" }))
+
+    const dialog = screen.getByRole("dialog", { name: "Chat about this summary" })
+    expect(within(dialog).getByRole("textbox", { name: "Ask about this summary" })).toHaveValue(
+      "What should I verify next?",
+    )
+  })
+
   it("opens chat, sends a message, and renders streamed assistant text", async () => {
     const user = userEvent.setup()
     const session = createSession()
@@ -405,7 +420,7 @@ describe("summary chat", () => {
       `/sessions/${session.id}`,
     )
 
-    const chatTrigger = await screen.findByRole("button", { name: "Chat about this" })
+    const chatTrigger = await screen.findByRole("button", { name: "Open empty chat" })
     await user.click(chatTrigger)
     const input = await screen.findByRole("textbox", { name: "Ask about this summary" })
     await user.type(input, "What matters most?")
@@ -448,7 +463,7 @@ describe("summary chat", () => {
       `/sessions/${session.id}`,
     )
 
-    await user.click(await screen.findByRole("button", { name: "Chat about this" }))
+    await user.click(await screen.findByRole("button", { name: "Open empty chat" }))
     expect(await screen.findByText("A cached answer")).toBeVisible()
     await act(async () => {
       await queryClient.invalidateQueries({ queryKey: sessionKeys.messages(session.id) })
@@ -515,7 +530,7 @@ describe("summary chat", () => {
       `/sessions/${session.id}`,
     )
 
-    await user.click(await screen.findByRole("button", { name: "Chat about this" }))
+    await user.click(await screen.findByRole("button", { name: "Open empty chat" }))
     await user.type(screen.getByRole("textbox", { name: "Ask about this summary" }), "Explain this")
     await user.click(screen.getByRole("button", { name: "Send message" }))
 
@@ -548,7 +563,7 @@ describe("summary chat", () => {
       `/sessions/${session.id}`,
     )
 
-    await user.click(await screen.findByRole("button", { name: "Chat about this" }))
+    await user.click(await screen.findByRole("button", { name: "Open empty chat" }))
     const input = screen.getByRole("textbox", { name: "Ask about this summary" })
     await user.type(input, "Retry this question")
     await user.click(screen.getByRole("button", { name: "Send message" }))
