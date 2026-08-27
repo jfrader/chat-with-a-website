@@ -1,5 +1,6 @@
 import { createChatRequestSchema, type MessageDto } from "@profound/contracts"
 import { type FormEvent, type KeyboardEvent, useId, useRef, useState } from "react"
+import { ComposerField, ComposerIconButton } from "../../components/composer-control"
 import styles from "./chat-panel.module.css"
 import { useMessages, useSendMessage } from "./session-queries"
 
@@ -128,40 +129,42 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
       <label className="sr-only" htmlFor={inputId}>
         Ask about this summary
       </label>
-      <textarea
-        ref={(node) => {
-          inputRef.current = node
-          if (node && focusInput.current) {
-            focusInput.current = false
-            node.focus()
-          }
-        }}
-        id={inputId}
-        rows={1}
-        maxLength={4_000}
-        placeholder="Ask anything about this summary…"
-        value={draft}
-        readOnly={send.isPending}
-        aria-describedby={send.error ? `${inputId}-error` : undefined}
-        onChange={(event) => {
-          const nextDraft = event.target.value
-          if (nextDraft !== retryRequest.current?.content) retryRequest.current = undefined
-          setDraft(nextDraft)
-        }}
-        onKeyDown={(event) => {
-          if (event.key === "Enter" && !event.shiftKey) {
-            event.preventDefault()
-            event.currentTarget.form?.requestSubmit()
-          }
-        }}
-      />
-      <button
-        type="submit"
-        disabled={!parsedDraft.success || send.isPending}
-        aria-label="Send message"
-      >
-        <span aria-hidden="true">↑</span>
-      </button>
+      <ComposerField multiline>
+        <textarea
+          ref={(node) => {
+            inputRef.current = node
+            if (node && focusInput.current) {
+              focusInput.current = false
+              node.focus()
+            }
+          }}
+          id={inputId}
+          rows={1}
+          maxLength={4_000}
+          placeholder="Ask anything about this summary…"
+          value={draft}
+          readOnly={send.isPending}
+          aria-describedby={send.error ? `${inputId}-error` : undefined}
+          onChange={(event) => {
+            const nextDraft = event.target.value
+            if (nextDraft !== retryRequest.current?.content) retryRequest.current = undefined
+            setDraft(nextDraft)
+          }}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && !event.shiftKey) {
+              event.preventDefault()
+              event.currentTarget.form?.requestSubmit()
+            }
+          }}
+        />
+        <ComposerIconButton
+          type="submit"
+          disabled={!parsedDraft.success || send.isPending}
+          aria-label="Send message"
+        >
+          <span aria-hidden="true">↑</span>
+        </ComposerIconButton>
+      </ComposerField>
       <p
         className={send.error ? styles.composerError : "sr-only"}
         id={`${inputId}-error`}

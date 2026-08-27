@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router"
 import { type FormEvent, type RefObject, useRef, useState, useSyncExternalStore } from "react"
+import { ComposerField, ComposerIconButton } from "../../components/composer-control"
 import { ChatPanel } from "../session/chat-panel"
 import { useCreateSession, useSession } from "../session/session-queries"
 import { SessionWorkspace } from "../session/session-workspace"
@@ -56,23 +57,25 @@ function SessionChatEntry({ chatOpen, onOpenChat }: SessionChatEntryProps) {
       inert={chatOpen}
       onSubmit={submit}
     >
-      <button type="button" onClick={() => onOpenChat()} aria-label="Open empty chat">
-        <span aria-hidden="true">+</span>
-      </button>
-      <label className="sr-only" htmlFor="session-chat-entry">
-        Ask about this summary
-      </label>
-      <input
-        id="session-chat-entry"
-        type="text"
-        maxLength={4_000}
-        placeholder="Ask me about this summary…"
-        value={draft}
-        onChange={(event) => setDraft(event.target.value)}
-      />
-      <button type="submit" disabled={!prompt} aria-label="Open chat with question">
-        <span aria-hidden="true">↑</span>
-      </button>
+      <ComposerField className={styles.chatEntryField}>
+        <ComposerIconButton type="button" onClick={() => onOpenChat()} aria-label="Open empty chat">
+          <span aria-hidden="true">+</span>
+        </ComposerIconButton>
+        <label className="sr-only" htmlFor="session-chat-entry">
+          Ask about this summary
+        </label>
+        <input
+          id="session-chat-entry"
+          type="text"
+          maxLength={4_000}
+          placeholder="Ask me about this summary…"
+          value={draft}
+          onChange={(event) => setDraft(event.target.value)}
+        />
+        <ComposerIconButton type="submit" disabled={!prompt} aria-label="Open chat with question">
+          <span aria-hidden="true">↑</span>
+        </ComposerIconButton>
+      </ComposerField>
     </form>
   )
 }

@@ -14,4 +14,4 @@
 - Set DeepSeek V4 Flash as the default hosted summarization and chat model.
 - Fixed the mobile chat shortcut so it opens with an empty composer instead of event text.
 - Aligned completed sessions with the supplied design by moving summary actions into history, adding the bottom chat entry, expanding the chat rail, and preserving richer history previews.
-- Simplified URL entry by accepting bare domains, delaying malformed-address feedback until submission, and matching the focused input border to the supplied design.
+- Simplified URL entry by accepting bare domains, delaying malformed-address feedback until submission, and unifying focused URL and chat fields with the supplied design.

@@ -1,0 +1,120 @@
+.field {
+  --composer-field-gap: var(--space-3);
+  --composer-field-padding: var(--space-0) var(--space-4);
+  --composer-field-font-size: var(--font-size-body);
+  --composer-field-placeholder-color: var(--theme-text-disabled);
+
+  position: relative;
+  width: 100%;
+  min-width: var(--space-0);
+  height: var(--control-height);
+  display: flex;
+  align-items: center;
+  gap: var(--composer-field-gap);
+  overflow: hidden;
+  padding: var(--composer-field-padding);
+  border: var(--border-transparent);
+  border-radius: var(--radius-control);
+  background: var(--theme-gradient-control);
+  box-shadow: var(--theme-shadow-control);
+  transition: box-shadow var(--motion-duration-standard) var(--motion-easing-standard);
+}
+
+.field::before {
+  content: "";
+  position: absolute;
+  inset: var(--space-0);
+  padding: var(--space-px);
+  border-radius: inherit;
+  background: var(--theme-gradient-border);
+  pointer-events: none;
+  -webkit-mask:
+    var(--theme-mask-solid) content-box,
+    var(--theme-mask-solid);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+
+.field:has(> :is(input, textarea):focus-visible)::before {
+  background: var(--theme-gradient-border-focus);
+}
+
+.field:has(> :is(input, textarea)[aria-invalid="true"]) {
+  box-shadow: var(--theme-shadow-control-invalid);
+}
+
+.field > :is(input, textarea) {
+  min-width: var(--space-0);
+  flex: 1;
+  padding: var(--space-0);
+  border: var(--border-none);
+  outline: var(--border-none);
+  color: var(--theme-text-primary);
+  background: var(--theme-surface-transparent);
+  font-size: var(--composer-field-font-size);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-body);
+}
+
+.field > input {
+  height: 100%;
+}
+
+.field > :is(input, textarea):focus-visible {
+  outline: var(--border-none);
+}
+
+.field > :is(input, textarea)::placeholder {
+  color: var(--composer-field-placeholder-color);
+  opacity: var(--opacity-visible);
+}
+
+.field > input:-webkit-autofill,
+.field > input:-webkit-autofill:hover,
+.field > input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--theme-text-primary);
+  box-shadow: var(--theme-shadow-autofill);
+  transition: background-color var(--motion-duration-autofill) var(--motion-easing-out);
+}
+
+.multiline {
+  --composer-field-gap: var(--space-2);
+  --composer-field-padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
+  --composer-field-font-size: var(--font-size-label);
+  --composer-field-placeholder-color: var(--theme-text-dim);
+
+  height: auto;
+  align-items: flex-end;
+}
+
+.multiline > textarea {
+  max-height: var(--control-chat-input-max-height);
+  resize: none;
+  padding: var(--space-2) var(--space-0);
+}
+
+.iconButton {
+  width: var(--icon-size-lg);
+  height: var(--icon-size-lg);
+  flex: 0 0 var(--icon-size-lg);
+  display: grid;
+  place-items: center;
+  padding: var(--space-0);
+  border: var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--theme-text-primary);
+  background: var(--theme-gradient-action);
+  cursor: pointer;
+}
+
+.iconButton:disabled {
+  color: var(--theme-text-disabled);
+  background: var(--theme-gradient-control-idle);
+  cursor: default;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .field {
+    transition: none;
+  }
+}

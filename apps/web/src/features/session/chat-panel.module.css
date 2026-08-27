@@ -107,48 +107,7 @@
 
 .composer {
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  gap: var(--space-2);
   margin: var(--space-4);
-  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
-  border: var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--theme-gradient-control);
-  box-shadow: var(--theme-shadow-control);
-}
-
-.composer textarea {
-  min-width: var(--space-0);
-  max-height: var(--control-chat-input-max-height);
-  flex: 1;
-  resize: none;
-  padding: var(--space-2) var(--space-0);
-  border: var(--border-none);
-  outline: var(--border-none);
-  color: var(--theme-text-primary);
-  background: var(--theme-surface-transparent);
-  font-size: var(--font-size-label);
-  line-height: var(--line-height-body);
-}
-
-.composer textarea::placeholder {
-  color: var(--theme-text-dim);
-}
-.composer button {
-  width: var(--icon-size-lg);
-  height: var(--icon-size-lg);
-  flex: 0 0 var(--icon-size-lg);
-  border: var(--border-strong);
-  border-radius: var(--radius-pill);
-  color: var(--theme-text-primary);
-  background: var(--theme-gradient-action);
-  cursor: pointer;
-}
-.composer button:disabled {
-  color: var(--theme-text-disabled);
-  background: var(--theme-gradient-control-idle);
-  cursor: default;
 }
 
 .composerError {

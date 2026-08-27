@@ -1,5 +1,6 @@
 import { httpUrlSchema } from "@profound/contracts"
 import { type FormEvent, useId, useRef, useState } from "react"
+import { ComposerField } from "../../components/composer-control"
 import styles from "./url-composer.module.css"
 
 interface Feedback {
@@ -71,7 +72,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
         <div
           className={`${styles.field} w-[var(--control-composer-field-width)] flex-[0_0_var(--control-composer-field-width)] max-[600px]:w-[min(var(--control-composer-field-width),calc(100vw-var(--space-8)))] max-[600px]:flex-[0_0_auto]`}
         >
-          <div className={styles.inputShell}>
+          <ComposerField>
             <span className={styles.inputIcon} aria-hidden="true">
               <img src="/assets/link.svg" alt="" />
             </span>
@@ -93,7 +94,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
                 idempotencyKey.current = undefined
               }}
             />
-          </div>
+          </ComposerField>
           <p
             className={
               feedback?.kind === "error"
