@@ -43,9 +43,8 @@
   box-shadow: var(--theme-shadow-control-invalid);
 }
 
-.inputShell:has(input:focus-visible) {
-  outline: var(--focus-outline);
-  outline-offset: var(--focus-outline-offset);
+.inputShell:has(input:focus-visible)::before {
+  background: var(--theme-gradient-border-focus);
 }
 
 .inputIcon {
@@ -73,6 +72,10 @@
   font-size: var(--font-size-body);
   font-weight: var(--font-weight-regular);
   line-height: var(--line-height-body);
+}
+
+.inputShell input:focus-visible {
+  outline: var(--border-none);
 }
 
 .inputShell input::placeholder {

@@ -11,7 +11,13 @@ interface UrlComposerProps {
   onSubmit: (url: string, idempotencyKey: string) => Promise<void>
 }
 
-const fallbackUrlErrorMessage = "Enter a complete http or https URL."
+const fallbackUrlErrorMessage = "That doesn’t look like a webpage address."
+
+function normalizeUrl(value: string) {
+  const trimmed = value.trim()
+  if (!trimmed || /^[a-z][a-z\d+.-]*:\/\//i.test(trimmed)) return trimmed
+  return `https://${trimmed}`
+}
 
 export function UrlComposer({ onSubmit }: UrlComposerProps) {
   const inputId = useId()
@@ -19,7 +25,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
   const [value, setValue] = useState("")
   const [feedback, setFeedback] = useState<Feedback>()
   const [submitting, setSubmitting] = useState(false)
-  const result = httpUrlSchema.safeParse(value)
+  const result = httpUrlSchema.safeParse(normalizeUrl(value))
   const validationMessage = result.success
     ? undefined
     : (result.error.issues[0]?.message ?? fallbackUrlErrorMessage)
@@ -40,6 +46,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
 
     setSubmitting(true)
     setFeedback(undefined)
+    setValue(result.data)
     idempotencyKey.current ??= crypto.randomUUID()
     try {
       await onSubmit(result.data, idempotencyKey.current)
@@ -80,9 +87,6 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
               disabled={submitting}
               aria-describedby={feedback ? `${inputId}-message` : undefined}
               aria-invalid={feedback?.kind === "error" || undefined}
-              onBlur={() => {
-                if (value) showValidationError()
-              }}
               onChange={(event) => {
                 setValue(event.target.value)
                 setFeedback(undefined)
@@ -105,7 +109,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
         <button
           className={`${styles.submit} w-[var(--control-composer-action-width)] flex-[0_0_var(--control-composer-action-width)] max-[600px]:w-[min(var(--control-composer-field-width),calc(100vw-var(--space-8)))] max-[600px]:flex-[0_0_var(--control-height)]`}
           type="submit"
-          disabled={!result.success || submitting}
+          disabled={!value.trim() || submitting}
         >
           <span>{submitting ? "Starting…" : "Summarize"}</span>
         </button>

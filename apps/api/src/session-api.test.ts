@@ -190,6 +190,9 @@ describe("session API routes", () => {
 
     const response = await app.request("/api/sessions?cursor=malformed")
     expect(response.status).toBe(400)
-    expect(apiErrorSchema.parse(await response.json()).code).toBe("INVALID_URL")
+    expect(apiErrorSchema.parse(await response.json())).toMatchObject({
+      code: "INVALID_URL",
+      message: "That doesn’t look like a webpage address.",
+    })
   })
 })

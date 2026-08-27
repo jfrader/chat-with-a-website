@@ -50,6 +50,11 @@
     rgb(255 255 255 / 4%)
   );
   --theme-gradient-border: linear-gradient(180deg, rgb(255 255 255 / 30%), transparent);
+  --theme-gradient-border-focus: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 58%),
+    rgb(203 114 255 / 24%)
+  );
   --theme-gradient-border-idle: linear-gradient(180deg, rgb(255 255 255 / 20%), transparent);
   --theme-mask-solid: linear-gradient(var(--theme-mask-color) 0 0);
   --theme-shadow-control:

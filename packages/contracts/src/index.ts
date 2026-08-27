@@ -34,7 +34,7 @@ export type ApiErrorDto = z.infer<typeof apiErrorSchema>
 export const httpUrlSchema = z
   .string()
   .trim()
-  .min(1, "Enter a webpage URL.")
+  .min(1, "Paste a webpage address to continue.")
   .max(2048, "The URL must be 2,048 characters or fewer.")
   .superRefine((value, context) => {
     let url: URL
@@ -42,18 +42,23 @@ export const httpUrlSchema = z
     try {
       url = new URL(value)
     } catch {
-      context.addIssue({ code: "custom", message: "Enter a complete http or https URL." })
+      context.addIssue({ code: "custom", message: "That doesn’t look like a webpage address." })
+      return
+    }
+
+    if (!url.hostname || url.hostname.includes("%")) {
+      context.addIssue({ code: "custom", message: "That doesn’t look like a webpage address." })
       return
     }
 
     if (!allowedUrlProtocols.has(url.protocol)) {
-      context.addIssue({ code: "custom", message: "Only http and https URLs are supported." })
+      context.addIssue({ code: "custom", message: "Only standard web links are supported." })
     }
 
     if (url.username || url.password) {
       context.addIssue({
         code: "custom",
-        message: "URLs containing credentials are not supported.",
+        message: "Remove the username or password from this address.",
       })
     }
   })

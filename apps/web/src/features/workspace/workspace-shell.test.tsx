@@ -321,6 +321,38 @@ describe("progressive summary and safe failures", () => {
     expect(screen.getByRole("heading", { name: "Let’s get to it" })).toBeVisible()
   })
 
+  it("accepts a bare domain and submits it as an HTTPS URL", async () => {
+    const user = userEvent.setup()
+    const session = createSession({
+      originalUrl: "https://example.com/",
+      canonicalUrl: "https://example.com/",
+      finalUrl: "https://example.com/",
+      host: "example.com",
+    })
+    const create = vi.fn(async () => session)
+    renderApp(createTestApi({ create, get: async () => session }))
+
+    await user.type(await screen.findByRole("textbox", { name: "Webpage URL" }), "example.com")
+    await user.click(screen.getByRole("button", { name: "Summarize" }))
+
+    expect(create).toHaveBeenCalledWith("https://example.com", expect.any(String))
+  })
+
+  it("shows plain-language feedback only after submitting malformed text", async () => {
+    const user = userEvent.setup()
+    const create = vi.fn()
+    renderApp(createTestApi({ create }))
+
+    const input = await screen.findByRole("textbox", { name: "Webpage URL" })
+    await user.type(input, "not a web address")
+    await user.tab()
+    expect(screen.queryByText("That doesn’t look like a webpage address.")).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole("button", { name: "Summarize" }))
+    expect(screen.getByText("That doesn’t look like a webpage address.")).toBeVisible()
+    expect(create).not.toHaveBeenCalled()
+  })
+
   it("announces terminal summary failures", async () => {
     const failed = createSession({
       status: "failed",

@@ -42,10 +42,12 @@ describe("request contracts", () => {
     expect(httpUrlSchema.parse(url)).toBe(url)
   })
 
-  it.each(["example.com", "ftp://example.com", "https://user:secret@example.com"])(
-    "rejects %s",
-    (url) => expect(httpUrlSchema.safeParse(url).success).toBe(false),
-  )
+  it.each([
+    "example.com",
+    "ftp://example.com",
+    "https://not%20a%20web%20address",
+    "https://user:secret@example.com",
+  ])("rejects %s", (url) => expect(httpUrlSchema.safeParse(url).success).toBe(false))
 
   it("bounds list and chat input", () => {
     expect(listSessionsQuerySchema.parse({})).toEqual({ query: "", limit: 20 })

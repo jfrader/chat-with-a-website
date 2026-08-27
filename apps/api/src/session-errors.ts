@@ -3,7 +3,7 @@ import type { ApiErrorCode, ApiErrorDto, SessionStage } from "@profound/contract
 import { apiErrorSchema } from "@profound/contracts"
 
 const errorDefinitions: Record<ApiErrorCode, { message: string; retryable: boolean }> = {
-  INVALID_URL: { message: "The request contains an invalid URL.", retryable: false },
+  INVALID_URL: { message: "That doesn’t look like a webpage address.", retryable: false },
   URL_NOT_ALLOWED: { message: "The destination is not allowed.", retryable: false },
   FETCH_TIMEOUT: { message: "The destination took too long to respond.", retryable: true },
   FETCH_UNREACHABLE: { message: "The destination could not be reached.", retryable: true },
