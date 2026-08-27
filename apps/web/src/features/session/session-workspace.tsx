@@ -138,7 +138,7 @@ export function SessionWorkspace(props: SessionWorkspaceProps) {
       </section>
     )
   }
-  if (detail.error || !detail.data) {
+  if (!detail.data) {
     return (
       <section className={styles.failed} role="alert">
         <p className={styles.failureLabel}>Summary unavailable</p>

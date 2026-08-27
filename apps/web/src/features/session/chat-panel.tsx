@@ -44,6 +44,9 @@ function ChatMessage({ message }: { message: MessageDto }) {
           <span className="sr-only">Assistant is responding</span>
         </>
       ) : null}
+      {message.role === "assistant" && message.status === "complete" ? (
+        <span className="sr-only">Assistant response complete</span>
+      ) : null}
       {message.status === "failed" ? (
         <p className={styles.failedMessage}>
           Response interrupted. The partial answer is preserved.
@@ -61,10 +64,10 @@ function ChatMessages({ sessionId }: { sessionId: string }) {
     .join("|")
 
   return (
-    <div className={styles.messages} role="log" aria-live="polite" aria-relevant="additions text">
+    <div className={styles.messages} role="log" aria-live="polite" aria-relevant="additions">
       {messages.isLoading ? (
         <p className={styles.chatState}>Loading conversation…</p>
-      ) : messages.error ? (
+      ) : messages.error && !messages.data ? (
         <p className={styles.chatError} role="alert">
           {messages.error.message}
         </p>

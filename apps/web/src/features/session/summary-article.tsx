@@ -134,6 +134,7 @@ function SummaryMarkdown({ streaming, summary }: { streaming: boolean; summary: 
               <span className="sr-only"> (opens in a new tab)</span>
             </a>
           ),
+          img: ({ alt }) => <span>Image omitted{alt ? `: ${alt}` : ""}</span>,
         }}
       >
         {summary}

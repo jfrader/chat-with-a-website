@@ -52,4 +52,14 @@ describe("completed summary actions", () => {
       "What are the three most important takeaways?",
     )
   })
+
+  it("does not load remote images from generated Markdown", async () => {
+    const session = createSession({
+      summary: "## Diagram\n\n![Private network probe](http://127.0.0.1/admin)",
+    })
+    renderApp(createTestApi({ get: async () => session }), `/sessions/${session.id}`)
+
+    expect(await screen.findByText("Image omitted: Private network probe")).toBeVisible()
+    expect(screen.queryByRole("img", { name: "Private network probe" })).not.toBeInTheDocument()
+  })
 })

@@ -12,6 +12,7 @@ import {
 } from "../../test/fixtures"
 import { createTestApi, renderApp } from "../../test/render-app"
 import { SessionApiError } from "../session/session-client"
+import { sessionKeys } from "../session/session-queries"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -125,6 +126,41 @@ describe("workspace routing and history", () => {
     expect(list).toHaveBeenLastCalledWith("", "next-page")
   })
 
+  it("keeps history visible and reports a failed next page request", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const list = vi.fn(async (_query = "", cursor?: string) => {
+      if (cursor) throw new Error("Older summaries could not be loaded")
+      return { sessions: [session], nextCursor: "next-page" }
+    })
+    renderApp(createTestApi({ list }))
+
+    expect(await screen.findByText(session.title ?? "", { selector: "strong" })).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Load older summaries" }))
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Older summaries could not be loaded",
+    )
+    expect(screen.getByText(session.title ?? "", { selector: "strong" })).toBeVisible()
+  })
+
+  it("keeps cached history visible when a background refresh fails", async () => {
+    const session = createSession()
+    const list = vi
+      .fn()
+      .mockResolvedValueOnce({ sessions: [session], nextCursor: null })
+      .mockRejectedValueOnce(new Error("History refresh failed"))
+    const { queryClient } = renderApp(createTestApi({ list }))
+
+    expect(await screen.findByText(session.title ?? "", { selector: "strong" })).toBeVisible()
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: sessionKeys.lists() })
+    })
+
+    expect(screen.getByText(session.title ?? "", { selector: "strong" })).toBeVisible()
+    expect(screen.queryByText("History refresh failed")).not.toBeInTheDocument()
+  })
+
   it("removes mobile dialog semantics when the viewport changes to desktop", async () => {
     const listeners = new Set<() => void>()
     let matches = true
@@ -202,6 +238,68 @@ describe("progressive summary and safe failures", () => {
     expect(screen.getByText("The streamed evidence is already readable.")).toBeVisible()
     expect(screen.getByRole("status")).toHaveTextContent("Generating the summary")
     expect(screen.queryByText("Summary ready.")).not.toBeInTheDocument()
+  })
+
+  it("fetches authoritative status after a summary stream disconnects", async () => {
+    const active = createSession({
+      summary: "",
+      status: "summarizing",
+      completedAt: null,
+      outputTokens: null,
+    })
+    const failed = createSession({
+      summary: "",
+      status: "failed",
+      failureCode: "GENERATION_INTERRUPTED",
+      completedAt: new Date().toISOString(),
+    })
+    const get = vi.fn(async () => (get.mock.calls.length === 1 ? active : failed))
+    const stream = vi.fn().mockRejectedValue(new Error("Stream disconnected"))
+    renderApp(createTestApi({ get, stream }), `/sessions/${active.id}`)
+
+    await waitFor(() => expect(get.mock.calls.length).toBeGreaterThanOrEqual(2))
+    expect(await screen.findByRole("alert")).toHaveTextContent("We couldn’t summarize this page")
+  })
+
+  it("preserves partial output when stream recovery cannot reach the API", async () => {
+    const active = createSession({
+      summary: "## Partial finding\n\nThis text remains available.",
+      status: "summarizing",
+      completedAt: null,
+      outputTokens: null,
+    })
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(active)
+      .mockRejectedValueOnce(new Error("Status check failed"))
+    const stream = vi.fn().mockRejectedValue(new Error("Stream disconnected"))
+    renderApp(createTestApi({ get, stream }), `/sessions/${active.id}`)
+
+    expect(await screen.findByText("This text remains available.")).toBeVisible()
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Live progress disconnected. Refresh to check the summary again.",
+    )
+    expect(screen.getByText("This text remains available.")).toBeVisible()
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
+  it("keeps a cached summary visible when a background refresh fails", async () => {
+    const session = createSession()
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce(session)
+      .mockRejectedValueOnce(new Error("Summary refresh failed"))
+    const { queryClient } = renderApp(createTestApi({ get }), `/sessions/${session.id}`)
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: session.title ?? "" }),
+    ).toBeVisible()
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: sessionKeys.detail(session.id) })
+    })
+
+    expect(screen.getByRole("heading", { level: 1, name: session.title ?? "" })).toBeVisible()
+    expect(screen.queryByText("Summary refresh failed")).not.toBeInTheDocument()
   })
 
   it("keeps safe create errors beside the URL composer", async () => {
@@ -305,6 +403,8 @@ describe("summary chat", () => {
     await user.click(screen.getByRole("button", { name: "Send message" }))
 
     expect(await screen.findByText("Evidence matters.")).toBeVisible()
+    expect(screen.getByRole("log")).toHaveAttribute("aria-relevant", "additions")
+    expect(screen.getByText("Assistant response complete")).toHaveClass("sr-only")
     expect(chat).toHaveBeenCalledWith(
       session.id,
       "What matters most?",
@@ -317,6 +417,36 @@ describe("summary chat", () => {
       screen.queryByRole("dialog", { name: "Chat about this summary" }),
     ).not.toBeInTheDocument()
     await waitFor(() => expect(chatTrigger).toHaveFocus())
+  })
+
+  it("keeps cached messages visible when a background refresh fails", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const answer = createMessage({
+      id: assistantMessageId,
+      role: "assistant",
+      content: "A cached answer",
+      provider: "openai",
+      model: "gpt-test",
+      attemptId: "b37f7595-142b-42f8-afd1-7020760a9c5c",
+    })
+    const messages = vi
+      .fn()
+      .mockResolvedValueOnce([answer])
+      .mockRejectedValueOnce(new Error("Conversation refresh failed"))
+    const { queryClient } = renderApp(
+      createTestApi({ get: async () => session, messages }),
+      `/sessions/${session.id}`,
+    )
+
+    await user.click(await screen.findByRole("button", { name: "Chat about this" }))
+    expect(await screen.findByText("A cached answer")).toBeVisible()
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: sessionKeys.messages(session.id) })
+    })
+
+    expect(screen.getByText("A cached answer")).toBeVisible()
+    expect(screen.queryByText("Conversation refresh failed")).not.toBeInTheDocument()
   })
 
   it("preserves partial failed answers with clear feedback", async () => {

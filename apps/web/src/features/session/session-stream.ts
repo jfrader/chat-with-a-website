@@ -59,9 +59,13 @@ export function useSummaryStream(session: SessionDto | undefined) {
 
       if (controller.signal.aborted) return
       const latest = await queryClient
-        .fetchQuery({ queryKey: sessionKeys.detail(sessionId), queryFn: () => api.get(sessionId) })
+        .fetchQuery({
+          queryKey: sessionKeys.detail(sessionId),
+          queryFn: () => api.get(sessionId),
+          staleTime: 0,
+        })
         .catch(() => undefined)
-      if (!terminalReceived && latest && !isTerminal(latest)) {
+      if (!terminalReceived && (!latest || !isTerminal(latest))) {
         setConnectionError("Live progress disconnected. Refresh to check the summary again.")
       }
       if (terminalReceived || (latest && isTerminal(latest))) {

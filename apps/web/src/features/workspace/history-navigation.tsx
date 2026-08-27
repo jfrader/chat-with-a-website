@@ -288,7 +288,7 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
             <span />
             <span />
           </div>
-        ) : sessions.error ? (
+        ) : sessions.error && !sessions.data ? (
           <p className={styles.historyError} role="alert">
             {sessions.error.message}
           </p>
@@ -306,6 +306,11 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
             {query ? "No summaries match your search" : "No summaries yet"}
           </p>
         )}
+        {sessions.isFetchNextPageError ? (
+          <p className={styles.historyError} role="alert">
+            {sessions.error.message}
+          </p>
+        ) : null}
         {sessions.hasNextPage ? (
           <button
             className={styles.loadMore}
