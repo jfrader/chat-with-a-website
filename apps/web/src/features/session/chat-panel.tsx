@@ -1,5 +1,5 @@
 import { createChatRequestSchema, type MessageDto } from "@profound/contracts"
-import { type FormEvent, type KeyboardEvent, useId, useRef, useState } from "react"
+import { type FormEvent, type KeyboardEvent, useEffect, useId, useRef, useState } from "react"
 import { StreamingCaret } from "../../components/activity-indicator"
 import { ComposerField, ComposerIconButton } from "../../components/composer-control"
 import { Scrim } from "../../components/scrim"
@@ -54,18 +54,37 @@ function ChatMessage({ message }: { message: MessageDto }) {
   )
 }
 
+const STICK_TO_BOTTOM_THRESHOLD_PX = 48
+
 function ChatMessages({ sessionId }: { sessionId: string }) {
   const messages = useMessages(sessionId, true)
+  const container = useRef<HTMLDivElement>(null)
+  const stickToBottom = useRef(true)
+  const messageCount = useRef(0)
   const items = messages.data ?? []
-  const scrollMarker = items
-    .map(
-      (message) =>
-        `${message.id}:${message.content.length}:${message.reasoningContent?.length ?? 0}:${message.status}`,
-    )
-    .join("|")
+
+  useEffect(() => {
+    const node = container.current
+    if (!node) return
+    const newMessageArrived = items.length !== messageCount.current
+    messageCount.current = items.length
+    if (newMessageArrived) stickToBottom.current = true
+    if (stickToBottom.current) node.scrollTop = node.scrollHeight
+  })
 
   return (
-    <div className={styles.messages} role="log" aria-live="polite" aria-relevant="additions">
+    <div
+      ref={container}
+      className={styles.messages}
+      role="log"
+      aria-live="polite"
+      aria-relevant="additions"
+      onScroll={(event) => {
+        const node = event.currentTarget
+        stickToBottom.current =
+          node.scrollHeight - node.scrollTop - node.clientHeight < STICK_TO_BOTTOM_THRESHOLD_PX
+      }}
+    >
       {messages.isLoading ? (
         <p className={styles.chatState}>Loading conversation…</p>
       ) : messages.error && !messages.data ? (
@@ -79,13 +98,6 @@ function ChatMessages({ sessionId }: { sessionId: string }) {
       ) : (
         items.map((message) => <ChatMessage key={message.id} message={message} />)
       )}
-      <span
-        key={scrollMarker}
-        aria-hidden="true"
-        ref={(node) => {
-          if (node?.parentElement) node.parentElement.scrollTop = node.parentElement.scrollHeight
-        }}
-      />
     </div>
   )
 }

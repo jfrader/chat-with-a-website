@@ -1,4 +1,5 @@
 import type { SessionDto } from "@profound/contracts"
+import { useEffect, useRef } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { ActiveStatusDot, StreamingCaret } from "../../components/activity-indicator"
@@ -124,6 +125,8 @@ function SummaryFooter({ onReset, session }: { onReset: () => void; session: Ses
   )
 }
 
+const STICK_TO_BOTTOM_THRESHOLD_PX = 48
+
 export function SummaryArticle({
   connectionError,
   onOpenChat,
@@ -131,11 +134,27 @@ export function SummaryArticle({
   sessionId,
 }: SummaryArticleProps) {
   const { data: session } = useSession(sessionId)
+  const scroller = useRef<HTMLDivElement>(null)
+  const followStream = useRef(false)
+  const terminal = !session || session.status === "complete" || session.status === "failed"
+
+  useEffect(() => {
+    const node = scroller.current
+    if (node && !terminal && followStream.current) node.scrollTop = node.scrollHeight
+  })
+
   if (!session) return null
-  const terminal = session.status === "complete" || session.status === "failed"
 
   return (
-    <div className={`${styles.scroller} h-full w-full overflow-y-auto`}>
+    <div
+      ref={scroller}
+      className={`${styles.scroller} h-full w-full overflow-y-auto`}
+      onScroll={(event) => {
+        const node = event.currentTarget
+        followStream.current =
+          node.scrollHeight - node.scrollTop - node.clientHeight < STICK_TO_BOTTOM_THRESHOLD_PX
+      }}
+    >
       <article
         className={`${styles.article} w-full max-w-(--workspace-summary-width) pt-(--space-12-5) pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-(--space-22)`}
         aria-labelledby="session-title"

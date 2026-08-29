@@ -26,6 +26,7 @@
 - Summarized client-rendered pages from their metadata, clearly labeled, instead of failing with empty content.
 - Themed all scrollbars with the accent color and moved the summary and history scrollbars to their pane edges instead of hugging the text.
 - Let chat explore beyond thin sources with clearly labeled general knowledge and next steps instead of dead-end refusals.
+- Kept scroll position while chat replies stream, following the stream only when already at the bottom, and let streaming summaries be followed the same way.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.
