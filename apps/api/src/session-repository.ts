@@ -65,6 +65,7 @@ export type SessionUpdate = Partial<
     | "status"
     | "suggestedPrompts"
     | "summary"
+    | "tagline"
     | "title"
   >
 >
@@ -126,6 +127,7 @@ const toSessionRecord = (row: SessionRow): SessionRecord => ({
   sourceText: row.sourceText,
   sourceHash: row.sourceHash,
   summary: row.summary,
+  tagline: row.tagline,
   suggestedPrompts: row.suggestedPrompts,
   status: sessionStatusSchema.parse(row.status),
   failureStage: sessionStageSchema.nullable().parse(row.failureStage),

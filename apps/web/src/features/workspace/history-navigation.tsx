@@ -289,7 +289,9 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
         </span>
         <span className={`${styles.status} ${statusClass}`}>
           <span aria-hidden="true" />
-          {statusLabels[session.status]}
+          {session.status === "complete"
+            ? (session.tagline ?? statusLabels.complete)
+            : statusLabels[session.status]}
         </span>
       </button>
       <button

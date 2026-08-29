@@ -428,11 +428,13 @@ describe("SessionService", () => {
     expect(llm.requests).toHaveLength(1)
   })
 
-  it("stores model-written follow-up prompts on the completed session", async () => {
+  it("stores a model-written tagline and follow-up prompts on the completed session", async () => {
     const repository = new MemorySessionRepository()
     const llm = new FakeLlm(
       ["A summary about gardening puzzles."],
-      ['["How do daily puzzles rotate?", "What crops appear?", "Is there a streak system?"]'],
+      [
+        '{"tagline": "Daily garden logic puzzle game", "questions": ["How do daily puzzles rotate?", "What crops appear?", "Is there a streak system?"]}',
+      ],
     )
     const service = new SessionService({ repository, llm, fetchPage: async () => page })
     const { session } = await service.create(request)
@@ -440,6 +442,7 @@ describe("SessionService", () => {
 
     const completed = await service.get(session.id)
     expect(completed?.status).toBe("complete")
+    expect(completed?.tagline).toBe("Daily garden logic puzzle game")
     expect(completed?.suggestedPrompts).toEqual([
       "How do daily puzzles rotate?",
       "What crops appear?",
@@ -457,6 +460,7 @@ describe("SessionService", () => {
     const completed = await service.get(session.id)
     expect(completed?.status).toBe("complete")
     expect(completed?.suggestedPrompts).toEqual([])
+    expect(completed?.tagline).toBeNull()
   })
 
   it("loads a linked page from the chat message into the model context", async () => {

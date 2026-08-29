@@ -85,6 +85,7 @@ export const toSessionDto = (session: SessionRecord): SessionDto =>
     siteName: session.siteName,
     description: session.description,
     summary: session.summary,
+    tagline: session.tagline,
     suggestedPrompts: session.suggestedPrompts,
     status: session.status,
     failureStage: session.failureStage,
@@ -704,15 +705,12 @@ export class SessionService implements SessionServiceApi {
         }
       }
       if (!accumulated.trim()) throw new SessionPipelineError("EMPTY_CONTENT")
-      const suggestedPrompts = await this.#generateSuggestedPrompts(
-        accumulated,
-        extracted.title,
-        signal,
-      )
+      const extras = await this.#generateCompletionExtras(accumulated, extracted.title, signal)
       session = await this.#updateSession(session.id, {
         status: "complete",
         summary: accumulated,
-        suggestedPrompts,
+        suggestedPrompts: extras.suggestedPrompts,
+        tagline: extras.tagline,
         completedAt: new Date(),
       })
       this.#eventHub.publish(session.id, summaryEvent(session))
@@ -785,38 +783,49 @@ export class SessionService implements SessionServiceApi {
     })
   }
 
-  async #generateSuggestedPrompts(
+  async #generateCompletionExtras(
     summary: string,
     title: string | null,
     signal: AbortSignal,
-  ): Promise<string[]> {
+  ): Promise<{ suggestedPrompts: string[]; tagline: string | null }> {
+    const empty = { suggestedPrompts: [], tagline: null }
     try {
       let raw = ""
       for await (const streamed of this.#llm.stream({
         signal,
-        maxOutputTokens: 200,
+        maxOutputTokens: 260,
         messages: [
           {
             role: "system",
             content:
-              "Write three follow-up questions a curious reader would ask next about this specific page. Make them concrete to the page's actual topic, not generic, and keep each under nine words. Reply with only a JSON array of three strings.",
+              'Reply with only JSON shaped as {"tagline": string, "questions": [string, string, string]}. The tagline is a four-to-seven-word phrase capturing what this specific page covers, without ending punctuation. Each question is one a curious reader would ask next about this page: concrete to its actual topic, not generic, under nine words.',
           },
           { role: "user", content: `${title ? `Title: ${title}\n` : ""}Summary:\n${summary}` },
         ],
       })) {
         if (streamed.type === "content") raw += streamed.text
       }
-      const match = raw.match(/\[[\s\S]*\]/)
-      if (!match) return []
+      const match = raw.match(/\{[\s\S]*\}/) ?? raw.match(/\[[\s\S]*\]/)
+      if (!match) return empty
       const parsed: unknown = JSON.parse(match[0])
-      if (!Array.isArray(parsed)) return []
-      return parsed
-        .filter((item): item is string => typeof item === "string")
-        .map((item) => item.trim())
-        .filter((item) => item.length > 0 && item.length <= 80)
-        .slice(0, 3)
+      const cleanQuestions = (items: unknown) =>
+        Array.isArray(items)
+          ? items
+              .filter((item): item is string => typeof item === "string")
+              .map((item) => item.trim())
+              .filter((item) => item.length > 0 && item.length <= 80)
+              .slice(0, 3)
+          : []
+      if (Array.isArray(parsed)) return { suggestedPrompts: cleanQuestions(parsed), tagline: null }
+      if (typeof parsed !== "object" || parsed === null) return empty
+      const shape = parsed as { tagline?: unknown; questions?: unknown }
+      const tagline =
+        typeof shape.tagline === "string" && shape.tagline.trim().length > 0
+          ? shape.tagline.trim().slice(0, 60)
+          : null
+      return { suggestedPrompts: cleanQuestions(shape.questions), tagline }
     } catch {
-      return []
+      return empty
     }
   }
 

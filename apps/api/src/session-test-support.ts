@@ -55,6 +55,7 @@ export class MemorySessionRepository implements SessionRepository {
       sourceWordCount: 0,
       sourceTruncated: false,
       summary: "",
+      tagline: null,
       suggestedPrompts: [],
       status: "fetching",
       failureStage: null,

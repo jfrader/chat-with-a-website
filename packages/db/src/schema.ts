@@ -41,6 +41,7 @@ export const sessions = pgTable(
     sourceWordCount: integer("source_word_count").notNull().default(0),
     sourceTruncated: boolean("source_truncated").notNull().default(false),
     summary: text("summary").notNull().default(""),
+    tagline: text("tagline"),
     suggestedPrompts: jsonb("suggested_prompts").$type<string[]>().notNull().default([]),
     status: sessionStatus("status").notNull().default("fetching"),
     failureStage: sessionStage("failure_stage"),
