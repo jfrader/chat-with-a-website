@@ -46,6 +46,8 @@ const message = {
   requestId,
   role: "assistant" as const,
   content: "Answer",
+  reasoningContent: null,
+  reasoningMs: null,
   status: "complete" as const,
   failureCode: null,
   provider: "fake",

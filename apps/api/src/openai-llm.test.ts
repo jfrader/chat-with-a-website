@@ -14,9 +14,12 @@ describe("OpenAiLlm", () => {
         yield { choices: [{ delta: { content: " world" } }] }
       },
     }
-    const values: string[] = []
+    const values: unknown[] = []
     for await (const delta of readOpenAiDeltas(chunks as never, signal)) values.push(delta)
-    expect(values).toEqual(["Hello", " world"])
+    expect(values).toEqual([
+      { type: "content", text: "Hello" },
+      { type: "content", text: " world" },
+    ])
   })
 
   it("uses streaming Chat Completions with the configured model", async () => {
@@ -27,7 +30,7 @@ describe("OpenAiLlm", () => {
     }))
     const client = { chat: { completions: { create } } } as unknown as OpenAI
     const llm = new OpenAiLlm({ apiKey: "test", model: "chosen-model", client })
-    const output: string[] = []
+    const output: unknown[] = []
     for await (const delta of llm.stream({
       signal,
       maxOutputTokens: 321,
@@ -35,7 +38,7 @@ describe("OpenAiLlm", () => {
     })) {
       output.push(delta)
     }
-    expect(output).toEqual(["result"])
+    expect(output).toEqual([{ type: "content", text: "result" }])
     expect(create).toHaveBeenCalledWith(
       {
         model: "chosen-model",

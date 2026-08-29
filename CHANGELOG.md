@@ -17,3 +17,6 @@
 - Matched the completed-summary chat entry to the supplied design's exact width and bottom spacing.
 - Simplified URL entry by accepting bare domains, delaying malformed-address feedback until submission, and unifying focused URL and chat fields with the supplied design.
 - Replaced browser autofill on the URL field with in-app suggestions that offer a fresh summary or the matching saved session when the address is already in history.
+- Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
+- Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
+- Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.

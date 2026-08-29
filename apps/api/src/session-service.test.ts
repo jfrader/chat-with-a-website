@@ -428,6 +428,38 @@ describe("SessionService", () => {
     expect(llm.requests).toHaveLength(1)
   })
 
+  it("streams reasoning deltas separately and persists them with the completed answer", async () => {
+    const repository = new MemorySessionRepository()
+    const llm = new FakeLlm([
+      { reasoning: "Consider the " },
+      { reasoning: "source first." },
+      "Answer ",
+      "two.",
+    ])
+    const service = new SessionService({ repository, llm, fetchPage: async () => page })
+    const created = await repository.createOrGet(request)
+    await repository.update(created.session.id, {
+      status: "complete",
+      sourceText: "Chat source",
+      summary: "Chat summary",
+    })
+    const chat = await service.chat(created.session.id, {
+      content: "Why?",
+      idempotencyKey: "66666666-6666-4666-8666-666666666666",
+    })
+    if (!chat) throw new Error("Expected chat")
+    const events = await collect(chat.events)
+    await service.waitForAll()
+    const reasoningEvents = events.filter((event) => event.type === "chat.reasoning")
+    expect(reasoningEvents.map((event) => event.delta).join("")).toBe("Consider the source first.")
+    const assistant = (await service.messages(created.session.id))?.find(
+      (message) => message.role === "assistant",
+    )
+    expect(assistant?.content).toBe("Answer two.")
+    expect(assistant?.reasoningContent).toBe("Consider the source first.")
+    expect(assistant?.reasoningMs).toBeGreaterThanOrEqual(0)
+  })
+
   it("serializes chat admission with deletion and clears the admitted chat", async () => {
     const repository = new BlockingCreateMessagesRepository()
     const abortSeen = deferred<void>()

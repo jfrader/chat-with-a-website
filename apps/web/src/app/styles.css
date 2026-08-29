@@ -103,6 +103,7 @@
   --blur-control: 18px;
   --opacity-transition-start: 0.64;
   --opacity-hidden: 0;
+  --opacity-disabled: 0.5;
   --opacity-visible: 1;
 
   --border-none: 0;

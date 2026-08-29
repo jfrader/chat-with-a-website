@@ -96,6 +96,8 @@ export const toMessageDto = (message: MessageRecord): MessageDto =>
     requestId: message.requestId,
     role: message.role,
     content: message.content,
+    reasoningContent: message.reasoningContent,
+    reasoningMs: message.reasoningMs,
     status: message.status,
     failureCode: message.failureCode,
     provider: message.provider,
@@ -111,12 +113,14 @@ export const toMessageDto = (message: MessageRecord): MessageDto =>
 
 type ChatCreatedEvent = Extract<ChatStreamEvent, { type: "chat.created" }>
 type ChatDeltaEvent = Extract<ChatStreamEvent, { type: "chat.delta" }>
+type ChatReasoningEvent = Extract<ChatStreamEvent, { type: "chat.reasoning" }>
 type ChatTerminalEvent = Extract<ChatStreamEvent, { type: "chat.completed" | "chat.failed" }>
 
 type ChatSubscriber = {
   closed: boolean
   first: ChatCreatedEvent | ChatTerminalEvent
   pendingDelta: ChatDeltaEvent | null
+  pendingReasoning: ChatReasoningEvent | null
   started: boolean
   terminal: ChatTerminalEvent | null
   wake: (() => void) | null
@@ -125,6 +129,7 @@ type ChatSubscriber = {
 type ChatState = {
   created: ChatCreatedEvent
   delta: ChatDeltaEvent | null
+  reasoning: ChatReasoningEvent | null
 }
 
 class KeyedSerialExecutor {
@@ -151,10 +156,10 @@ class KeyedSerialExecutor {
 const isChatTerminal = (event: ChatStreamEvent): event is ChatTerminalEvent =>
   event.type === "chat.completed" || event.type === "chat.failed"
 
-const coalesceChatDelta = (
-  current: ChatDeltaEvent | null,
-  next: ChatDeltaEvent,
-): ChatDeltaEvent => {
+const coalesceChatText = <T extends ChatDeltaEvent | ChatReasoningEvent>(
+  current: T | null,
+  next: T,
+): T => {
   if (!current) return next
   if (
     current.messageId !== next.messageId ||
@@ -167,8 +172,8 @@ const coalesceChatDelta = (
     ...current,
     delta: current.delta + next.delta,
   })
-  if (coalesced.type !== "chat.delta") throw new Error("Failed to coalesce chat delta")
-  return coalesced
+  if (coalesced.type !== current.type) throw new Error("Failed to coalesce chat delta")
+  return coalesced as T
 }
 
 class ChatEventHub {
@@ -180,21 +185,26 @@ class ChatEventHub {
     if (parsed.type === "chat.created") {
       const state = this.#active.get(messageId)
       if (state) state.created = parsed
-      else this.#active.set(messageId, { created: parsed, delta: null })
+      else this.#active.set(messageId, { created: parsed, delta: null, reasoning: null })
       for (const subscriber of this.#subscribers.get(messageId) ?? []) {
         if (!subscriber.started) subscriber.first = parsed
       }
       return
     }
-    if (parsed.type === "chat.delta") {
+    if (parsed.type === "chat.delta" || parsed.type === "chat.reasoning") {
       const state = this.#active.get(messageId)
       if (!state) throw new Error("Chat delta published before chat.created")
-      state.delta = coalesceChatDelta(state.delta, parsed)
       for (const subscriber of this.#subscribers.get(messageId) ?? []) {
-        subscriber.pendingDelta = coalesceChatDelta(subscriber.pendingDelta, parsed)
+        if (parsed.type === "chat.delta") {
+          subscriber.pendingDelta = coalesceChatText(subscriber.pendingDelta, parsed)
+        } else {
+          subscriber.pendingReasoning = coalesceChatText(subscriber.pendingReasoning, parsed)
+        }
         subscriber.wake?.()
         subscriber.wake = null
       }
+      if (parsed.type === "chat.delta") state.delta = coalesceChatText(state.delta, parsed)
+      else state.reasoning = coalesceChatText(state.reasoning, parsed)
       return
     }
     for (const subscriber of this.#subscribers.get(messageId) ?? []) {
@@ -217,17 +227,18 @@ class ChatEventHub {
 
   subscribe(messageId: string, initial: ChatStreamEvent, listen: boolean): ChatEventStream {
     const parsed = chatStreamEventSchema.parse(initial)
-    if (parsed.type === "chat.delta")
+    if (parsed.type === "chat.delta" || parsed.type === "chat.reasoning")
       throw new Error("Chat subscription requires authoritative state")
     const terminal = isChatTerminal(parsed)
     const state = terminal
       ? null
-      : (this.#active.get(messageId) ?? { created: parsed, delta: null })
+      : (this.#active.get(messageId) ?? { created: parsed, delta: null, reasoning: null })
     if (state && listen && !this.#active.has(messageId)) this.#active.set(messageId, state)
     const subscriber: ChatSubscriber = {
       closed: false,
       first: state?.created ?? parsed,
       pendingDelta: state?.delta ?? null,
+      pendingReasoning: state?.reasoning ?? null,
       started: false,
       terminal: terminal ? parsed : null,
       wake: null,
@@ -255,12 +266,22 @@ class ChatEventHub {
             yield subscriber.first
             if (!listen || terminal) return
             while (!subscriber.closed) {
-              if (!subscriber.pendingDelta && !subscriber.terminal) {
+              if (
+                !subscriber.pendingDelta &&
+                !subscriber.pendingReasoning &&
+                !subscriber.terminal
+              ) {
                 await new Promise<void>((resolve) => {
                   subscriber.wake = resolve
                 })
               }
               if (subscriber.closed) return
+              if (subscriber.pendingReasoning) {
+                const reasoning = subscriber.pendingReasoning
+                subscriber.pendingReasoning = null
+                yield reasoning
+                continue
+              }
               if (subscriber.pendingDelta) {
                 const delta = subscriber.pendingDelta
                 subscriber.pendingDelta = null
@@ -645,8 +666,10 @@ export class SessionService implements SessionServiceApi {
           { role: "user", content: extracted.sourceText },
         ],
       })
-      for await (const delta of stream) {
+      for await (const streamed of stream) {
         if (signal.aborted) throw new LlmError("GENERATION_INTERRUPTED")
+        if (streamed.type !== "content") continue
+        const delta = streamed.text
         const offset = accumulated.length
         accumulated += delta
         this.#eventHub.publish(
@@ -776,12 +799,36 @@ export class SessionService implements SessionServiceApi {
         { role: "user", content: user.content },
       ]
       let lastWrite = Date.now()
-      for await (const delta of this.#llm.stream({
+      let reasoning = assistant.reasoningContent ?? ""
+      let reasoningMs = assistant.reasoningMs
+      let reasoningStartedAt: number | undefined
+      for await (const streamed of this.#llm.stream({
         messages,
         signal,
         maxOutputTokens: MAX_CHAT_OUTPUT_TOKENS,
       })) {
         if (signal.aborted) throw new LlmError("GENERATION_INTERRUPTED")
+        if (streamed.type === "reasoning") {
+          reasoningStartedAt ??= Date.now()
+          const offset = reasoning.length
+          reasoning += streamed.text
+          this.#chatHub.publish(
+            assistant.id,
+            chatStreamEventSchema.parse({
+              type: "chat.reasoning",
+              eventId: `${assistant.requestId}:${offset}:reasoning`,
+              requestId: assistant.requestId,
+              offset,
+              messageId: assistant.id,
+              delta: streamed.text,
+            }),
+          )
+          continue
+        }
+        if (reasoningStartedAt !== undefined && reasoningMs === null) {
+          reasoningMs = Date.now() - reasoningStartedAt
+        }
+        const delta = streamed.text
         const offset = accumulated.length
         accumulated += delta
         this.#chatHub.publish(
@@ -797,14 +844,19 @@ export class SessionService implements SessionServiceApi {
         )
         if (Date.now() - lastWrite >= this.#partialWriteIntervalMs) {
           assistant =
-            (await this.#repository.updateMessage(assistant.id, { content: accumulated })) ??
-            assistant
+            (await this.#repository.updateMessage(assistant.id, {
+              content: accumulated,
+              reasoningContent: reasoning || null,
+              reasoningMs,
+            })) ?? assistant
           lastWrite = Date.now()
         }
       }
       if (!accumulated.trim()) throw new SessionPipelineError("EMPTY_CONTENT")
       const completed = await this.#repository.updateMessage(assistant.id, {
         content: accumulated,
+        reasoningContent: reasoning || null,
+        reasoningMs,
         status: "complete",
         completedAt: new Date(),
       })

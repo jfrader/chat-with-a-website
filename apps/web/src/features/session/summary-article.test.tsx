@@ -34,7 +34,7 @@ describe("completed summary actions", () => {
     expect(await screen.findByText("Summary ready.")).toBeInTheDocument()
     const menuTrigger = await screen.findByRole("button", { name: `Actions for ${session.title}` })
     await user.click(menuTrigger)
-    await user.click(screen.getByRole("button", { name: "Copy" }))
+    await user.click(screen.getByRole("button", { name: "Copy summary" }))
     expect(writeText).toHaveBeenCalledWith(session.summary)
     expect(screen.getByText("Summary copied")).toBeVisible()
 

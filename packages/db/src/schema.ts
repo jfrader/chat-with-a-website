@@ -78,6 +78,8 @@ export const messages = pgTable(
     requestId: uuid("request_id").notNull().defaultRandom(),
     role: messageRole("role").notNull(),
     content: text("content").notNull().default(""),
+    reasoningContent: text("reasoning_content"),
+    reasoningMs: integer("reasoning_ms"),
     status: messageStatus("status").notNull(),
     failureCode: text("failure_code"),
     provider: text("provider"),

@@ -15,9 +15,26 @@ interface ChatPanelProps {
 }
 
 function ChatMessage({ message }: { message: MessageDto }) {
+  const thoughtSeconds =
+    message.reasoningMs === null ? undefined : Math.max(1, Math.round(message.reasoningMs / 1000))
+
   return (
     <article className={`${styles.message} ${styles[message.role]}`}>
       <p className="sr-only">{message.role === "user" ? "You" : "Assistant"}</p>
+      {message.role === "assistant" && message.reasoningContent ? (
+        <details className={styles.thought}>
+          <summary>
+            <span>Thought</span>
+            {thoughtSeconds === undefined ? null : (
+              <span className={styles.thoughtDuration}>{thoughtSeconds}s</span>
+            )}
+            <span className={styles.thoughtChevron} aria-hidden="true">
+              ⌄
+            </span>
+          </summary>
+          <p>{message.reasoningContent}</p>
+        </details>
+      ) : null}
       <div>{message.content || (message.status === "streaming" ? "Thinking…" : "")}</div>
       {message.status === "streaming" ? (
         <>
@@ -41,7 +58,10 @@ function ChatMessages({ sessionId }: { sessionId: string }) {
   const messages = useMessages(sessionId, true)
   const items = messages.data ?? []
   const scrollMarker = items
-    .map((message) => `${message.id}:${message.content.length}:${message.status}`)
+    .map(
+      (message) =>
+        `${message.id}:${message.content.length}:${message.reasoningContent?.length ?? 0}:${message.status}`,
+    )
     .join("|")
 
   return (
@@ -54,8 +74,7 @@ function ChatMessages({ sessionId }: { sessionId: string }) {
         </p>
       ) : items.length === 0 ? (
         <div className={styles.empty}>
-          <span aria-hidden="true">✦</span>
-          <p>Ask about evidence, implications, or anything in the source.</p>
+          <p>Ask summary</p>
         </div>
       ) : (
         items.map((message) => <ChatMessage key={message.id} message={message} />)
@@ -121,7 +140,7 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
           id={inputId}
           rows={1}
           maxLength={4_000}
-          placeholder="Ask anything about this summary…"
+          placeholder="Ask me about this summary…"
           value={draft}
           readOnly={send.isPending}
           aria-describedby={send.error ? `${inputId}-error` : undefined}

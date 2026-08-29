@@ -525,6 +525,34 @@ describe("summary chat", () => {
     await waitFor(() => expect(chatTrigger).toHaveFocus())
   })
 
+  it("shows a collapsible Thought line only when a reply includes reasoning", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const answer = createMessage({
+      id: assistantMessageId,
+      role: "assistant",
+      content: "The answer.",
+      reasoningContent: "Weighing the source evidence.",
+      reasoningMs: 4_000,
+    })
+    renderApp(
+      createTestApi({
+        list: async () => ({ sessions: [session], nextCursor: null }),
+        get: async () => session,
+        messages: async () => [createMessage(), answer],
+      }),
+      `/sessions/${session.id}`,
+    )
+
+    await user.click(await screen.findByRole("button", { name: "Open empty chat" }))
+    const thought = await screen.findByText("Thought")
+    expect(screen.getByText("4s")).toBeVisible()
+    expect(screen.getByText("Weighing the source evidence.")).not.toBeVisible()
+    await user.click(thought)
+    expect(screen.getByText("Weighing the source evidence.")).toBeVisible()
+    expect(screen.queryAllByText("Thought")).toHaveLength(1)
+  })
+
   it("keeps cached messages visible when a background refresh fails", async () => {
     const user = userEvent.setup()
     const session = createSession()

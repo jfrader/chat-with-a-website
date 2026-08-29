@@ -94,6 +94,8 @@
 
 .historyList {
   min-height: var(--space-0);
+  display: flex;
+  flex-direction: column;
   flex: 1;
   overflow-y: auto;
   padding-top: var(--space-3);
@@ -103,14 +105,18 @@
 
 .empty,
 .historyError {
-  margin: var(--space-10) var(--space-3);
   color: var(--theme-text-muted);
   font-size: var(--font-size-meta);
   line-height: var(--line-height-body);
   text-align: center;
 }
 
+.empty {
+  margin: auto var(--space-3);
+}
+
 .historyError {
+  margin: var(--space-10) var(--space-3);
   color: var(--theme-text-danger);
 }
 
@@ -228,48 +234,111 @@
   width: var(--control-touch-target);
   height: var(--control-touch-target);
   border: var(--border-none);
+  border-radius: var(--radius-pill);
   color: var(--theme-text-muted);
   background: var(--theme-surface-transparent);
+  font-size: var(--font-size-body);
   cursor: pointer;
+}
+
+.menuTrigger:hover,
+.menuTrigger[aria-expanded="true"] {
+  color: var(--theme-text-primary);
+  background: var(--theme-surface-hover);
+  backdrop-filter: blur(var(--blur-control));
 }
 
 .menu {
-  position: absolute;
-  z-index: 4;
-  top: var(--space-10);
-  right: var(--space-2);
-  width: var(--history-session-menu-width);
-  padding: var(--space-1);
-  border: var(--border-subtle);
-  border-radius: var(--radius-card);
-  background: var(--theme-surface-elevated);
-  box-shadow: var(--history-menu-shadow);
+  --history-menu-item-height: 40px;
+  --history-menu-copy-background: linear-gradient(180deg, rgb(255 255 255 / 70%), #fff);
+  --history-menu-download-background: linear-gradient(
+    180deg,
+    rgb(203 114 255 / 34%),
+    rgb(203 114 255 / 22%)
+  );
+  --history-menu-delete-background: linear-gradient(
+    180deg,
+    rgb(255 75 89 / 48%),
+    rgb(255 35 39 / 40%)
+  );
+
+  position: fixed;
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-inline-size: auto;
+  margin: var(--space-0);
+  padding: var(--space-0);
+  border: var(--border-none);
+}
+
+.menuRow {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .menu button {
-  width: 100%;
-  min-height: var(--control-touch-target);
-  padding: var(--space-2) var(--space-4);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--history-menu-item-height);
+  padding: var(--space-0) var(--space-4);
   border: var(--border-none);
-  border-radius: var(--history-menu-radius);
-  color: var(--theme-text-secondary);
-  background: var(--theme-surface-transparent);
+  border-radius: var(--radius-pill);
+  color: var(--theme-text-primary);
   font-size: var(--font-size-label);
+  line-height: var(--line-height-compact);
   white-space: nowrap;
+  backdrop-filter: blur(var(--blur-control));
+  box-shadow: var(--history-menu-shadow);
   cursor: pointer;
 }
 
-.menu button:hover {
-  background: var(--theme-surface-hover);
-}
-
 .menu button:disabled {
-  color: var(--theme-text-disabled);
+  opacity: var(--opacity-disabled);
   cursor: default;
 }
 
-.menu .dangerAction {
-  color: var(--theme-text-danger);
+.menu button:not(:disabled):hover {
+  filter: brightness(var(--history-icon-hover-brightness));
+}
+
+.menuCopy {
+  justify-content: center;
+  width: var(--history-menu-item-height);
+  padding: var(--space-0);
+  border-radius: var(--radius-pill);
+  color: var(--theme-surface-app);
+  background: var(--history-menu-copy-background);
+}
+
+.menuUrl {
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  max-width: var(--history-session-menu-width);
+  height: var(--history-menu-item-height);
+  padding: var(--space-0) var(--space-4);
+  border: var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--theme-text-primary);
+  background: var(--theme-gradient-control-idle);
+  box-shadow: var(--history-menu-shadow);
+  font-size: var(--font-size-label);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  backdrop-filter: blur(var(--blur-control));
+}
+
+.menuDownload {
+  background: var(--history-menu-download-background);
+}
+
+.menuDelete {
+  background: var(--history-menu-delete-background);
 }
 
 .bottom {

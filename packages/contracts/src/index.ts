@@ -133,6 +133,8 @@ export const messageSchema = z.object({
   requestId: z.uuid(),
   role: messageRoleSchema,
   content: z.string(),
+  reasoningContent: z.string().nullable(),
+  reasoningMs: z.number().int().nonnegative().nullable(),
   status: messageStatusSchema,
   failureCode: apiErrorCodeSchema.nullable(),
   provider: z.string().nullable(),
@@ -194,6 +196,11 @@ export const chatStreamEventSchema = z.discriminatedUnion("type", [
   }),
   chatEventBaseSchema.extend({
     type: z.literal("chat.delta"),
+    messageId: z.uuid(),
+    delta: z.string().min(1),
+  }),
+  chatEventBaseSchema.extend({
+    type: z.literal("chat.reasoning"),
     messageId: z.uuid(),
     delta: z.string().min(1),
   }),

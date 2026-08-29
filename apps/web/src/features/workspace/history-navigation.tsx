@@ -1,6 +1,7 @@
 import type { SessionDto } from "@profound/contracts"
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
-import { type KeyboardEvent, useDeferredValue, useRef, useState } from "react"
+import { type KeyboardEvent, useDeferredValue, useEffect, useRef, useState } from "react"
+import { createPortal } from "react-dom"
 import { Scrim } from "../../components/scrim"
 import { trapFocus } from "../../components/trap-focus"
 import { useDeleteSession, useSessions } from "../session/session-queries"
@@ -146,11 +147,77 @@ interface SessionCardProps {
   session: SessionDto
 }
 
+function CopyIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <rect x="5.5" y="5.5" width="8" height="8" rx="2" stroke="currentColor" strokeWidth="1.5" />
+      <path
+        d="M10.5 3.5v-.25A1.25 1.25 0 0 0 9.25 2h-5A1.25 1.25 0 0 0 3 3.25v5A1.25 1.25 0 0 0 4.25 9.5h.25"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
+function DownloadIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M8 2.5v7m0 0 3-3m-3 3-3-3M3 11.5v1A1.5 1.5 0 0 0 4.5 14h7a1.5 1.5 0 0 0 1.5-1.5v-1"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
+function TrashIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+      <path
+        d="M2.5 4h11M6.5 4V3a1 1 0 0 1 1-1h1a1 1 0 0 1 1 1v1m3 0-.5 8.5a1.5 1.5 0 0 1-1.5 1.4H5a1.5 1.5 0 0 1-1.5-1.4L3 4m3.5 3v4m3-4v4"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function SessionCard({ onSelect, selected, session }: SessionCardProps) {
   const [menuOpen, setMenuOpen] = useState(false)
+  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [actionFeedback, setActionFeedback] = useState<string>()
   const menuTrigger = useRef<HTMLButtonElement>(null)
+  const menu = useRef<HTMLFieldSetElement>(null)
+
+  useEffect(() => {
+    if (!menuOpen) return
+    const close = () => setMenuOpen(false)
+    window.addEventListener("scroll", close, { capture: true })
+    window.addEventListener("resize", close)
+    return () => {
+      window.removeEventListener("scroll", close, { capture: true })
+      window.removeEventListener("resize", close)
+    }
+  }, [menuOpen])
+
+  function toggleMenu() {
+    if (!menuOpen && menuTrigger.current) {
+      const rect = menuTrigger.current.getBoundingClientRect()
+      setMenuPosition({
+        top: rect.top - 4,
+        left: Math.min(rect.right + 14, window.innerWidth - 240),
+      })
+    }
+    setMenuOpen((open) => !open)
+  }
 
   function closeActions() {
     setMenuOpen(false)
@@ -194,7 +261,12 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
     <article
       className={`${styles.sessionCard} ${selected ? styles.selected : ""}`}
       onBlur={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false)
+        if (
+          !event.currentTarget.contains(event.relatedTarget) &&
+          !menu.current?.contains(event.relatedTarget)
+        ) {
+          setMenuOpen(false)
+        }
       }}
       onKeyDown={(event) => {
         if (event.key === "Escape" && menuOpen) {
@@ -227,30 +299,72 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
         aria-controls={`session-actions-${session.id}`}
         aria-expanded={menuOpen}
         aria-label={`Actions for ${session.title ?? session.host}`}
-        onClick={() => setMenuOpen((open) => !open)}
+        onClick={toggleMenu}
       >
-        ···
+        ⋮
       </button>
-      {menuOpen ? (
-        <div className={styles.menu} id={`session-actions-${session.id}`}>
-          <button type="button" disabled={!session.summary} onClick={() => void copySummary()}>
-            Copy
-          </button>
-          <button type="button" disabled={!session.summary} onClick={downloadSummary}>
-            Download Markdown
-          </button>
-          <button
-            className={styles.dangerAction}
-            type="button"
-            onClick={() => {
-              setMenuOpen(false)
-              setDeleteOpen(true)
-            }}
-          >
-            Delete summary
-          </button>
-        </div>
-      ) : null}
+      {menuOpen && menuPosition
+        ? createPortal(
+            <fieldset
+              ref={menu}
+              className={styles.menu}
+              id={`session-actions-${session.id}`}
+              aria-label={`Actions for ${session.title ?? session.host}`}
+              style={menuPosition}
+              onBlur={(event) => {
+                if (
+                  !event.currentTarget.contains(event.relatedTarget) &&
+                  event.relatedTarget !== menuTrigger.current
+                ) {
+                  setMenuOpen(false)
+                }
+              }}
+              onKeyDown={(event) => {
+                if (event.key === "Escape") {
+                  event.preventDefault()
+                  setMenuOpen(false)
+                  menuTrigger.current?.focus()
+                }
+              }}
+            >
+              <div className={styles.menuRow}>
+                <button
+                  className={styles.menuCopy}
+                  type="button"
+                  aria-label="Copy summary"
+                  disabled={!session.summary}
+                  onClick={() => void copySummary()}
+                >
+                  <CopyIcon />
+                </button>
+                <span className={styles.menuUrl}>{session.originalUrl}</span>
+              </div>
+              <button
+                className={styles.menuDownload}
+                type="button"
+                aria-label="Download Markdown"
+                disabled={!session.summary}
+                onClick={downloadSummary}
+              >
+                <DownloadIcon />
+                <span>Download</span>
+              </button>
+              <button
+                className={styles.menuDelete}
+                type="button"
+                aria-label="Delete summary"
+                onClick={() => {
+                  setMenuOpen(false)
+                  setDeleteOpen(true)
+                }}
+              >
+                <TrashIcon />
+                <span>Delete</span>
+              </button>
+            </fieldset>,
+            document.body,
+          )
+        : null}
       <span className="sr-only" aria-live="polite">
         {actionFeedback}
       </span>
@@ -270,6 +384,8 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
   const query = search.query ?? ""
   const deferredQuery = useDeferredValue(query)
   const sessions = useSessions(deferredQuery)
+  const pristineEmpty =
+    !query && !sessions.isLoading && !sessions.error && sessions.data?.sessions.length === 0
 
   function changeQuery(nextQuery: string) {
     if (sessionId) {
@@ -302,16 +418,18 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
       aria-hidden={hidden}
       inert={hidden}
     >
-      <label className={styles.search}>
-        <span className="sr-only">Search summaries</span>
-        <span aria-hidden="true">⌕</span>
-        <input
-          type="search"
-          value={query}
-          placeholder="Search summaries"
-          onChange={(event) => changeQuery(event.target.value)}
-        />
-      </label>
+      {pristineEmpty ? null : (
+        <label className={styles.search}>
+          <span className="sr-only">Search summaries</span>
+          <span aria-hidden="true">⌕</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="Search summaries"
+            onChange={(event) => changeQuery(event.target.value)}
+          />
+        </label>
+      )}
       <div className={styles.historyList} aria-live="polite">
         {sessions.isLoading || deferredQuery !== query ? (
           <div className={styles.skeletons} role="status" aria-label="Loading summary history">
@@ -361,6 +479,9 @@ export function HistoryNavigation({ mobileOpen, onCloseMobile }: HistoryNavigati
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
   const navigation = useRef<HTMLDivElement>(null)
+  const allSessions = useSessions("")
+  const pristineEmpty =
+    !allSessions.isLoading && !allSessions.error && allSessions.data?.sessions.length === 0
   const collapsedClass = collapsed && !mobileOpen ? styles.collapsed : ""
   const mobileClass = mobileOpen
     ? "max-mobile:visible max-mobile:translate-x-0"
@@ -386,22 +507,24 @@ export function HistoryNavigation({ mobileOpen, onCloseMobile }: HistoryNavigati
         onToggle={() => setCollapsed((value) => !value)}
       />
       <HistoryContent collapsed={collapsed} mobileOpen={mobileOpen} onCloseMobile={onCloseMobile} />
-      <div
-        className={styles.bottom}
-        aria-hidden={collapsed && !mobileOpen}
-        inert={collapsed && !mobileOpen}
-      >
-        <button
-          type="button"
-          onClick={() => {
-            onCloseMobile()
-            void navigate({ to: "/", search: {} })
-          }}
+      {pristineEmpty ? null : (
+        <div
+          className={styles.bottom}
+          aria-hidden={collapsed && !mobileOpen}
+          inert={collapsed && !mobileOpen}
         >
-          <img src="/assets/link.svg" alt="" />
-          <span>New summary</span>
-        </button>
-      </div>
+          <button
+            type="button"
+            onClick={() => {
+              onCloseMobile()
+              void navigate({ to: "/", search: {} })
+            }}
+          >
+            <img src="/assets/link.svg" alt="" />
+            <span>New summary</span>
+          </button>
+        </div>
+      )}
     </>
   )
 

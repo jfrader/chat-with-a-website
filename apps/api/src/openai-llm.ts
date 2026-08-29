@@ -1,6 +1,6 @@
 import OpenAI from "openai"
 import type { ChatCompletionChunk } from "openai/resources/chat/completions"
-import { type Llm, LlmError, type LlmRequest, UnavailableLlm } from "./llm"
+import { type Llm, type LlmDelta, LlmError, type LlmRequest, UnavailableLlm } from "./llm"
 
 export type OpenAiLlmOptions = {
   apiKey: string
@@ -12,11 +12,14 @@ export type OpenAiLlmOptions = {
 export async function* readOpenAiDeltas(
   chunks: AsyncIterable<Pick<ChatCompletionChunk, "choices">>,
   signal: AbortSignal,
-): AsyncIterable<string> {
+): AsyncIterable<LlmDelta> {
   for await (const chunk of chunks) {
     if (signal.aborted) throw new LlmError("GENERATION_INTERRUPTED")
-    const delta = chunk.choices[0]?.delta.content
-    if (delta) yield delta
+    const delta = chunk.choices[0]?.delta as
+      | { content?: string | null; reasoning_content?: string | null }
+      | undefined
+    if (delta?.reasoning_content) yield { type: "reasoning", text: delta.reasoning_content }
+    if (delta?.content) yield { type: "content", text: delta.content }
   }
 }
 
@@ -40,7 +43,7 @@ export class OpenAiLlm implements Llm {
       options.client ?? new OpenAI({ apiKey: options.apiKey, baseURL: options.baseUrl })
   }
 
-  async *stream(request: LlmRequest): AsyncIterable<string> {
+  async *stream(request: LlmRequest): AsyncIterable<LlmDelta> {
     try {
       const chunks = await this.#client.chat.completions.create(
         {

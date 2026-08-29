@@ -42,6 +42,8 @@ export function createMessage(overrides: Partial<MessageDto> = {}): MessageDto {
     requestId,
     role: "user",
     content: "What matters most?",
+    reasoningContent: null,
+    reasoningMs: null,
     status: "complete",
     failureCode: null,
     provider: null,

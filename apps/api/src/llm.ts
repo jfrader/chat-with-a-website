@@ -11,10 +11,15 @@ export type LlmRequest = {
   signal: AbortSignal
 }
 
+export type LlmDelta = {
+  type: "content" | "reasoning"
+  text: string
+}
+
 export interface Llm {
   readonly model: string
   readonly provider: string
-  stream(request: LlmRequest): AsyncIterable<string>
+  stream(request: LlmRequest): AsyncIterable<LlmDelta>
 }
 
 export class LlmError extends Error {
@@ -38,7 +43,7 @@ export class UnavailableLlm implements Llm {
     this.model = model
   }
 
-  stream(): AsyncIterable<string> {
+  stream(): AsyncIterable<LlmDelta> {
     return {
       [Symbol.asyncIterator]() {
         return {

@@ -15,6 +15,13 @@
       "when": 1787773138515,
       "tag": "0001_soft_shard",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788013089281,
+      "tag": "0002_sharp_triathlon",
+      "breakpoints": true
     }
   ]
 }

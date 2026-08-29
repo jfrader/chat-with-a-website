@@ -5,7 +5,7 @@ import type {
   MessageRole,
   MessageStatus,
 } from "@profound/contracts"
-import type { Llm, LlmRequest } from "./llm"
+import type { Llm, LlmDelta, LlmRequest } from "./llm"
 import { LlmError } from "./llm"
 import { ServiceError } from "./session-errors"
 import type {
@@ -157,6 +157,8 @@ export class MemorySessionRepository implements SessionRepository {
       requestId,
       role,
       content: messageContent,
+      reasoningContent: null,
+      reasoningMs: null,
       status,
       failureCode: null,
       provider: null,
@@ -209,7 +211,7 @@ export class MemorySessionRepository implements SessionRepository {
 }
 
 export type FakeLlmResponse =
-  | Array<string | Error>
+  | Array<string | Error | { reasoning: string }>
   | ((request: LlmRequest) => AsyncIterable<string>)
 
 export class FakeLlm implements Llm {
@@ -222,17 +224,18 @@ export class FakeLlm implements Llm {
     this.#responses = responses.length ? responses : [["A fake summary."]]
   }
 
-  async *stream(request: LlmRequest): AsyncIterable<string> {
+  async *stream(request: LlmRequest): AsyncIterable<LlmDelta> {
     this.requests.push(request)
     const response = this.#responses.shift() ?? ["A fake response."]
     if (typeof response === "function") {
-      yield* response(request)
+      for await (const item of response(request)) yield { type: "content", text: item }
       return
     }
     for (const item of response) {
       if (request.signal.aborted) throw new LlmError("GENERATION_INTERRUPTED")
       if (item instanceof Error) throw item
-      yield item
+      if (typeof item === "object") yield { type: "reasoning", text: item.reasoning }
+      else yield { type: "content", text: item }
     }
   }
 }

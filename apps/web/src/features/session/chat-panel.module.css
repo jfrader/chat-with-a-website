@@ -101,6 +101,52 @@
   font-size: var(--font-size-caption);
 }
 
+.thought {
+  --chat-thought-open-transform: rotate(180deg);
+
+  margin-bottom: var(--space-2);
+}
+
+.thought summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: fit-content;
+  color: var(--theme-text-secondary);
+  list-style: none;
+  cursor: pointer;
+}
+
+.thought summary::-webkit-details-marker {
+  display: none;
+}
+
+.thoughtDuration {
+  color: var(--theme-text-dim);
+  font-size: var(--font-size-caption);
+}
+
+.thoughtChevron {
+  color: var(--theme-text-dim);
+  transition: transform var(--motion-duration-standard) var(--motion-easing-standard);
+}
+
+.thought[open] .thoughtChevron {
+  transform: var(--chat-thought-open-transform);
+}
+
+.thought > p {
+  margin: var(--space-2) var(--space-0) var(--space-0);
+  color: var(--theme-text-muted);
+  white-space: pre-wrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thoughtChevron {
+    transition: none;
+  }
+}
+
 .composer {
   position: relative;
   margin: var(--space-4);

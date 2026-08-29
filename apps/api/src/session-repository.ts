@@ -78,6 +78,8 @@ export type MessageUpdate = Partial<
     | "model"
     | "outputTokens"
     | "provider"
+    | "reasoningContent"
+    | "reasoningMs"
     | "status"
   >
 >
@@ -147,6 +149,8 @@ const toMessageRecord = (row: MessageRow): MessageRecord => ({
   requestId: row.requestId,
   role: messageRoleSchema.parse(row.role),
   content: row.content,
+  reasoningContent: row.reasoningContent,
+  reasoningMs: row.reasoningMs,
   status: messageStatusSchema.parse(row.status),
   failureCode: apiErrorCodeSchema.nullable().parse(row.failureCode),
   provider: row.provider,

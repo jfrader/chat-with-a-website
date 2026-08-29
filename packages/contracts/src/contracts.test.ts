@@ -104,6 +104,8 @@ describe("response contracts", () => {
           requestId: "44444444-4444-4444-8444-444444444444",
           role: "assistant",
           content: "Answer",
+          reasoningContent: null,
+          reasoningMs: null,
           status: "complete",
           failureCode: null,
           provider: "fake",

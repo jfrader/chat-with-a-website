@@ -162,6 +162,16 @@ export function useSendMessage(sessionId: string) {
                 return { ...message, content: `${message.content}${event.delta}` }
               }),
             )
+          } else if (event.type === "chat.reasoning") {
+            queryClient.setQueryData<MessageDto[]>(key, (messages = []) =>
+              messages.map((message) => {
+                const reasoning = message.reasoningContent ?? ""
+                if (message.id !== event.messageId || event.offset !== reasoning.length) {
+                  return message
+                }
+                return { ...message, reasoningContent: `${reasoning}${event.delta}` }
+              }),
+            )
           } else {
             queryClient.setQueryData<MessageDto[]>(key, (messages) =>
               upsertMessage(messages, event.message),
