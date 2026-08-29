@@ -29,6 +29,7 @@
 - Kept scroll position while chat replies stream, following the stream only when already at the bottom, and let streaming summaries be followed the same way.
 - Let chat load a URL or path mentioned in a message through the SSRF-safe fetcher so conversations can explore linked pages.
 - Wrote page-specific follow-up questions during summarization and sent chosen questions immediately instead of only prefilling the chat.
+- Kept follow-up questions short and showed a loading skeleton in the Keep exploring section while they are written.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.

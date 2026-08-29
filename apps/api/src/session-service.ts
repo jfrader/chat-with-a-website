@@ -799,7 +799,7 @@ export class SessionService implements SessionServiceApi {
           {
             role: "system",
             content:
-              "Write three short follow-up questions a curious reader would ask next about this specific page. Make them concrete to the page's actual topic, not generic. Reply with only a JSON array of three strings.",
+              "Write three follow-up questions a curious reader would ask next about this specific page. Make them concrete to the page's actual topic, not generic, and keep each under nine words. Reply with only a JSON array of three strings.",
           },
           { role: "user", content: `${title ? `Title: ${title}\n` : ""}Summary:\n${summary}` },
         ],
@@ -813,8 +813,7 @@ export class SessionService implements SessionServiceApi {
       return parsed
         .filter((item): item is string => typeof item === "string")
         .map((item) => item.trim())
-        .filter((item) => item.length > 0)
-        .map((item) => item.slice(0, 200))
+        .filter((item) => item.length > 0 && item.length <= 80)
         .slice(0, 3)
     } catch {
       return []

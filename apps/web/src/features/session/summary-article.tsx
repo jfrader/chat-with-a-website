@@ -89,6 +89,22 @@ function SummaryMarkdown({ streaming, summary }: { streaming: boolean; summary: 
   )
 }
 
+function FollowUpSkeleton() {
+  return (
+    <section className={styles.followUps} aria-hidden="true">
+      <div>
+        <h2>Keep exploring</h2>
+        <p>Writing follow-up questions…</p>
+      </div>
+      <div className={`${styles.suggestionList} ${styles.suggestionSkeletons}`}>
+        <span />
+        <span />
+        <span />
+      </div>
+    </section>
+  )
+}
+
 function FollowUpSuggestions({
   onOpenChat,
   prompts,
@@ -187,6 +203,8 @@ export function SummaryArticle({
         ) : null}
         {session.status === "complete" ? (
           <FollowUpSuggestions prompts={session.suggestedPrompts} onOpenChat={onOpenChat} />
+        ) : session.status === "summarizing" ? (
+          <FollowUpSkeleton />
         ) : null}
         <SummaryFooter session={session} onReset={onReset} />
       </article>
