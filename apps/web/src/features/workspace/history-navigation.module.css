@@ -254,9 +254,15 @@
 }
 
 .menuTrigger {
+  --history-menu-trigger-visual-size: 28px;
+  --history-menu-trigger-center: translate(-50%, -50%);
+
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-5);
+  top: var(--space-1);
+  right: var(--space-4);
+  isolation: isolate;
+  display: grid;
+  place-items: center;
   width: var(--control-touch-target);
   height: var(--control-touch-target);
   border: var(--border-none);
@@ -264,14 +270,39 @@
   color: var(--theme-text-muted);
   background: var(--theme-surface-transparent);
   font-size: var(--font-size-body);
+  line-height: var(--line-height-compact);
   cursor: pointer;
+}
+
+.menuTrigger::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  width: var(--history-menu-trigger-visual-size);
+  height: var(--history-menu-trigger-visual-size);
+  border-radius: var(--radius-pill);
+  background: var(--theme-surface-transparent);
+  transform: var(--history-menu-trigger-center);
+  transition: background var(--motion-duration-standard) var(--motion-easing-standard);
 }
 
 .menuTrigger:hover,
 .menuTrigger[aria-expanded="true"] {
   color: var(--theme-text-primary);
+}
+
+.menuTrigger:hover::before,
+.menuTrigger[aria-expanded="true"]::before {
   background: var(--theme-surface-hover);
   backdrop-filter: blur(var(--blur-control));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .menuTrigger::before {
+    transition: none;
+  }
 }
 
 .menu {

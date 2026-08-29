@@ -34,6 +34,7 @@
 - Replaced the Complete label on history cards with a model-written mini tagline describing each page.
 - Added a regenerate button on completed summaries that reruns the pipeline in the same session with a fresh attempt.
 - Fixed the invisible copy icon in the session actions menu and kept the menu open through the scroll caused by opening it.
+- Centered the session actions trigger and sized its circle to the dots while keeping the full touch target.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.
