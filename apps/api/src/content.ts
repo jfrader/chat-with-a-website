@@ -16,6 +16,7 @@ export type ExtractedPage = {
   sourceText: string
   sourceWordCount: number
   sourceTruncated: boolean
+  metadataOnly: boolean
 }
 
 const cleanMetadata = (value: string | undefined, maxCharacters: number) =>
@@ -76,7 +77,26 @@ export function extractReadableContent(html: string, finalUrl: string): Extracte
   const sourceWordCount = readableText ? readableText.split(/\s+/).length : 0
 
   if (sourceWordCount < 5) {
-    throw new SessionPipelineError("EMPTY_CONTENT")
+    const metadataText = [
+      title ? `Title: ${title}` : null,
+      siteName ? `Site: ${siteName}` : null,
+      description ? `Description: ${description}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n")
+    const metadataWordCount = metadataText ? metadataText.split(/\s+/).length : 0
+    if (metadataWordCount < 5) throw new SessionPipelineError("EMPTY_CONTENT")
+
+    return {
+      canonicalUrl,
+      title,
+      siteName,
+      description,
+      sourceText: metadataText,
+      sourceWordCount: metadataWordCount,
+      sourceTruncated: false,
+      metadataOnly: true,
+    }
   }
 
   const sourceTruncated = readableText.length > MAX_SOURCE_CHARACTERS
@@ -92,6 +112,7 @@ export function extractReadableContent(html: string, finalUrl: string): Extracte
     sourceText,
     sourceWordCount,
     sourceTruncated,
+    metadataOnly: false,
   }
 }
 

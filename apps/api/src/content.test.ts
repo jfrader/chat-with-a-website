@@ -50,10 +50,29 @@ describe("content extraction", () => {
     expect(extracted.sourceWordCount).toBeGreaterThan(10)
   })
 
-  it("rejects pages without enough readable content", () => {
+  it("rejects pages without enough readable content or metadata", () => {
     expect(() =>
       extractReadableContent("<html><body>Too short</body></html>", "https://x.com"),
     ).toThrowError(SessionPipelineError)
+  })
+
+  it("falls back to page metadata when a client-rendered page has an empty body", () => {
+    const extracted = extractReadableContent(
+      `<html><head>
+        <title>Gurisitos Games — Games to play together</title>
+        <meta name="description" content="Independent studio from Argentina. Web games with their own identity." />
+        <meta property="og:site_name" content="Gurisitos Games" />
+      </head><body><div id="root"></div></body></html>`,
+      "https://gurisitos.example",
+    )
+
+    expect(extracted.metadataOnly).toBe(true)
+    expect(extracted.sourceText).toContain("Title: Gurisitos Games — Games to play together")
+    expect(extracted.sourceText).toContain(
+      "Description: Independent studio from Argentina. Web games with their own identity.",
+    )
+    expect(extracted.sourceWordCount).toBeGreaterThan(5)
+    expect(extracted.sourceTruncated).toBe(false)
   })
 
   it("caps page-controlled metadata retained in session events", () => {
