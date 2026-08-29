@@ -12,6 +12,11 @@ interface HistoryNavigationProps {
   onCloseMobile: () => void
 }
 
+const MENU_VERTICAL_ALIGN_PX = 4
+const MENU_GAP_PX = 14
+const MENU_MIN_EDGE_SPACE_PX = 240
+const MENU_SCROLL_GRACE_MS = 100
+
 const statusLabels: Record<SessionDto["status"], string> = {
   fetching: "Fetching",
   extracting: "Extracting",
@@ -203,7 +208,7 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
     const listen = window.setTimeout(() => {
       window.addEventListener("scroll", close, { capture: true })
       window.addEventListener("resize", close)
-    }, 100)
+    }, MENU_SCROLL_GRACE_MS)
     return () => {
       window.clearTimeout(listen)
       window.removeEventListener("scroll", close, { capture: true })
@@ -215,8 +220,8 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
     if (!menuOpen && menuTrigger.current) {
       const rect = menuTrigger.current.getBoundingClientRect()
       setMenuPosition({
-        top: rect.top - 4,
-        left: Math.min(rect.right + 14, window.innerWidth - 240),
+        top: rect.top - MENU_VERTICAL_ALIGN_PX,
+        left: Math.min(rect.right + MENU_GAP_PX, window.innerWidth - MENU_MIN_EDGE_SPACE_PX),
       })
     }
     setMenuOpen((open) => !open)
@@ -380,17 +385,22 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
 
 interface HistoryContentProps extends HistoryNavigationProps {
   collapsed: boolean
+  pristineEmpty: boolean
 }
 
-function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContentProps) {
+function HistoryContent({
+  collapsed,
+  mobileOpen,
+  onCloseMobile,
+  pristineEmpty,
+}: HistoryContentProps) {
   const navigate = useNavigate()
   const { sessionId } = useParams({ strict: false }) as { sessionId?: string }
   const search = useSearch({ strict: false }) as { query?: string }
   const query = search.query ?? ""
   const deferredQuery = useDeferredValue(query)
   const sessions = useSessions(deferredQuery)
-  const pristineEmpty =
-    !query && !sessions.isLoading && !sessions.error && sessions.data?.sessions.length === 0
+  const hideSearch = pristineEmpty && !query
 
   function changeQuery(nextQuery: string) {
     if (sessionId) {
@@ -423,7 +433,7 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
       aria-hidden={hidden}
       inert={hidden}
     >
-      {pristineEmpty ? null : (
+      {hideSearch ? null : (
         <label className={`${styles.search} mx-4 max-mobile:mx-3`}>
           <span className="sr-only">Search summaries</span>
           <span aria-hidden="true">⌕</span>
@@ -511,7 +521,12 @@ export function HistoryNavigation({ mobileOpen, onCloseMobile }: HistoryNavigati
         onCloseMobile={onCloseMobile}
         onToggle={() => setCollapsed((value) => !value)}
       />
-      <HistoryContent collapsed={collapsed} mobileOpen={mobileOpen} onCloseMobile={onCloseMobile} />
+      <HistoryContent
+        collapsed={collapsed}
+        mobileOpen={mobileOpen}
+        onCloseMobile={onCloseMobile}
+        pristineEmpty={pristineEmpty}
+      />
       {pristineEmpty ? null : (
         <div
           className={styles.bottom}

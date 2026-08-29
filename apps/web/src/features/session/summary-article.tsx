@@ -3,6 +3,7 @@ import { useEffect, useRef } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { ActiveStatusDot, StreamingCaret } from "../../components/activity-indicator"
+import { useStickToBottom } from "../../components/use-stick-to-bottom"
 import { stageLabels } from "./session-labels"
 import { useRegenerateSession, useSession } from "./session-queries"
 import styles from "./summary-article.module.css"
@@ -148,8 +149,6 @@ function SummaryFooter({ onReset, session }: { onReset: () => void; session: Ses
   )
 }
 
-const STICK_TO_BOTTOM_THRESHOLD_PX = 48
-
 export function SummaryArticle({
   connectionError,
   onOpenChat,
@@ -159,12 +158,11 @@ export function SummaryArticle({
   const { data: session } = useSession(sessionId)
   const regenerate = useRegenerateSession(sessionId)
   const scroller = useRef<HTMLDivElement>(null)
-  const followStream = useRef(false)
+  const stick = useStickToBottom(false)
   const terminal = !session || session.status === "complete" || session.status === "failed"
 
   useEffect(() => {
-    const node = scroller.current
-    if (node && !terminal && followStream.current) node.scrollTop = node.scrollHeight
+    if (!terminal) stick.follow(scroller.current)
   })
 
   if (!session) return null
@@ -194,11 +192,7 @@ export function SummaryArticle({
       <div
         ref={scroller}
         className={`${styles.scroller} h-full w-full overflow-y-auto`}
-        onScroll={(event) => {
-          const node = event.currentTarget
-          followStream.current =
-            node.scrollHeight - node.scrollTop - node.clientHeight < STICK_TO_BOTTOM_THRESHOLD_PX
-        }}
+        onScroll={stick.handleScroll}
       >
         <article
           className={`${styles.article} w-full max-w-(--workspace-summary-width) pt-(--space-12-5) pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-(--space-22)`}

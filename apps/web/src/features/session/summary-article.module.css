@@ -116,11 +116,10 @@
   height: var(--summary-skeleton-height);
   border-radius: var(--radius-card);
   background: var(--summary-skeleton-background);
-  animation: suggestion-breathe var(--summary-skeleton-breathe) var(--motion-easing-in-out) infinite
-    alternate;
+  animation: breathe var(--summary-skeleton-breathe) var(--motion-easing-in-out) infinite alternate;
 }
 
-@keyframes suggestion-breathe {
+@keyframes breathe {
   to {
     opacity: var(--opacity-transition-start);
   }

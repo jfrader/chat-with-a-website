@@ -153,20 +153,22 @@ function FailedSession({ onReset, session }: { onReset: () => void; session: Ses
   )
 }
 
+function OpeningSummary() {
+  return (
+    <section className={`${styles.generating} grid place-items-center`} aria-live="polite">
+      <div className={`${styles.stage} w-auto`} role="status">
+        <ActiveStatusDot />
+        Opening summary…
+      </div>
+    </section>
+  )
+}
+
 export function SessionWorkspace(props: SessionWorkspaceProps) {
   const detail = useSession(props.sessionId)
   const connectionError = useSummaryStream(detail.data)
 
-  if (detail.isLoading) {
-    return (
-      <section className={`${styles.generating} grid place-items-center`} aria-live="polite">
-        <div className={`${styles.stage} w-auto`} role="status">
-          <ActiveStatusDot />
-          Opening summary…
-        </div>
-      </section>
-    )
-  }
+  if (detail.isLoading) return <OpeningSummary />
   if (!detail.data) {
     return (
       <section className={styles.failed} role="alert">
@@ -188,16 +190,7 @@ export function SessionWorkspace(props: SessionWorkspaceProps) {
   const session = detail.data
   if (session.summary) {
     return (
-      <Suspense
-        fallback={
-          <section className={`${styles.generating} grid place-items-center`} aria-live="polite">
-            <div className={`${styles.stage} w-auto`} role="status">
-              <ActiveStatusDot />
-              Opening summary…
-            </div>
-          </section>
-        }
-      >
+      <Suspense fallback={<OpeningSummary />}>
         <SummaryArticle
           sessionId={props.sessionId}
           onOpenChat={props.onOpenChat}

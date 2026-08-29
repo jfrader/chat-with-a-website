@@ -4,6 +4,7 @@ import { StreamingCaret } from "../../components/activity-indicator"
 import { ComposerField, ComposerIconButton } from "../../components/composer-control"
 import { Scrim } from "../../components/scrim"
 import { trapFocus } from "../../components/trap-focus"
+import { useStickToBottom } from "../../components/use-stick-to-bottom"
 import styles from "./chat-panel.module.css"
 import { useMessages, useSendMessage } from "./session-queries"
 
@@ -54,22 +55,18 @@ function ChatMessage({ message }: { message: MessageDto }) {
   )
 }
 
-const STICK_TO_BOTTOM_THRESHOLD_PX = 48
-
 function ChatMessages({ sessionId }: { sessionId: string }) {
   const messages = useMessages(sessionId, true)
   const container = useRef<HTMLDivElement>(null)
-  const stickToBottom = useRef(true)
+  const stick = useStickToBottom(true)
   const messageCount = useRef(0)
   const items = messages.data ?? []
 
   useEffect(() => {
-    const node = container.current
-    if (!node) return
     const newMessageArrived = items.length !== messageCount.current
     messageCount.current = items.length
-    if (newMessageArrived) stickToBottom.current = true
-    if (stickToBottom.current) node.scrollTop = node.scrollHeight
+    if (newMessageArrived) stick.stuck.current = true
+    stick.follow(container.current)
   })
 
   return (
@@ -79,11 +76,7 @@ function ChatMessages({ sessionId }: { sessionId: string }) {
       role="log"
       aria-live="polite"
       aria-relevant="additions"
-      onScroll={(event) => {
-        const node = event.currentTarget
-        stickToBottom.current =
-          node.scrollHeight - node.scrollTop - node.clientHeight < STICK_TO_BOTTOM_THRESHOLD_PX
-      }}
+      onScroll={stick.handleScroll}
     >
       {messages.isLoading ? (
         <p className={styles.chatState}>Loading conversation…</p>

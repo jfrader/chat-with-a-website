@@ -4,8 +4,6 @@ import {
   MAX_DESCRIPTION_CHARACTERS,
   MAX_SITE_NAME_CHARACTERS,
   MAX_TITLE_CHARACTERS,
-  splitSummaryDeltas,
-  summarizeExtractively,
 } from "./content"
 import { SessionPipelineError } from "./session-errors"
 
@@ -90,26 +88,5 @@ describe("content extraction", () => {
     expect(extracted.siteName).toHaveLength(MAX_SITE_NAME_CHARACTERS)
     expect(extracted.description).toHaveLength(MAX_DESCRIPTION_CHARACTERS)
     expect(extracted.canonicalUrl).toBe("https://example.com/final")
-  })
-})
-
-describe("local extractive summarization", () => {
-  it("deterministically selects source sentences and emits lossless deltas", () => {
-    const source = [
-      "The opening sentence establishes the central claim with concrete facts.",
-      "A second sentence adds supporting evidence from the source material.",
-      "The third sentence explains the practical consequence for readers.",
-      "The fourth sentence records an important limitation in the evidence.",
-      "A fifth sentence should not be selected because the summary is intentionally concise.",
-    ].join(" ")
-
-    const first = summarizeExtractively(source)
-    const second = summarizeExtractively(source)
-
-    expect(first).toBe(second)
-    expect(source).toContain(first)
-    expect(first).not.toContain("A fifth sentence")
-    expect(splitSummaryDeltas(first, 31).join("")).toBe(first)
-    expect(splitSummaryDeltas(first, 31).every((delta) => delta.length > 0)).toBe(true)
   })
 })

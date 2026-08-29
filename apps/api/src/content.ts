@@ -2,7 +2,6 @@ import { load } from "cheerio"
 import { SessionPipelineError } from "./session-errors"
 
 export const MAX_SOURCE_CHARACTERS = 120_000
-export const SUMMARY_MAX_CHARACTERS = 1_200
 export const MAX_CANONICAL_URL_CHARACTERS = 2_048
 export const MAX_TITLE_CHARACTERS = 300
 export const MAX_SITE_NAME_CHARACTERS = 120
@@ -114,32 +113,4 @@ export function extractReadableContent(html: string, finalUrl: string): Extracte
     sourceTruncated,
     metadataOnly: false,
   }
-}
-
-export function summarizeExtractively(sourceText: string): string {
-  const sentences = sourceText
-    .split(/(?<=[.!?])\s+(?=[\p{Lu}\p{N}])/u)
-    .map((sentence) => sentence.trim())
-    .filter((sentence) => sentence.length >= 20)
-  const candidates = sentences.length > 0 ? sentences : [sourceText.trim()]
-  const selected: string[] = []
-
-  for (const sentence of candidates) {
-    const next = [...selected, sentence].join(" ")
-    if (selected.length > 0 && next.length > SUMMARY_MAX_CHARACTERS) break
-    selected.push(sentence)
-    if (selected.length === 4 || next.length >= SUMMARY_MAX_CHARACTERS) break
-  }
-
-  const summary = selected.join(" ").slice(0, SUMMARY_MAX_CHARACTERS).trim()
-  if (!summary) throw new SessionPipelineError("EMPTY_CONTENT")
-  return summary
-}
-
-export function splitSummaryDeltas(summary: string, chunkSize = 240): string[] {
-  const deltas: string[] = []
-  for (let offset = 0; offset < summary.length; offset += chunkSize) {
-    deltas.push(summary.slice(offset, offset + chunkSize))
-  }
-  return deltas
 }

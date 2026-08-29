@@ -158,6 +158,12 @@
   animation: breathe var(--history-motion-skeleton) var(--motion-easing-in-out) infinite alternate;
 }
 
+@keyframes breathe {
+  to {
+    opacity: var(--opacity-transition-start);
+  }
+}
+
 .sessionCard {
   position: relative;
   border-bottom: var(--border-subtle);
@@ -479,12 +485,6 @@
 .dialogActions button:disabled {
   color: var(--theme-text-disabled);
   cursor: default;
-}
-
-@keyframes breathe {
-  to {
-    opacity: var(--opacity-transition-start);
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
