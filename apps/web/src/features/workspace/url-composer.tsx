@@ -1,7 +1,16 @@
 import { httpUrlSchema } from "@profound/contracts"
-import { type FormEvent, useId, useRef, useState } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import {
+  type FormEvent,
+  type KeyboardEvent,
+  useDeferredValue,
+  useId,
+  useRef,
+  useState,
+} from "react"
 import { ComposerField } from "../../components/composer-control"
 import borderStyles from "../../components/gradient-border.module.css"
+import { useSessions } from "../session/session-queries"
 import styles from "./url-composer.module.css"
 
 interface Feedback {
@@ -21,16 +30,41 @@ function normalizeUrl(value: string) {
   return `https://${trimmed}`
 }
 
+function toHref(url: string | null) {
+  if (!url) return undefined
+  try {
+    return new URL(url).href
+  } catch {
+    return undefined
+  }
+}
+
 export function UrlComposer({ onSubmit }: UrlComposerProps) {
   const inputId = useId()
+  const navigate = useNavigate()
   const idempotencyKey = useRef<string | undefined>(undefined)
+  const inputRef = useRef<HTMLInputElement>(null)
+  const newOptionRef = useRef<HTMLButtonElement>(null)
+  const matchOptionRef = useRef<HTMLButtonElement>(null)
   const [value, setValue] = useState("")
   const [feedback, setFeedback] = useState<Feedback>()
   const [submitting, setSubmitting] = useState(false)
+  const [dismissed, setDismissed] = useState(false)
   const result = httpUrlSchema.safeParse(normalizeUrl(value))
   const validationMessage = result.success
     ? undefined
     : (result.error.issues[0]?.message ?? fallbackUrlErrorMessage)
+
+  const target = result.success ? new URL(result.data) : undefined
+  const history = useSessions(useDeferredValue(target?.hostname.slice(0, 200) ?? ""))
+  const match = target
+    ? history.data?.sessions.find((session) =>
+        [session.canonicalUrl, session.originalUrl, session.finalUrl].some(
+          (url) => toHref(url) === target.href,
+        ),
+      )
+    : undefined
+  const suggestionsOpen = Boolean(match) && !dismissed && !submitting && !feedback
 
   function showValidationError() {
     if (!validationMessage) return
@@ -38,9 +72,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
     setFeedback({ kind: "error", message: validationMessage })
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-
+  async function startSummary() {
     if (!result.success) {
       showValidationError()
       return
@@ -62,6 +94,39 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
     }
   }
 
+  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    void startSummary()
+  }
+
+  function openMatch() {
+    if (!match) return
+    void navigate({ to: "/sessions/$sessionId", params: { sessionId: match.id }, search: {} })
+  }
+
+  function handleInputKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+    if (!suggestionsOpen) return
+    if (event.key === "ArrowDown") {
+      event.preventDefault()
+      newOptionRef.current?.focus()
+    } else if (event.key === "Escape") {
+      event.preventDefault()
+      setDismissed(true)
+    }
+  }
+
+  function handleSuggestionsKeyDown(event: KeyboardEvent<HTMLFieldSetElement>) {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault()
+      const next = document.activeElement === newOptionRef.current ? matchOptionRef : newOptionRef
+      next.current?.focus()
+    } else if (event.key === "Escape") {
+      event.preventDefault()
+      setDismissed(true)
+      inputRef.current?.focus()
+    }
+  }
+
   return (
     <form className={styles.composer} noValidate onSubmit={handleSubmit}>
       <label className="sr-only" htmlFor={inputId}>
@@ -76,24 +141,53 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
               <img src="/assets/link.svg" alt="" />
             </span>
             <input
+              ref={inputRef}
               id={inputId}
               name="url"
               type="url"
               inputMode="url"
-              autoComplete="url"
+              autoComplete="off"
               spellCheck={false}
               placeholder="https://example.com"
               value={value}
               disabled={submitting}
               aria-describedby={feedback ? `${inputId}-message` : undefined}
               aria-invalid={feedback?.kind === "error" || undefined}
+              onKeyDown={handleInputKeyDown}
               onChange={(event) => {
                 setValue(event.target.value)
                 setFeedback(undefined)
+                setDismissed(false)
                 idempotencyKey.current = undefined
               }}
             />
           </ComposerField>
+          {suggestionsOpen && match ? (
+            <fieldset
+              className={styles.suggestions}
+              aria-label="Suggestions"
+              onKeyDown={handleSuggestionsKeyDown}
+            >
+              <button
+                ref={newOptionRef}
+                className={styles.suggestion}
+                type="button"
+                onClick={() => void startSummary()}
+              >
+                <img src="/assets/link.svg" alt="" aria-hidden="true" />
+                <span>New summary for “{value.trim()}”</span>
+              </button>
+              <button
+                ref={matchOptionRef}
+                className={`${styles.suggestion} ${styles.suggestionSession}`}
+                type="button"
+                onClick={openMatch}
+              >
+                <strong>{match.title ?? match.host}</strong>
+                <span>{match.originalUrl}</span>
+              </button>
+            </fieldset>
+          ) : null}
           <p
             className={
               feedback?.kind === "error"

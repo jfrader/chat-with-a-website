@@ -194,6 +194,56 @@ describe("workspace routing and history", () => {
     expect(screen.queryByRole("dialog", { name: "Summary history" })).not.toBeInTheDocument()
     expect(screen.getByRole("complementary", { name: "Summary history" })).toBeVisible()
   })
+
+  it("suggests an existing summary for an exactly matching URL without browser autocomplete", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const create = vi.fn()
+    const list = vi.fn(async () => ({ sessions: [session], nextCursor: null }))
+    const { router } = renderApp(createTestApi({ list, create, get: async () => session }))
+
+    const input = await screen.findByRole("textbox", { name: "Webpage URL" })
+    expect(input).toHaveAttribute("autocomplete", "off")
+    await user.type(input, "tryprofound.com/article")
+
+    const suggestions = await screen.findByRole("group", { name: "Suggestions" })
+    expect(
+      within(suggestions).getByRole("button", {
+        name: "New summary for “tryprofound.com/article”",
+      }),
+    ).toBeVisible()
+
+    await user.keyboard("{Escape}")
+    expect(screen.queryByRole("group", { name: "Suggestions" })).not.toBeInTheDocument()
+    await user.type(input, "{Backspace}e")
+
+    const reopened = await screen.findByRole("group", { name: "Suggestions" })
+    await user.click(within(reopened).getByRole("button", { name: /A field guide/ }))
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/sessions/${session.id}`))
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it("opens a suggested summary with the keyboard instead of creating a duplicate", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const create = vi.fn()
+    const list = vi.fn(async () => ({ sessions: [session], nextCursor: null }))
+    const { router } = renderApp(createTestApi({ list, create, get: async () => session }))
+
+    await user.type(
+      await screen.findByRole("textbox", { name: "Webpage URL" }),
+      "https://tryprofound.com/article",
+    )
+    const suggestions = await screen.findByRole("group", { name: "Suggestions" })
+    await user.keyboard("{ArrowDown}")
+    expect(within(suggestions).getByRole("button", { name: /New summary for/ })).toHaveFocus()
+    await user.keyboard("{ArrowDown}")
+    expect(within(suggestions).getByRole("button", { name: /A field guide/ })).toHaveFocus()
+    await user.keyboard("{Enter}")
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/sessions/${session.id}`))
+    expect(create).not.toHaveBeenCalled()
+  })
 })
 
 describe("progressive summary and safe failures", () => {

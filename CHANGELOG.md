@@ -16,3 +16,4 @@
 - Aligned completed sessions with the supplied design by moving summary actions into history, adding the bottom chat entry, expanding the chat rail, and preserving richer history previews.
 - Matched the completed-summary chat entry to the supplied design's exact width and bottom spacing.
 - Simplified URL entry by accepting bare domains, delaying malformed-address feedback until submission, and unifying focused URL and chat fields with the supplied design.
+- Replaced browser autofill on the URL field with in-app suggestions that offer a fresh summary or the matching saved session when the address is already in history.
