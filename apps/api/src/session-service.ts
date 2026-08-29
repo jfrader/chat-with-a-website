@@ -85,6 +85,7 @@ export const toSessionDto = (session: SessionRecord): SessionDto =>
     siteName: session.siteName,
     description: session.description,
     summary: session.summary,
+    suggestedPrompts: session.suggestedPrompts,
     status: session.status,
     failureStage: session.failureStage,
     failureCode: session.failureCode,
@@ -703,9 +704,15 @@ export class SessionService implements SessionServiceApi {
         }
       }
       if (!accumulated.trim()) throw new SessionPipelineError("EMPTY_CONTENT")
+      const suggestedPrompts = await this.#generateSuggestedPrompts(
+        accumulated,
+        extracted.title,
+        signal,
+      )
       session = await this.#updateSession(session.id, {
         status: "complete",
         summary: accumulated,
+        suggestedPrompts,
         completedAt: new Date(),
       })
       this.#eventHub.publish(session.id, summaryEvent(session))
@@ -776,6 +783,42 @@ export class SessionService implements SessionServiceApi {
       message: toMessageDto(message),
       error: createApiError(message.failureCode ?? "INTERNAL_ERROR"),
     })
+  }
+
+  async #generateSuggestedPrompts(
+    summary: string,
+    title: string | null,
+    signal: AbortSignal,
+  ): Promise<string[]> {
+    try {
+      let raw = ""
+      for await (const streamed of this.#llm.stream({
+        signal,
+        maxOutputTokens: 200,
+        messages: [
+          {
+            role: "system",
+            content:
+              "Write three short follow-up questions a curious reader would ask next about this specific page. Make them concrete to the page's actual topic, not generic. Reply with only a JSON array of three strings.",
+          },
+          { role: "user", content: `${title ? `Title: ${title}\n` : ""}Summary:\n${summary}` },
+        ],
+      })) {
+        if (streamed.type === "content") raw += streamed.text
+      }
+      const match = raw.match(/\[[\s\S]*\]/)
+      if (!match) return []
+      const parsed: unknown = JSON.parse(match[0])
+      if (!Array.isArray(parsed)) return []
+      return parsed
+        .filter((item): item is string => typeof item === "string")
+        .map((item) => item.trim())
+        .filter((item) => item.length > 0)
+        .map((item) => item.slice(0, 200))
+        .slice(0, 3)
+    } catch {
+      return []
+    }
   }
 
   async #loadLinkedPage(url: string, signal: AbortSignal): Promise<string> {

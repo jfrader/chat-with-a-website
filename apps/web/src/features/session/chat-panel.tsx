@@ -107,14 +107,13 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
   const [draft, setDraft] = useState(initialPrompt ?? "")
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const focusInput = useRef(Boolean(initialPrompt))
+  const autoSend = useRef(Boolean(initialPrompt))
   const retryRequest = useRef<{ content: string; idempotencyKey: string } | undefined>(undefined)
   const send = useSendMessage(sessionId)
   const parsedDraft = createChatRequestSchema.shape.content.safeParse(draft)
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    if (!parsedDraft.success || send.isPending) return
-    const content = parsedDraft.data
+  async function sendContent(content: string) {
+    if (send.isPending) return
     const idempotencyKey =
       retryRequest.current?.content === content
         ? retryRequest.current.idempotencyKey
@@ -130,6 +129,19 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
     } finally {
       inputRef.current?.focus()
     }
+  }
+
+  useEffect(() => {
+    if (!autoSend.current) return
+    autoSend.current = false
+    const parsed = createChatRequestSchema.shape.content.safeParse(initialPrompt ?? "")
+    if (parsed.success) void sendContent(parsed.data)
+  })
+
+  function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    if (!parsedDraft.success || send.isPending) return
+    void sendContent(parsedDraft.data)
   }
 
   return (

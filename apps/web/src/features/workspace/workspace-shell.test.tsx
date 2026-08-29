@@ -509,18 +509,25 @@ describe("summary chat", () => {
     expect(await screen.findByRole("textbox", { name: "Ask about this summary" })).toHaveValue("")
   })
 
-  it("opens chat from the summary composer with the question ready", async () => {
+  it("opens chat from the summary composer and sends the question", async () => {
     const user = userEvent.setup()
     const session = createSession()
-    renderApp(createTestApi({ get: async () => session }), `/sessions/${session.id}`)
+    const chat = vi.fn(async () => {})
+    renderApp(createTestApi({ get: async () => session, chat }), `/sessions/${session.id}`)
 
     const entry = await screen.findByRole("textbox", { name: "Ask about this summary" })
     await user.type(entry, "What should I verify next?")
     await user.click(screen.getByRole("button", { name: "Open chat with question" }))
 
-    const dialog = screen.getByRole("dialog", { name: "Chat about this summary" })
-    expect(within(dialog).getByRole("textbox", { name: "Ask about this summary" })).toHaveValue(
-      "What should I verify next?",
+    expect(screen.getByRole("dialog", { name: "Chat about this summary" })).toBeVisible()
+    await waitFor(() =>
+      expect(chat).toHaveBeenCalledWith(
+        session.id,
+        "What should I verify next?",
+        expect.any(Function),
+        expect.any(AbortSignal),
+        expect.any(String),
+      ),
     )
   })
 

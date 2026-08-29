@@ -7,7 +7,7 @@ import { stageLabels } from "./session-labels"
 import { useSession } from "./session-queries"
 import styles from "./summary-article.module.css"
 
-const suggestions = [
+const fallbackSuggestions = [
   "What are the three most important takeaways?",
   "What evidence supports the main argument?",
   "What should I read or verify next?",
@@ -89,12 +89,19 @@ function SummaryMarkdown({ streaming, summary }: { streaming: boolean; summary: 
   )
 }
 
-function FollowUpSuggestions({ onOpenChat }: { onOpenChat: (prompt: string) => void }) {
+function FollowUpSuggestions({
+  onOpenChat,
+  prompts,
+}: {
+  onOpenChat: (prompt: string) => void
+  prompts: string[]
+}) {
+  const suggestions = prompts.length ? prompts : fallbackSuggestions
   return (
     <section className={styles.followUps} aria-labelledby="follow-up-title">
       <div>
         <h2 id="follow-up-title">Keep exploring</h2>
-        <p>Choose a question to open chat with it ready to send.</p>
+        <p>Choose a question to ask it in chat.</p>
       </div>
       <div className={styles.suggestionList}>
         {suggestions.map((suggestion) => (
@@ -178,7 +185,9 @@ export function SummaryArticle({
             <span>The partial summary is preserved. Start a new summary to try again.</span>
           </div>
         ) : null}
-        {session.status === "complete" ? <FollowUpSuggestions onOpenChat={onOpenChat} /> : null}
+        {session.status === "complete" ? (
+          <FollowUpSuggestions prompts={session.suggestedPrompts} onOpenChat={onOpenChat} />
+        ) : null}
         <SummaryFooter session={session} onReset={onReset} />
       </article>
     </div>

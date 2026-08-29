@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react"
+import { screen, waitFor } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createSession } from "../../test/fixtures"
@@ -45,21 +45,29 @@ describe("completed summary actions", () => {
     expect(revokeObjectUrl).toHaveBeenCalledWith("blob:summary")
   })
 
-  it("opens chat with a predictable suggested question", async () => {
+  it("opens chat and sends a suggested question automatically", async () => {
     const user = userEvent.setup()
-    const session = createSession()
-    renderApp(createTestApi({ get: async () => session }), `/sessions/${session.id}`)
+    const session = createSession({
+      suggestedPrompts: ["How does Profound measure AI visibility?"],
+    })
+    const chat = vi.fn(async () => {})
+    renderApp(createTestApi({ get: async () => session, chat }), `/sessions/${session.id}`)
 
-    expect(
-      await screen.findByText("Choose a question to open chat with it ready to send."),
-    ).toBeVisible()
+    expect(await screen.findByText("Choose a question to ask it in chat.")).toBeVisible()
     await user.click(
-      screen.getByRole("button", { name: "What are the three most important takeaways?" }),
+      screen.getByRole("button", { name: "How does Profound measure AI visibility?" }),
     )
     expect(screen.getByRole("dialog", { name: "Chat about this summary" })).toBeVisible()
-    expect(screen.getByRole("textbox", { name: "Ask about this summary" })).toHaveValue(
-      "What are the three most important takeaways?",
+    await waitFor(() =>
+      expect(chat).toHaveBeenCalledWith(
+        session.id,
+        "How does Profound measure AI visibility?",
+        expect.any(Function),
+        expect.any(AbortSignal),
+        expect.any(String),
+      ),
     )
+    expect(screen.getByRole("textbox", { name: "Ask about this summary" })).toHaveValue("")
   })
 
   it("does not load remote images from generated Markdown", async () => {

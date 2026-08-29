@@ -16,6 +16,7 @@ export function createSession(overrides: Partial<SessionDto> = {}): SessionDto {
     siteName: "Profound",
     description: "A practical guide to understanding visibility in AI answers.",
     summary: "## Main idea\n\nVisibility depends on useful, well-supported answers.",
+    suggestedPrompts: [],
     status: "complete",
     failureStage: null,
     failureCode: null,

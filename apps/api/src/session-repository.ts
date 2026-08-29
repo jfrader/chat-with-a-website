@@ -63,6 +63,7 @@ export type SessionUpdate = Partial<
     | "sourceTruncated"
     | "sourceWordCount"
     | "status"
+    | "suggestedPrompts"
     | "summary"
     | "title"
   >
@@ -125,6 +126,7 @@ const toSessionRecord = (row: SessionRow): SessionRecord => ({
   sourceText: row.sourceText,
   sourceHash: row.sourceHash,
   summary: row.summary,
+  suggestedPrompts: row.suggestedPrompts,
   status: sessionStatusSchema.parse(row.status),
   failureStage: sessionStageSchema.nullable().parse(row.failureStage),
   failureCode: apiErrorCodeSchema.nullable().parse(row.failureCode),

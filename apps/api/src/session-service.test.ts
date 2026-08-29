@@ -428,6 +428,37 @@ describe("SessionService", () => {
     expect(llm.requests).toHaveLength(1)
   })
 
+  it("stores model-written follow-up prompts on the completed session", async () => {
+    const repository = new MemorySessionRepository()
+    const llm = new FakeLlm(
+      ["A summary about gardening puzzles."],
+      ['["How do daily puzzles rotate?", "What crops appear?", "Is there a streak system?"]'],
+    )
+    const service = new SessionService({ repository, llm, fetchPage: async () => page })
+    const { session } = await service.create(request)
+    await service.waitForAll()
+
+    const completed = await service.get(session.id)
+    expect(completed?.status).toBe("complete")
+    expect(completed?.suggestedPrompts).toEqual([
+      "How do daily puzzles rotate?",
+      "What crops appear?",
+      "Is there a streak system?",
+    ])
+  })
+
+  it("completes without suggestions when the follow-up generation fails", async () => {
+    const repository = new MemorySessionRepository()
+    const llm = new FakeLlm(["A useful summary."], [new Error("suggestions down")])
+    const service = new SessionService({ repository, llm, fetchPage: async () => page })
+    const { session } = await service.create(request)
+    await service.waitForAll()
+
+    const completed = await service.get(session.id)
+    expect(completed?.status).toBe("complete")
+    expect(completed?.suggestedPrompts).toEqual([])
+  })
+
   it("loads a linked page from the chat message into the model context", async () => {
     const repository = new MemorySessionRepository()
     const llm = new FakeLlm(["The registration page asks for an email."])

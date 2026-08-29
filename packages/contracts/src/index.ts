@@ -98,6 +98,7 @@ export const sessionSchema = z.object({
   siteName: z.string().nullable(),
   description: z.string().nullable(),
   summary: z.string(),
+  suggestedPrompts: z.array(z.string().min(1).max(200)).max(8).default([]),
   status: sessionStatusSchema,
   failureStage: sessionStageSchema.nullable(),
   failureCode: apiErrorCodeSchema.nullable(),
