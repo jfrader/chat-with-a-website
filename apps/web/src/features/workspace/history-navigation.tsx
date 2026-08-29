@@ -200,9 +200,12 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
   useEffect(() => {
     if (!menuOpen) return
     const close = () => setMenuOpen(false)
-    window.addEventListener("scroll", close, { capture: true })
-    window.addEventListener("resize", close)
+    const listen = window.setTimeout(() => {
+      window.addEventListener("scroll", close, { capture: true })
+      window.addEventListener("resize", close)
+    }, 100)
     return () => {
+      window.clearTimeout(listen)
       window.removeEventListener("scroll", close, { capture: true })
       window.removeEventListener("resize", close)
     }

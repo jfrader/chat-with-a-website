@@ -326,7 +326,7 @@
   filter: brightness(var(--history-icon-hover-brightness));
 }
 
-.menuCopy {
+.menu button.menuCopy {
   justify-content: center;
   width: var(--history-menu-item-height);
   padding: var(--space-0);
