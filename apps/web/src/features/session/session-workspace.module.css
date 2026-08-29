@@ -153,6 +153,12 @@
   background: var(--theme-surface-transparent);
 }
 
+.retryError {
+  margin: var(--space-3) var(--space-0) var(--space-0);
+  color: var(--theme-text-danger);
+  font-size: var(--font-size-caption);
+}
+
 @keyframes resolve-title {
   from {
     opacity: var(--opacity-transition-start);

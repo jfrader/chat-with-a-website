@@ -467,6 +467,36 @@ describe("progressive summary and safe failures", () => {
     expect(alert).toHaveTextContent("We couldn’t summarize this page")
     expect(alert).toHaveTextContent("summary provider is temporarily unavailable")
   })
+
+  it("retries the same URL from a failed summary and replaces the failed session", async () => {
+    const user = userEvent.setup()
+    const failed = createSession({
+      status: "failed",
+      summary: "",
+      failureCode: "FETCH_TIMEOUT",
+      completedAt: new Date().toISOString(),
+    })
+    const retried = createSession({ id: secondSessionId })
+    const create = vi.fn(async () => retried)
+    const remove = vi.fn(async () => {})
+    const get = vi.fn(async (id: string) => (id === failed.id ? failed : retried))
+    const { router } = renderApp(
+      createTestApi({
+        create,
+        get,
+        delete: remove,
+        list: async () => ({ sessions: [failed], nextCursor: null }),
+      }),
+      `/sessions/${failed.id}`,
+    )
+
+    await screen.findByText("We couldn’t summarize this page")
+    await user.click(screen.getByRole("button", { name: "Try again" }))
+
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/sessions/${retried.id}`))
+    expect(create).toHaveBeenCalledWith(failed.originalUrl, expect.any(String))
+    await waitFor(() => expect(remove).toHaveBeenCalledWith(failed.id))
+  })
 })
 
 describe("summary chat", () => {

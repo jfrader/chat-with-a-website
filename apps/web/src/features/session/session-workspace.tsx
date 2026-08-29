@@ -1,9 +1,10 @@
 import type { ApiErrorCode, SessionDto } from "@profound/contracts"
-import { lazy, Suspense } from "react"
+import { useNavigate } from "@tanstack/react-router"
+import { lazy, Suspense, useState } from "react"
 import { ActiveStatusDot } from "../../components/activity-indicator"
 import borderStyles from "../../components/gradient-border.module.css"
 import { stageLabels } from "./session-labels"
-import { useSession } from "./session-queries"
+import { useCreateSession, useDeleteSession, useSession } from "./session-queries"
 import { useSummaryStream } from "./session-stream"
 import styles from "./session-workspace.module.css"
 
@@ -110,15 +111,44 @@ function GeneratingSession({
 }
 
 function FailedSession({ onReset, session }: { onReset: () => void; session: SessionDto }) {
+  const navigate = useNavigate()
+  const createSession = useCreateSession()
+  const removeSession = useDeleteSession()
+  const [retryError, setRetryError] = useState<string>()
   const message = failureMessages[session.failureCode ?? "INTERNAL_ERROR"]
+
+  async function retry() {
+    setRetryError(undefined)
+    try {
+      const created = await createSession.mutateAsync({
+        url: session.originalUrl,
+        idempotencyKey: crypto.randomUUID(),
+      })
+      await navigate({ to: "/sessions/$sessionId", params: { sessionId: created.id }, search: {} })
+      removeSession.mutate(session.id)
+    } catch (error) {
+      setRetryError(error instanceof Error ? error.message : "The summary could not be restarted.")
+    }
+  }
+
   return (
     <section className={styles.failed} role="alert" aria-labelledby="session-title">
       <p className={styles.failureLabel}>Summary interrupted</p>
       <h1 id="session-title">We couldn’t summarize this page</h1>
       <p>{message}</p>
-      <button type="button" onClick={onReset}>
-        Try another URL
-      </button>
+      <div className={styles.failedActions}>
+        <button type="button" disabled={createSession.isPending} onClick={() => void retry()}>
+          {createSession.isPending ? "Retrying…" : "Try again"}
+        </button>
+        <button className={styles.secondaryAction} type="button" onClick={onReset}>
+          Try another URL
+        </button>
+      </div>
+      {retryError ? (
+        <p className={styles.retryError} role="alert">
+          {retryError}
+        </p>
+      ) : null}
     </section>
   )
 }
