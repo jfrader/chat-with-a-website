@@ -143,9 +143,14 @@ export function SessionWorkspace(props: SessionWorkspaceProps) {
         <p className={styles.failureLabel}>Summary unavailable</p>
         <h1>This summary couldn’t be loaded</h1>
         <p>{detail.error?.message ?? "The summary could not be loaded."}</p>
-        <button type="button" onClick={props.onReset}>
-          Return home
-        </button>
+        <div className={styles.failedActions}>
+          <button type="button" disabled={detail.isFetching} onClick={() => void detail.refetch()}>
+            {detail.isFetching ? "Retrying…" : "Try again"}
+          </button>
+          <button className={styles.secondaryAction} type="button" onClick={props.onReset}>
+            Return home
+          </button>
+        </div>
       </section>
     )
   }

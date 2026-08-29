@@ -135,6 +135,24 @@
   cursor: pointer;
 }
 
+.failed button:disabled {
+  opacity: var(--opacity-disabled);
+  cursor: default;
+}
+
+.failedActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  justify-content: center;
+}
+
+.failed .secondaryAction {
+  border: var(--border-subtle);
+  color: var(--theme-text-secondary);
+  background: var(--theme-surface-transparent);
+}
+
 @keyframes resolve-title {
   from {
     opacity: var(--opacity-transition-start);

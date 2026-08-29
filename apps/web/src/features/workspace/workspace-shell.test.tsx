@@ -434,6 +434,26 @@ describe("progressive summary and safe failures", () => {
     expect(create).not.toHaveBeenCalled()
   })
 
+  it("offers a retry when the summary detail fails to load", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const get = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("Failed to fetch"))
+      .mockResolvedValue(session)
+    const list = vi.fn(async () => ({ sessions: [session], nextCursor: null }))
+    renderApp(createTestApi({ list, get }), `/sessions/${session.id}`)
+
+    expect(await screen.findByText("This summary couldn’t be loaded")).toBeVisible()
+    expect(screen.getByText("Failed to fetch")).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Try again" }))
+
+    expect(
+      await screen.findByRole("heading", { level: 1, name: session.title ?? "" }),
+    ).toBeVisible()
+    expect(get).toHaveBeenCalledTimes(2)
+  })
+
   it("announces terminal summary failures", async () => {
     const failed = createSession({
       status: "failed",
