@@ -413,13 +413,13 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
 
   return (
     <div
-      className={`${styles.content} absolute inset-x-0 top-16 bottom-28 flex flex-col px-4 py-5 max-mobile:top-12 max-mobile:px-3`}
+      className={`${styles.content} absolute inset-x-0 top-16 bottom-28 flex flex-col py-5 max-mobile:top-12`}
       id="summary-history-content"
       aria-hidden={hidden}
       inert={hidden}
     >
       {pristineEmpty ? null : (
-        <label className={styles.search}>
+        <label className={`${styles.search} mx-4 max-mobile:mx-3`}>
           <span className="sr-only">Search summaries</span>
           <span aria-hidden="true">⌕</span>
           <input
@@ -430,7 +430,7 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
           />
         </label>
       )}
-      <div className={styles.historyList} aria-live="polite">
+      <div className={`${styles.historyList} px-4 max-mobile:px-3`} aria-live="polite">
         {sessions.isLoading || deferredQuery !== query ? (
           <div className={styles.skeletons} role="status" aria-label="Loading summary history">
             <span />

@@ -1,7 +1,9 @@
+.scroller {
+  scrollbar-width: thin;
+}
+
 .article {
   margin: var(--space-0) auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--theme-scrollbar-thumb) var(--theme-surface-transparent);
 }
 
 .header h1,

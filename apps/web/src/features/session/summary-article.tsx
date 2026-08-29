@@ -135,31 +135,33 @@ export function SummaryArticle({
   const terminal = session.status === "complete" || session.status === "failed"
 
   return (
-    <article
-      className={`${styles.article} h-full w-full max-w-(--workspace-summary-width) overflow-y-auto pt-(--space-12-5) pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-(--space-22)`}
-      aria-labelledby="session-title"
-    >
-      {session.status === "complete" ? (
-        <p className="sr-only" role="status">
-          Summary ready.
-        </p>
-      ) : null}
-      <SummaryHeader session={session} />
-      <SummaryProgress status={session.status} />
-      <SummaryMarkdown streaming={!terminal} summary={session.summary} />
-      {connectionError ? (
-        <p className={styles.recovery} role="alert">
-          {connectionError}
-        </p>
-      ) : null}
-      {session.status === "failed" ? (
-        <div className={styles.recovery} role="alert">
-          <strong>Summary interrupted</strong>
-          <span>The partial summary is preserved. Start a new summary to try again.</span>
-        </div>
-      ) : null}
-      {session.status === "complete" ? <FollowUpSuggestions onOpenChat={onOpenChat} /> : null}
-      <SummaryFooter session={session} onReset={onReset} />
-    </article>
+    <div className={`${styles.scroller} h-full w-full overflow-y-auto`}>
+      <article
+        className={`${styles.article} w-full max-w-(--workspace-summary-width) pt-(--space-12-5) pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-(--space-22)`}
+        aria-labelledby="session-title"
+      >
+        {session.status === "complete" ? (
+          <p className="sr-only" role="status">
+            Summary ready.
+          </p>
+        ) : null}
+        <SummaryHeader session={session} />
+        <SummaryProgress status={session.status} />
+        <SummaryMarkdown streaming={!terminal} summary={session.summary} />
+        {connectionError ? (
+          <p className={styles.recovery} role="alert">
+            {connectionError}
+          </p>
+        ) : null}
+        {session.status === "failed" ? (
+          <div className={styles.recovery} role="alert">
+            <strong>Summary interrupted</strong>
+            <span>The partial summary is preserved. Start a new summary to try again.</span>
+          </div>
+        ) : null}
+        {session.status === "complete" ? <FollowUpSuggestions onOpenChat={onOpenChat} /> : null}
+        <SummaryFooter session={session} onReset={onReset} />
+      </article>
+    </div>
   )
 }
