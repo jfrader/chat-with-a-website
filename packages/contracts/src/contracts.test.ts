@@ -45,6 +45,7 @@ describe("request contracts", () => {
   it.each([
     "example.com",
     "ftp://example.com",
+    "https://truco",
     "https://not%20a%20web%20address",
     "https://user:secret@example.com",
   ])("rejects %s", (url) => expect(httpUrlSchema.safeParse(url).success).toBe(false))

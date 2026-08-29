@@ -46,7 +46,7 @@ export const httpUrlSchema = z
       return
     }
 
-    if (!url.hostname || url.hostname.includes("%")) {
+    if (!url.hostname || url.hostname.includes("%") || !url.hostname.includes(".")) {
       context.addIssue({ code: "custom", message: "That doesn’t look like a webpage address." })
       return
     }

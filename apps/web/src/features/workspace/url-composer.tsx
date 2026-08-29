@@ -1,4 +1,4 @@
-import { httpUrlSchema } from "@profound/contracts"
+import { httpUrlSchema, type SessionDto } from "@profound/contracts"
 import { useNavigate } from "@tanstack/react-router"
 import {
   type FormEvent,
@@ -30,13 +30,18 @@ function normalizeUrl(value: string) {
   return `https://${trimmed}`
 }
 
-function toHref(url: string | null) {
-  if (!url) return undefined
-  try {
-    return new URL(url).href
-  } catch {
-    return undefined
+const stripUrlPrefix = (value: string) =>
+  value
+    .toLowerCase()
+    .replace(/^[a-z][a-z\d+.-]*:\/\//, "")
+    .replace(/^www\./, "")
+
+const comparableUrls = (session: SessionDto) => {
+  const candidates = [stripUrlPrefix(session.host)]
+  for (const url of [session.canonicalUrl, session.originalUrl, session.finalUrl]) {
+    if (url) candidates.push(stripUrlPrefix(url))
   }
+  return candidates
 }
 
 export function UrlComposer({ onSubmit }: UrlComposerProps) {
@@ -55,13 +60,11 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
     ? undefined
     : (result.error.issues[0]?.message ?? fallbackUrlErrorMessage)
 
-  const target = result.success ? new URL(result.data) : undefined
-  const history = useSessions(useDeferredValue(target?.hostname.slice(0, 200) ?? ""))
-  const match = target
+  const typed = stripUrlPrefix(value.trim())
+  const history = useSessions(useDeferredValue(typed.slice(0, 200)))
+  const match = typed
     ? history.data?.sessions.find((session) =>
-        [session.canonicalUrl, session.originalUrl, session.finalUrl].some(
-          (url) => toHref(url) === target.href,
-        ),
+        comparableUrls(session).some((candidate) => candidate.startsWith(typed)),
       )
     : undefined
   const suggestionsOpen = Boolean(match) && !dismissed && !submitting && !feedback
@@ -108,7 +111,7 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
     if (!suggestionsOpen) return
     if (event.key === "ArrowDown") {
       event.preventDefault()
-      newOptionRef.current?.focus()
+      ;(newOptionRef.current ?? matchOptionRef.current)?.focus()
     } else if (event.key === "Escape") {
       event.preventDefault()
       setDismissed(true)
@@ -118,8 +121,11 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
   function handleSuggestionsKeyDown(event: KeyboardEvent<HTMLFieldSetElement>) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault()
-      const next = document.activeElement === newOptionRef.current ? matchOptionRef : newOptionRef
-      next.current?.focus()
+      const options = [newOptionRef.current, matchOptionRef.current].filter(
+        (option) => option !== null,
+      )
+      const index = options.indexOf(document.activeElement as HTMLButtonElement)
+      options[(index + 1) % options.length]?.focus()
     } else if (event.key === "Escape") {
       event.preventDefault()
       setDismissed(true)
@@ -168,15 +174,17 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
               aria-label="Suggestions"
               onKeyDown={handleSuggestionsKeyDown}
             >
-              <button
-                ref={newOptionRef}
-                className={styles.suggestion}
-                type="button"
-                onClick={() => void startSummary()}
-              >
-                <img src="/assets/link.svg" alt="" aria-hidden="true" />
-                <span>New summary for “{value.trim()}”</span>
-              </button>
+              {result.success ? (
+                <button
+                  ref={newOptionRef}
+                  className={styles.suggestion}
+                  type="button"
+                  onClick={() => void startSummary()}
+                >
+                  <img src="/assets/link.svg" alt="" aria-hidden="true" />
+                  <span>New summary for “{value.trim()}”</span>
+                </button>
+              ) : null}
               <button
                 ref={matchOptionRef}
                 className={`${styles.suggestion} ${styles.suggestionSession}`}

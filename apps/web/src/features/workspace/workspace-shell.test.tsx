@@ -223,6 +223,37 @@ describe("workspace routing and history", () => {
     expect(create).not.toHaveBeenCalled()
   })
 
+  it("suggests a history session from a partial address without offering an invalid new summary", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const create = vi.fn()
+    const list = vi.fn(async () => ({ sessions: [session], nextCursor: null }))
+    const { router } = renderApp(createTestApi({ list, create, get: async () => session }))
+
+    const input = await screen.findByRole("textbox", { name: "Webpage URL" })
+    await user.type(input, "tryprof")
+
+    const suggestions = await screen.findByRole("group", { name: "Suggestions" })
+    expect(
+      within(suggestions).queryByRole("button", { name: /New summary for/ }),
+    ).not.toBeInTheDocument()
+    await user.click(within(suggestions).getByRole("button", { name: /A field guide/ }))
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/sessions/${session.id}`))
+    expect(create).not.toHaveBeenCalled()
+  })
+
+  it("rejects a dotless host on submission instead of recording a failed session", async () => {
+    const user = userEvent.setup()
+    const create = vi.fn()
+    renderApp(createTestApi({ create }))
+
+    await user.type(await screen.findByRole("textbox", { name: "Webpage URL" }), "truco")
+    await user.click(screen.getByRole("button", { name: "Summarize" }))
+
+    expect(screen.getByText("That doesn’t look like a webpage address.")).toBeVisible()
+    expect(create).not.toHaveBeenCalled()
+  })
+
   it("opens a suggested summary with the keyboard instead of creating a duplicate", async () => {
     const user = userEvent.setup()
     const session = createSession()
