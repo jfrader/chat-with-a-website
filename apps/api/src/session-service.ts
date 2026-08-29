@@ -62,6 +62,7 @@ export type SessionServiceApi = {
   initialize(): Promise<void>
   list(query: ListSessionsQuery): Promise<ListSessionsResponse>
   messages(id: string): Promise<MessageDto[] | null>
+  regenerate(id: string): Promise<SessionDto | null>
   stream(id: string): Promise<SessionEventStream | null>
 }
 
@@ -438,6 +439,42 @@ export class SessionService implements SessionServiceApi {
   async get(id: string): Promise<SessionDto | null> {
     const session = await this.#repository.findById(id)
     return session ? toSessionDto(session) : null
+  }
+
+  async regenerate(id: string): Promise<SessionDto | null> {
+    this.#assertAcceptingWork()
+    return this.#sessionOperations.run(id, async () => {
+      const current = await this.#repository.findById(id)
+      if (!current) return null
+      if (current.status !== "complete" && current.status !== "failed") {
+        return toSessionDto(current)
+      }
+      const reset = await this.#updateSession(id, {
+        status: "fetching",
+        summary: "",
+        tagline: null,
+        suggestedPrompts: [],
+        failureCode: null,
+        failureStage: null,
+        completedAt: null,
+        attemptNumber: current.attemptNumber + 1,
+        currentAttemptId: crypto.randomUUID(),
+      })
+      if (!this.#startSummary(reset)) {
+        await this.#repository.update(id, {
+          status: current.status,
+          summary: current.summary,
+          tagline: current.tagline,
+          suggestedPrompts: current.suggestedPrompts,
+          failureCode: current.failureCode,
+          failureStage: current.failureStage,
+          completedAt: current.completedAt,
+          attemptNumber: current.attemptNumber,
+        })
+        throw new ServiceError("RATE_LIMITED")
+      }
+      return toSessionDto(reset)
+    })
   }
 
   async list(query: ListSessionsQuery): Promise<ListSessionsResponse> {

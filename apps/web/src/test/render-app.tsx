@@ -16,6 +16,9 @@ export function createTestApi(overrides: Partial<SessionApi> = {}): SessionApi {
     },
     delete: async () => {},
     messages: async () => [],
+    regenerate: async () => {
+      throw new Error("Unexpected regenerate request")
+    },
     chat: async () => {},
     stream: async () => {},
     ...overrides,

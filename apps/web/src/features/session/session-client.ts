@@ -32,6 +32,7 @@ export interface SessionApi {
   get(id: string): Promise<SessionDto>
   delete(id: string): Promise<void>
   messages(id: string): Promise<MessageDto[]>
+  regenerate(id: string): Promise<SessionDto>
   chat(
     id: string,
     content: string,
@@ -137,6 +138,14 @@ async function deleteSession(id: string): Promise<void> {
   }
 }
 
+async function regenerate(id: string): Promise<SessionDto> {
+  const response = await fetch(`/api/sessions/${encodeURIComponent(id)}/regenerate`, {
+    method: "POST",
+  })
+  if (!response.ok) return throwResponseError(response)
+  return sessionSchema.parse(await response.json())
+}
+
 async function messages(id: string): Promise<MessageDto[]> {
   const response = await fetch(`/api/sessions/${encodeURIComponent(id)}/messages`)
   if (!response.ok) return throwResponseError(response)
@@ -216,6 +225,7 @@ export const sessionApi: SessionApi = {
   get,
   delete: deleteSession,
   messages,
+  regenerate,
   chat,
   stream,
 }

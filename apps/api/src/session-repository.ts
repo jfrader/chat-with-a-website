@@ -45,7 +45,9 @@ export type MessageRecord = Omit<
 export type SessionUpdate = Partial<
   Pick<
     SessionRecord,
+    | "attemptNumber"
     | "canonicalUrl"
+    | "currentAttemptId"
     | "completedAt"
     | "description"
     | "failureCode"

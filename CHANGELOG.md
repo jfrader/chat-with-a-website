@@ -32,6 +32,7 @@
 - Kept follow-up questions short and showed a loading skeleton in the Keep exploring section while they are written.
 - Matched the selected history card to the supplied design with full-bleed cards, a right-edge accent line, and a glow that builds toward it.
 - Replaced the Complete label on history cards with a model-written mini tagline describing each page.
+- Added a regenerate button on completed summaries that reruns the pipeline in the same session with a fresh attempt.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.

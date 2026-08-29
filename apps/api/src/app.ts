@@ -81,6 +81,16 @@ export function createApiApp(options: ApiAppOptions = {}) {
       return context.json(listSessionsResponseSchema.parse(await sessionService.list(query.data)))
     })
 
+    app.post("/api/sessions/:id/regenerate", async (context) => {
+      const id = context.req.param("id")
+      if (!z.uuid().safeParse(id).success) {
+        return context.json(createApiError("SESSION_NOT_FOUND"), 404)
+      }
+      const session = await sessionService.regenerate(id)
+      if (!session) return context.json(createApiError("SESSION_NOT_FOUND"), 404)
+      return context.json(session, 202)
+    })
+
     app.get("/api/sessions/:id/stream", async (context) => {
       const id = context.req.param("id")
       if (!z.uuid().safeParse(id).success) {

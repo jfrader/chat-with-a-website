@@ -98,6 +98,21 @@ export function useCreateSession() {
   })
 }
 
+export function useRegenerateSession(sessionId: string) {
+  const api = useSessionApi()
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: () => api.regenerate(sessionId),
+    onSuccess(session) {
+      queryClient.setQueryData(sessionKeys.detail(session.id), session)
+      queryClient.setQueriesData<SessionPages>({ queryKey: sessionKeys.lists() }, (data) =>
+        updateSessionInPages(data, session),
+      )
+      void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() })
+    },
+  })
+}
+
 export function useDeleteSession() {
   const api = useSessionApi()
   const queryClient = useQueryClient()

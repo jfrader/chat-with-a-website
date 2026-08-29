@@ -4,7 +4,7 @@ import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { ActiveStatusDot, StreamingCaret } from "../../components/activity-indicator"
 import { stageLabels } from "./session-labels"
-import { useSession } from "./session-queries"
+import { useRegenerateSession, useSession } from "./session-queries"
 import styles from "./summary-article.module.css"
 
 const fallbackSuggestions = [
@@ -157,6 +157,7 @@ export function SummaryArticle({
   sessionId,
 }: SummaryArticleProps) {
   const { data: session } = useSession(sessionId)
+  const regenerate = useRegenerateSession(sessionId)
   const scroller = useRef<HTMLDivElement>(null)
   const followStream = useRef(false)
   const terminal = !session || session.status === "complete" || session.status === "failed"
@@ -169,45 +170,67 @@ export function SummaryArticle({
   if (!session) return null
 
   return (
-    <div
-      ref={scroller}
-      className={`${styles.scroller} h-full w-full overflow-y-auto`}
-      onScroll={(event) => {
-        const node = event.currentTarget
-        followStream.current =
-          node.scrollHeight - node.scrollTop - node.clientHeight < STICK_TO_BOTTOM_THRESHOLD_PX
-      }}
-    >
-      <article
-        className={`${styles.article} w-full max-w-(--workspace-summary-width) pt-(--space-12-5) pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-(--space-22)`}
-        aria-labelledby="session-title"
+    <>
+      {session.status === "complete" ? (
+        <button
+          className={styles.regenerate}
+          type="button"
+          aria-label="Regenerate summary"
+          title="Regenerate summary"
+          disabled={regenerate.isPending}
+          onClick={() => regenerate.mutate()}
+        >
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path
+              d="M13.5 8a5.5 5.5 0 1 1-1.61-3.89M13.5 2.75V6h-3.25"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+      ) : null}
+      <div
+        ref={scroller}
+        className={`${styles.scroller} h-full w-full overflow-y-auto`}
+        onScroll={(event) => {
+          const node = event.currentTarget
+          followStream.current =
+            node.scrollHeight - node.scrollTop - node.clientHeight < STICK_TO_BOTTOM_THRESHOLD_PX
+        }}
       >
-        {session.status === "complete" ? (
-          <p className="sr-only" role="status">
-            Summary ready.
-          </p>
-        ) : null}
-        <SummaryHeader session={session} />
-        <SummaryProgress status={session.status} />
-        <SummaryMarkdown streaming={!terminal} summary={session.summary} />
-        {connectionError ? (
-          <p className={styles.recovery} role="alert">
-            {connectionError}
-          </p>
-        ) : null}
-        {session.status === "failed" ? (
-          <div className={styles.recovery} role="alert">
-            <strong>Summary interrupted</strong>
-            <span>The partial summary is preserved. Start a new summary to try again.</span>
-          </div>
-        ) : null}
-        {session.status === "complete" ? (
-          <FollowUpSuggestions prompts={session.suggestedPrompts} onOpenChat={onOpenChat} />
-        ) : session.status === "summarizing" ? (
-          <FollowUpSkeleton />
-        ) : null}
-        <SummaryFooter session={session} onReset={onReset} />
-      </article>
-    </div>
+        <article
+          className={`${styles.article} w-full max-w-(--workspace-summary-width) pt-(--space-12-5) pb-24 max-content:px-8 max-mobile:px-6 max-mobile:pt-10 max-mobile:pb-(--space-22)`}
+          aria-labelledby="session-title"
+        >
+          {session.status === "complete" ? (
+            <p className="sr-only" role="status">
+              Summary ready.
+            </p>
+          ) : null}
+          <SummaryHeader session={session} />
+          <SummaryProgress status={session.status} />
+          <SummaryMarkdown streaming={!terminal} summary={session.summary} />
+          {connectionError ? (
+            <p className={styles.recovery} role="alert">
+              {connectionError}
+            </p>
+          ) : null}
+          {session.status === "failed" ? (
+            <div className={styles.recovery} role="alert">
+              <strong>Summary interrupted</strong>
+              <span>The partial summary is preserved. Start a new summary to try again.</span>
+            </div>
+          ) : null}
+          {session.status === "complete" ? (
+            <FollowUpSuggestions prompts={session.suggestedPrompts} onOpenChat={onOpenChat} />
+          ) : session.status === "summarizing" ? (
+            <FollowUpSkeleton />
+          ) : null}
+          <SummaryFooter session={session} onReset={onReset} />
+        </article>
+      </div>
+    </>
   )
 }

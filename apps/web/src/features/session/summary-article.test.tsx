@@ -70,6 +70,34 @@ describe("completed summary actions", () => {
     expect(screen.getByRole("textbox", { name: "Ask about this summary" })).toHaveValue("")
   })
 
+  it("regenerates the summary in place from the header button", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const regenerated = { ...session, status: "fetching" as const, summary: "" }
+    const regenerate = vi.fn(async () => regenerated)
+    let current = session
+    renderApp(
+      createTestApi({
+        get: async () => current,
+        regenerate: async () => {
+          const result = await regenerate()
+          current = result
+          return result
+        },
+      }),
+      `/sessions/${session.id}`,
+    )
+
+    await user.click(await screen.findByRole("button", { name: "Regenerate summary" }))
+
+    await waitFor(() => expect(regenerate).toHaveBeenCalledOnce())
+    await waitFor(() =>
+      expect(screen.queryByText("Choose a question to ask it in chat.")).not.toBeInTheDocument(),
+    )
+    expect(screen.getByRole("heading", { name: session.title ?? "" })).toBeVisible()
+    expect(screen.queryByRole("button", { name: "Regenerate summary" })).not.toBeInTheDocument()
+  })
+
   it("does not load remote images from generated Markdown", async () => {
     const session = createSession({
       summary: "## Diagram\n\n![Private network probe](http://127.0.0.1/admin)",

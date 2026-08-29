@@ -78,6 +78,7 @@ const fakeService = (overrides: Partial<SessionServiceApi> = {}): SessionService
   initialize: vi.fn(async () => undefined),
   list: vi.fn(async () => ({ sessions: [session], nextCursor: null })),
   messages: vi.fn(async () => [message]),
+  regenerate: vi.fn(async () => session),
   stream: vi.fn(async () => null),
   ...overrides,
 })

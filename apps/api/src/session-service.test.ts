@@ -463,6 +463,45 @@ describe("SessionService", () => {
     expect(completed?.tagline).toBeNull()
   })
 
+  it("regenerates a completed session in place with a fresh attempt", async () => {
+    const repository = new MemorySessionRepository()
+    const llm = new FakeLlm(["First summary."], [], ["Second summary."], [])
+    const service = new SessionService({ repository, llm, fetchPage: async () => page })
+    const { session } = await service.create(request)
+    await service.waitForAll()
+    const first = await service.get(session.id)
+    expect(first?.summary).toBe("First summary.")
+
+    const restarted = await service.regenerate(session.id)
+    expect(restarted?.status).toBe("fetching")
+    expect(restarted?.summary).toBe("")
+    await service.waitForAll()
+
+    const second = await service.get(session.id)
+    expect(second?.status).toBe("complete")
+    expect(second?.summary).toBe("Second summary.")
+    expect(second?.attemptNumber).toBe((first?.attemptNumber ?? 1) + 1)
+    expect(second?.attemptId).not.toBe(first?.attemptId)
+    expect(repository.records.size).toBe(1)
+  })
+
+  it("does not restart a session that is already generating", async () => {
+    const repository = new MemorySessionRepository()
+    let releaseFetch!: (value: typeof page) => void
+    const service = new SessionService({
+      repository,
+      llm: new FakeLlm(["Only one."]),
+      fetchPage: () => new Promise((resolve) => (releaseFetch = resolve)),
+    })
+    const { session } = await service.create(request)
+    const during = await service.regenerate(session.id)
+    expect(during?.status).toBe("fetching")
+    expect(during?.attemptNumber).toBe(1)
+    releaseFetch(page)
+    await service.waitForAll()
+    expect((await service.get(session.id))?.summary).toBe("Only one.")
+  })
+
   it("loads a linked page from the chat message into the model context", async () => {
     const repository = new MemorySessionRepository()
     const llm = new FakeLlm(["The registration page asks for an email."])
