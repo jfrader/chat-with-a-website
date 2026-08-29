@@ -428,6 +428,39 @@ describe("SessionService", () => {
     expect(llm.requests).toHaveLength(1)
   })
 
+  it("loads a linked page from the chat message into the model context", async () => {
+    const repository = new MemorySessionRepository()
+    const llm = new FakeLlm(["The registration page asks for an email."])
+    const fetchPage = vi.fn(async (url: string) => ({
+      ...page,
+      finalUrl: url,
+      html: "<html><head><title>Registro</title></head><body><main>Create your club with an email and a club name to join the alpha league today.</main></body></html>",
+    }))
+    const service = new SessionService({ repository, llm, fetchPage })
+    const created = await repository.createOrGet(request)
+    await repository.update(created.session.id, {
+      status: "complete",
+      sourceText: "Landing source",
+      summary: "Landing summary",
+    })
+    const chat = await service.chat(created.session.id, {
+      content: "What does /register ask for?",
+      idempotencyKey: "77777777-7777-4777-8777-777777777777",
+    })
+    if (!chat) throw new Error("Expected chat")
+    await collect(chat.events)
+    await service.waitForAll()
+
+    expect(fetchPage).toHaveBeenCalledWith(
+      `${new URL("/register", created.session.canonicalUrl)}`,
+      expect.objectContaining({ signal: expect.any(AbortSignal) }),
+    )
+    const llmMessages = llm.requests[0]?.messages ?? []
+    const loaded = llmMessages.find((message) => message.content.startsWith("Loaded page"))
+    expect(loaded?.content).toContain("Registro")
+    expect(loaded?.content).toContain("Create your club with an email")
+  })
+
   it("streams reasoning deltas separately and persists them with the completed answer", async () => {
     const repository = new MemorySessionRepository()
     const llm = new FakeLlm([

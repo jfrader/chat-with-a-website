@@ -76,6 +76,7 @@ PostgreSQL repository tests; use a disposable database because those tests trunc
 - Searchable, paginated session history with routed selection and deletion recovery.
 - Markdown summaries with source metadata, copy, download, and safe source links.
 - Session-scoped, streaming follow-up chat grounded in the extracted source and summary.
+- Chat loads a URL or path mentioned in a message through the same SSRF-safe fetcher, so conversations can explore linked pages.
 - Suggested follow-up prompts as the additional user-facing experience requested by the brief.
 - Responsive history and chat drawers with keyboard, focus, reduced-motion, and touch support.
 
