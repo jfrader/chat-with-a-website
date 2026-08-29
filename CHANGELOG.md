@@ -22,6 +22,7 @@
 - Capped the development network MTU below common VPN tunnel sizes so container fetches are never silently dropped.
 - Added a Try again action to the unavailable-summary state so a transient load failure no longer forces a return home.
 - Added a Try again action to failed summaries that reruns the same URL and replaces the failed session in history.
+- Enabled grayscale font antialiasing so light-on-dark text renders without subpixel color fringing.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.
