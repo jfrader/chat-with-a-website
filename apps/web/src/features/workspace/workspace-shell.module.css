@@ -4,7 +4,7 @@
   --workspace-composer-glow: url("/assets/url-composer-glow.svg") center / 100% 100% no-repeat;
   --workspace-reference-background-height: 954px;
   --workspace-summary-width: 656px;
-  --workspace-chat-entry-width: 480px;
+  --workspace-chat-entry-width: 440px;
   --workspace-prompt-max-width: 560px;
   --workspace-copy-max-width: 420px;
   --workspace-glow-width: 766px;
@@ -42,7 +42,7 @@
 .chatEntry {
   position: absolute;
   z-index: 3;
-  bottom: var(--space-6);
+  bottom: var(--space-4);
   left: 50%;
   width: min(var(--workspace-chat-entry-width), calc(100% - var(--space-12)));
   height: var(--control-height);
