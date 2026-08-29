@@ -430,7 +430,7 @@ function HistoryContent({ collapsed, mobileOpen, onCloseMobile }: HistoryContent
           />
         </label>
       )}
-      <div className={`${styles.historyList} px-4 max-mobile:px-3`} aria-live="polite">
+      <div className={styles.historyList} aria-live="polite">
         {sessions.isLoading || deferredQuery !== query ? (
           <div className={styles.skeletons} role="status" aria-label="Loading summary history">
             <span />
