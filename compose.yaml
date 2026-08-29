@@ -80,3 +80,9 @@ services:
 
 volumes:
   postgres-data:
+
+networks:
+  # Below common VPN tunnel MTUs so forwarded container traffic is never silently dropped.
+  default:
+    driver_opts:
+      com.docker.network.driver.mtu: "1280"

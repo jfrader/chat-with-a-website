@@ -18,6 +18,8 @@
 - Simplified URL entry by accepting bare domains, delaying malformed-address feedback until submission, and unifying focused URL and chat fields with the supplied design.
 - Replaced browser autofill on the URL field with in-app history suggestions that appear from a partial address while typing and add a new-summary option once the address is valid.
 - Rejected addresses without a domain suffix at submission so text like “truco” gets inline feedback instead of recording an unreachable failed session.
+- Preferred IPv4 answers with family fallback in the SSRF-safe fetcher so hosts with unroutable IPv6 no longer time out.
+- Capped the development network MTU below common VPN tunnel sizes so container fetches are never silently dropped.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.

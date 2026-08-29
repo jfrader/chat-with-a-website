@@ -107,11 +107,13 @@ export async function validatePublicUrl(
   return (await resolvePublicUrl(value, resolver)).url
 }
 
+export const sortPublicAddresses = (addresses: readonly string[]): LookupAddress[] =>
+  addresses
+    .map((address) => ({ address, family: isIP(address) }))
+    .sort((left, right) => left.family - right.family)
+
 function createPinnedDispatcher(addresses: readonly string[]): Agent {
-  const vettedAddresses: LookupAddress[] = addresses.map((address) => ({
-    address,
-    family: isIP(address),
-  }))
+  const vettedAddresses = sortPublicAddresses(addresses)
   const pinnedLookup: LookupFunction = (_hostname, options, callback) => {
     const candidates =
       options.family === 4 || options.family === 6
@@ -132,7 +134,8 @@ function createPinnedDispatcher(addresses: readonly string[]): Agent {
   }
 
   // Reuse only the DNS answers already checked above, preventing a second lookup from rebinding.
-  return new Agent({ connect: { lookup: pinnedLookup } })
+  // IPv4-first ordering plus family autoselection keeps hosts reachable when one family has no route.
+  return new Agent({ connect: { lookup: pinnedLookup, autoSelectFamily: true } })
 }
 
 async function withAbort<T>(promise: Promise<T>, signal: AbortSignal): Promise<T> {

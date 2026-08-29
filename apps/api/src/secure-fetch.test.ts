@@ -3,6 +3,7 @@ import {
   fetchPublicPage,
   isPublicIpAddress,
   type HostResolver,
+  sortPublicAddresses,
   validatePublicUrl,
 } from "./secure-fetch"
 import type { SessionPipelineError } from "./session-errors"
@@ -27,6 +28,13 @@ describe("SSRF destination validation", () => {
     ["::ffff:127.0.0.1", false],
   ])("classifies %s as public=%s", (address, expected) => {
     expect(isPublicIpAddress(address)).toBe(expected)
+  })
+
+  it("orders vetted addresses IPv4-first so unroutable IPv6 answers cannot stall a fetch", () => {
+    expect(sortPublicAddresses(["2604:cac0:a104:d::3", "209.126.35.79"])).toEqual([
+      { address: "209.126.35.79", family: 4 },
+      { address: "2604:cac0:a104:d::3", family: 6 },
+    ])
   })
 
   it("rejects localhost and any DNS answer containing a private address", async () => {
