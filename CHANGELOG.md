@@ -25,6 +25,7 @@
 - Enabled grayscale font antialiasing so light-on-dark text renders without subpixel color fringing.
 - Summarized client-rendered pages from their metadata, clearly labeled, instead of failing with empty content.
 - Themed all scrollbars with the accent color and moved the summary and history scrollbars to their pane edges instead of hugging the text.
+- Let chat explore beyond thin sources with clearly labeled general knowledge and next steps instead of dead-end refusals.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.
