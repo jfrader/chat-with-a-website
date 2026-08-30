@@ -162,9 +162,3 @@
   font-size: var(--font-size-caption);
   line-height: var(--line-height-compact);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .submit {
-    transition: none;
-  }
-}

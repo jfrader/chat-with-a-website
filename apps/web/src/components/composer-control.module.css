@@ -115,9 +115,3 @@
   background: var(--theme-gradient-control-idle);
   cursor: default;
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .field {
-    transition: none;
-  }
-}

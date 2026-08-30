@@ -17,12 +17,6 @@
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .panel {
-    animation: none;
-  }
-}
-
 .header {
   min-height: var(--chat-panel-header-height);
   display: flex;
@@ -154,12 +148,6 @@
   margin: var(--space-2) var(--space-0) var(--space-0);
   color: var(--theme-text-muted);
   white-space: pre-wrap;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .thoughtChevron {
-    transition: none;
-  }
 }
 
 .composer {

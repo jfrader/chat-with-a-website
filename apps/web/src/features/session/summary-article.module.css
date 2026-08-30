@@ -63,13 +63,6 @@
   pointer-events: none;
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .articleActions button,
-  .chatToggle {
-    transition: none;
-  }
-}
-
 .article {
   margin: var(--space-0) auto;
 }
@@ -295,11 +288,6 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .footer button,
-  .suggestionList button {
-    transition: none;
-  }
-
   .suggestionSkeletons span {
     animation: none;
   }

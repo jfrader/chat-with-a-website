@@ -92,9 +92,3 @@
   font-weight: var(--font-weight-regular);
   letter-spacing: var(--tracking-copy);
 }
-
-@media (prefers-reduced-motion: reduce) {
-  .chatEntry {
-    transition: none;
-  }
-}
