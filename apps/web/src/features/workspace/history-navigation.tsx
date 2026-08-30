@@ -43,7 +43,7 @@ interface HistoryHeaderProps extends HistoryNavigationProps {
 function HistoryHeader({ collapsed, mobileOpen, onCloseMobile, onToggle }: HistoryHeaderProps) {
   return (
     <header
-      className={`${styles.header} relative z-2 flex h-16 w-full items-center justify-between border-b border-(--theme-line-subtle-color) px-6 py-4 max-mobile:h-12 max-mobile:border-b-0 max-mobile:px-4 max-mobile:py-2`}
+      className={`relative z-2 flex h-16 w-full items-center justify-between border-b border-(--theme-line-subtle-color) px-6 py-4 max-mobile:h-12 max-mobile:border-b-0 max-mobile:px-4 max-mobile:py-2`}
     >
       <img className={styles.logo} src="/assets/profound-mark.svg" alt="Profound" />
       {mobileOpen ? (
@@ -205,6 +205,7 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
 
   useEffect(() => {
     if (!menuOpen) return
+    menu.current?.querySelector<HTMLButtonElement>("button:not([disabled])")?.focus()
     const close = () => setMenuOpen(false)
     const closeOutside = (event: PointerEvent) => {
       const target = event.target as Node
@@ -227,10 +228,15 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
   function toggleMenu() {
     if (!menuOpen && menuTrigger.current) {
       const rect = menuTrigger.current.getBoundingClientRect()
-      setMenuPosition({
-        top: rect.top - MENU_VERTICAL_ALIGN_PX,
-        left: Math.min(rect.right + MENU_GAP_PX, window.innerWidth - MENU_MIN_EDGE_SPACE_PX),
-      })
+      const fitsBeside = rect.right + MENU_GAP_PX + MENU_MIN_EDGE_SPACE_PX <= window.innerWidth
+      setMenuPosition(
+        fitsBeside
+          ? { top: rect.top - MENU_VERTICAL_ALIGN_PX, left: rect.right + MENU_GAP_PX }
+          : {
+              top: rect.bottom + MENU_VERTICAL_ALIGN_PX,
+              left: Math.max(MENU_GAP_PX, window.innerWidth - MENU_MIN_EDGE_SPACE_PX),
+            },
+      )
     }
     setMenuOpen((open) => !open)
   }
@@ -248,13 +254,13 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
     window.setTimeout(() => setActionFeedback(undefined), 2_000)
   }
 
-  async function copySummary() {
+  async function copyLink() {
     try {
       if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(session.summary)
+        await navigator.clipboard.writeText(session.originalUrl)
       } else {
         const area = document.createElement("textarea")
-        area.value = session.summary
+        area.value = session.originalUrl
         area.setAttribute("readonly", "")
         area.style.position = "fixed"
         area.style.opacity = "0"
@@ -266,9 +272,9 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
           area.remove()
         }
       }
-      finishSummaryAction("Summary copied")
+      finishSummaryAction("Link copied")
     } catch {
-      finishSummaryAction("Copy failed. Select the summary text to copy it manually.")
+      finishSummaryAction("Copy failed. Select the address to copy it manually.")
     }
   }
 
@@ -346,7 +352,7 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
         ? createPortal(
             <fieldset
               ref={menu}
-              className={styles.menu}
+              className={`${styles.menu} max-mobile:rounded-(--radius-card) max-mobile:border max-mobile:border-(--theme-line-subtle-color) max-mobile:bg-(--theme-surface-navigation-solid) max-mobile:p-2`}
               id={`session-actions-${session.id}`}
               aria-label={`Actions for ${session.title ?? session.host}`}
               style={menuPosition}
@@ -364,16 +370,17 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
                   event.preventDefault()
                   setMenuOpen(false)
                   menuTrigger.current?.focus()
+                  return
                 }
+                trapFocus(event, event.currentTarget)
               }}
             >
               <div className={styles.menuRow}>
                 <button
                   className={styles.menuCopy}
                   type="button"
-                  aria-label="Copy summary"
-                  disabled={!session.summary}
-                  onClick={() => void copySummary()}
+                  aria-label="Copy link"
+                  onClick={() => void copyLink()}
                 >
                   <CopyIcon />
                 </button>
