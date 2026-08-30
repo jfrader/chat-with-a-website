@@ -4,8 +4,23 @@
   --chat-message-width: 280px;
   --chat-message-radius: 18px;
   --chat-message-background: linear-gradient(150deg, rgb(120 50 160 / 24%), rgb(255 255 255 / 8%));
+  --chat-motion-slide: 180ms;
+  --chat-slide-start: translateX(100%);
 
   border-left: var(--border-subtle);
+  animation: chat-slide-in var(--chat-motion-slide) var(--motion-easing-standard);
+}
+
+@keyframes chat-slide-in {
+  from {
+    transform: var(--chat-slide-start);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: none;
+  }
 }
 
 .header {

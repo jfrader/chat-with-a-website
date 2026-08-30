@@ -2,6 +2,7 @@
   --history-sidebar-collapsed-width: 48px;
   --history-toggle-inset: 10px;
   --history-toggle-collapsed-inset: 2px;
+  --history-search-height: 40px;
   --history-mobile-drawer-width: 320px;
   --history-session-menu-width: 168px;
   --history-dialog-width: 420px;
@@ -86,27 +87,25 @@
 }
 
 .search {
-  min-height: var(--control-touch-target);
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-0) var(--space-3);
-  border-bottom: var(--border-subtle);
+  display: block;
+  margin-bottom: var(--space-2);
+}
+
+.searchField {
+  --composer-field-gap: var(--space-2);
+  --composer-field-padding: var(--space-0) var(--space-3-75);
+  --composer-field-font-size: var(--font-size-label);
+  --composer-field-placeholder-color: var(--theme-text-dim);
+
+  height: var(--history-search-height);
+}
+
+.searchIcon {
+  display: grid;
+  place-items: center;
+  width: var(--icon-size-sm);
+  height: var(--icon-size-sm);
   color: var(--theme-text-muted);
-}
-
-.search input {
-  min-width: var(--space-0);
-  flex: 1;
-  border: var(--border-none);
-  outline: var(--border-none);
-  color: var(--theme-text-primary);
-  background: var(--theme-surface-transparent);
-  font-size: var(--font-size-label);
-}
-
-.search input::placeholder {
-  color: var(--theme-text-dim);
 }
 
 .historyList {
@@ -229,7 +228,22 @@
 }
 
 .sessionUrl {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1-5);
   white-space: nowrap;
+}
+
+.sessionUrl img {
+  width: var(--icon-size-xs);
+  height: var(--icon-size-xs);
+  flex: 0 0 var(--icon-size-xs);
+}
+
+.sessionUrl span {
+  overflow: hidden;
+  min-width: var(--space-0);
+  text-overflow: ellipsis;
 }
 
 .sessionDescription {
@@ -248,17 +262,25 @@
   font-size: var(--font-size-caption);
 }
 
-.status > span {
+.statusDot {
   width: var(--history-status-dot-size);
   height: var(--history-status-dot-size);
+  flex: 0 0 var(--history-status-dot-size);
   border-radius: var(--radius-pill);
   background: var(--theme-status-active);
 }
 
-.status.complete > span {
+.statusLabel {
+  overflow: hidden;
+  min-width: var(--space-0);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.status.complete .statusDot {
   background: var(--theme-status-complete);
 }
-.status.failed > span {
+.status.failed .statusDot {
   background: var(--theme-status-failed);
 }
 
@@ -530,6 +552,7 @@
 @media (prefers-reduced-motion: reduce) {
   .navigation,
   .logo,
+  .toggle,
   .toggle img,
   .content,
   .bottom {

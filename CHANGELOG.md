@@ -37,6 +37,9 @@
 - Centered the session actions trigger and sized its circle to the dots while keeping the full touch target.
 - Fixed the collapsed history rail so the expand control stays visible and centered instead of being pushed out of view.
 - Slid the history sidebar smoothly between states and aligned the collapse control evenly with the sidebar's top and right edges.
+- Slid the chat panel in on open and replaced the chat entry's plus button with a chat icon that opens the conversation.
+- Rebuilt the history search on the shared composer field so it matches the other inputs with an aligned icon.
+- Showed the link icon with the full address on history cards, dropped the duplicated domain line, and kept taglines to one line.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.

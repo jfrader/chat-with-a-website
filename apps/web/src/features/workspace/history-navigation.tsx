@@ -2,6 +2,7 @@ import type { SessionDto } from "@profound/contracts"
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { type KeyboardEvent, useDeferredValue, useEffect, useRef, useState } from "react"
 import { createPortal } from "react-dom"
+import { ComposerField } from "../../components/composer-control"
 import { Scrim } from "../../components/scrim"
 import { trapFocus } from "../../components/trap-focus"
 import { useDeleteSession, useSessions } from "../session/session-queries"
@@ -290,16 +291,21 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
         aria-current={selected ? "page" : undefined}
         onClick={onSelect}
       >
-        <span className={styles.sessionUrl}>{session.host}</span>
-        <strong>{session.title ?? session.host}</strong>
-        <span className={styles.sessionDescription}>
-          {session.description ?? session.originalUrl}
+        <span className={styles.sessionUrl}>
+          <img src="/assets/link.svg" alt="" />
+          <span>{session.originalUrl}</span>
         </span>
+        <strong>{session.title ?? session.host}</strong>
+        {session.description ? (
+          <span className={styles.sessionDescription}>{session.description}</span>
+        ) : null}
         <span className={`${styles.status} ${statusClass}`}>
-          <span aria-hidden="true" />
-          {session.status === "complete"
-            ? (session.tagline ?? statusLabels.complete)
-            : statusLabels[session.status]}
+          <span className={styles.statusDot} aria-hidden="true" />
+          <span className={styles.statusLabel}>
+            {session.status === "complete"
+              ? (session.tagline ?? statusLabels.complete)
+              : statusLabels[session.status]}
+          </span>
         </span>
       </button>
       <button
@@ -436,13 +442,25 @@ function HistoryContent({
       {hideSearch ? null : (
         <label className={`${styles.search} mx-4 max-mobile:mx-3`}>
           <span className="sr-only">Search summaries</span>
-          <span aria-hidden="true">⌕</span>
-          <input
-            type="search"
-            value={query}
-            placeholder="Search summaries"
-            onChange={(event) => changeQuery(event.target.value)}
-          />
+          <ComposerField className={styles.searchField}>
+            <span className={styles.searchIcon} aria-hidden="true">
+              <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                <circle cx="6" cy="6" r="4.25" stroke="currentColor" strokeWidth="1.5" />
+                <path
+                  d="m9.5 9.5 3 3"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                />
+              </svg>
+            </span>
+            <input
+              type="search"
+              value={query}
+              placeholder="Search summaries"
+              onChange={(event) => changeQuery(event.target.value)}
+            />
+          </ComposerField>
         </label>
       )}
       <div className={styles.historyList} aria-live="polite">
