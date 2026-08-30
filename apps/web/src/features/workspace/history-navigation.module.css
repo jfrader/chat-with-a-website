@@ -1,5 +1,7 @@
 .navigation {
   --history-sidebar-collapsed-width: 48px;
+  --history-toggle-inset: 10px;
+  --history-toggle-collapsed-inset: 2px;
   --history-mobile-drawer-width: 320px;
   --history-session-menu-width: 168px;
   --history-dialog-width: 420px;
@@ -58,6 +60,13 @@
   color: var(--theme-text-muted);
   background: var(--theme-surface-transparent);
   cursor: pointer;
+}
+
+.toggle {
+  position: absolute;
+  top: var(--history-toggle-inset);
+  right: var(--history-toggle-inset);
+  transition: right var(--history-motion-layout) var(--motion-easing-standard);
 }
 
 .toggle img {
@@ -432,12 +441,11 @@
   flex-basis: var(--history-sidebar-collapsed-width);
 }
 
-.collapsed .header {
-  justify-content: center;
-  padding: var(--space-2) var(--space-0);
+.collapsed .toggle {
+  right: var(--history-toggle-collapsed-inset);
 }
 .collapsed .logo {
-  display: none;
+  opacity: var(--opacity-hidden);
 }
 .collapsed .toggle img {
   transform: var(--history-collapse-transform);

@@ -36,6 +36,7 @@
 - Fixed the invisible copy icon in the session actions menu and kept the menu open through the scroll caused by opening it.
 - Centered the session actions trigger and sized its circle to the dots while keeping the full touch target.
 - Fixed the collapsed history rail so the expand control stays visible and centered instead of being pushed out of view.
+- Slid the history sidebar smoothly between states and aligned the collapse control evenly with the sidebar's top and right edges.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.
