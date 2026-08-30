@@ -49,6 +49,7 @@
 - Kept the session actions menu open on touch, copied without a secure clipboard, and confirmed copy and download with a visible message.
 - Made the session actions menu keyboard operable and dropped it below its trigger on narrow screens with a solid backdrop.
 - Copied the session link from the actions menu, matching the design's copy-beside-URL pill, while Download Markdown keeps exporting the summary.
+- Showed the bottom chat entry on mobile summaries, matching desktop.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.

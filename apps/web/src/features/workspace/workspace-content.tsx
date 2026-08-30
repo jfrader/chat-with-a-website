@@ -42,7 +42,7 @@ function SessionChatEntry({ chatOpen, onOpenChat }: SessionChatEntryProps) {
 
   return (
     <form
-      className={`${styles.chatEntry} ${chatOpen ? styles.chatEntryHidden : ""} flex max-mobile:hidden`}
+      className={`${styles.chatEntry} ${chatOpen ? styles.chatEntryHidden : ""} flex`}
       aria-hidden={chatOpen || undefined}
       inert={chatOpen}
       onSubmit={submit}
