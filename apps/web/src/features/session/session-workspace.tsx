@@ -9,8 +9,10 @@ import { useSummaryStream } from "./session-stream"
 import styles from "./session-workspace.module.css"
 
 interface SessionWorkspaceProps {
+  chatOpen: boolean
   onOpenChat: (prompt?: string) => void
   onReset: () => void
+  onToggleChat: () => void
   sessionId: string
 }
 
@@ -193,8 +195,10 @@ export function SessionWorkspace(props: SessionWorkspaceProps) {
       <Suspense fallback={<OpeningSummary />}>
         <SummaryArticle
           sessionId={props.sessionId}
+          chatOpen={props.chatOpen}
           onOpenChat={props.onOpenChat}
           onReset={props.onReset}
+          onToggleChat={props.onToggleChat}
           {...(connectionError ? { connectionError } : {})}
         />
       </Suspense>

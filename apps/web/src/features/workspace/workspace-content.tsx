@@ -200,7 +200,13 @@ function SelectedWorkspace({
           onOpenHistory={onOpenHistory}
         />
         <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-          <SessionWorkspace sessionId={sessionId} onOpenChat={openChat} onReset={reset} />
+          <SessionWorkspace
+            sessionId={sessionId}
+            chatOpen={chatOpen}
+            onOpenChat={openChat}
+            onReset={reset}
+            onToggleChat={() => (chatOpen ? closeChat() : openChat())}
+          />
           {detail.data?.status === "complete" ? (
             <SessionChatEntry chatOpen={chatOpen} onOpenChat={openChat} />
           ) : null}
