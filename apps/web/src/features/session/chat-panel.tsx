@@ -12,6 +12,7 @@ interface ChatPanelProps {
   initialPrompt?: string
   modal: boolean
   onClose: () => void
+  open: boolean
   sessionId: string
 }
 
@@ -55,8 +56,8 @@ function ChatMessage({ message }: { message: MessageDto }) {
   )
 }
 
-function ChatMessages({ sessionId }: { sessionId: string }) {
-  const messages = useMessages(sessionId, true)
+function ChatMessages({ enabled, sessionId }: { enabled: boolean; sessionId: string }) {
+  const messages = useMessages(sessionId, enabled)
   const container = useRef<HTMLDivElement>(null)
   const stick = useStickToBottom(true)
   const messageCount = useRef(0)
@@ -72,7 +73,7 @@ function ChatMessages({ sessionId }: { sessionId: string }) {
   return (
     <div
       ref={container}
-      className={styles.messages}
+      className={`${styles.messages} min-w-(--chat-panel-width) max-chat:min-w-0`}
       role="log"
       aria-live="polite"
       aria-relevant="additions"
@@ -97,10 +98,9 @@ function ChatMessages({ sessionId }: { sessionId: string }) {
 
 function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; sessionId: string }) {
   const inputId = useId()
-  const [draft, setDraft] = useState(initialPrompt ?? "")
+  const [draft, setDraft] = useState("")
   const inputRef = useRef<HTMLTextAreaElement>(null)
-  const focusInput = useRef(Boolean(initialPrompt))
-  const autoSend = useRef(Boolean(initialPrompt))
+  const autoSent = useRef<string>(undefined)
   const retryRequest = useRef<{ content: string; idempotencyKey: string } | undefined>(undefined)
   const send = useSendMessage(sessionId)
   const parsedDraft = createChatRequestSchema.shape.content.safeParse(draft)
@@ -125,9 +125,13 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
   }
 
   useEffect(() => {
-    if (!autoSend.current) return
-    autoSend.current = false
-    const parsed = createChatRequestSchema.shape.content.safeParse(initialPrompt ?? "")
+    if (!initialPrompt) {
+      autoSent.current = undefined
+      return
+    }
+    if (autoSent.current === initialPrompt) return
+    autoSent.current = initialPrompt
+    const parsed = createChatRequestSchema.shape.content.safeParse(initialPrompt)
     if (parsed.success) void sendContent(parsed.data)
   })
 
@@ -139,7 +143,7 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
 
   return (
     <form
-      className={`${styles.composer} max-mobile:mb-[max(var(--space-4),env(safe-area-inset-bottom))]`}
+      className={`${styles.composer} min-w-(--chat-panel-width) max-chat:min-w-0 max-mobile:mb-[max(var(--space-4),env(safe-area-inset-bottom))]`}
       onSubmit={submit}
     >
       <label className="sr-only" htmlFor={inputId}>
@@ -147,13 +151,7 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
       </label>
       <ComposerField multiline>
         <textarea
-          ref={(node) => {
-            inputRef.current = node
-            if (node && focusInput.current) {
-              focusInput.current = false
-              node.focus()
-            }
-          }}
+          ref={inputRef}
           id={inputId}
           rows={1}
           maxLength={4_000}
@@ -192,8 +190,15 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
   )
 }
 
-export function ChatPanel({ initialPrompt, modal, onClose, sessionId }: ChatPanelProps) {
-  const focusClose = useRef(!initialPrompt)
+export function ChatPanel({ initialPrompt, modal, onClose, open, sessionId }: ChatPanelProps) {
+  const closeButton = useRef<HTMLButtonElement>(null)
+  const wasOpen = useRef(false)
+
+  useEffect(() => {
+    if (open && !wasOpen.current && !initialPrompt) closeButton.current?.focus()
+    wasOpen.current = open
+  }, [open, initialPrompt])
+
   function handleKeyDown(event: KeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
       event.preventDefault()
@@ -205,36 +210,32 @@ export function ChatPanel({ initialPrompt, modal, onClose, sessionId }: ChatPane
 
   return (
     <>
-      {modal ? <Scrim className="z-21" onClick={onClose} /> : null}
+      {modal && open ? <Scrim className="z-21" onClick={onClose} /> : null}
       <aside
-        className={`${styles.panel} relative z-6 flex h-full w-(--chat-panel-width) min-w-0 flex-[0_0_var(--chat-panel-width)] flex-col overflow-hidden bg-(--theme-surface-navigation) max-chat:fixed max-chat:inset-y-0 max-chat:right-0 max-chat:z-22 max-chat:h-svh max-chat:bg-(--theme-surface-navigation-solid) max-mobile:left-0 max-mobile:w-full max-mobile:flex-[0_0_auto]`}
+        className={`${styles.panel} ${
+          open
+            ? "w-(--chat-panel-width) flex-[0_0_var(--chat-panel-width)] border-(--theme-line-subtle-color) max-chat:translate-x-0"
+            : "w-0 flex-[0_0_0px] border-transparent max-chat:translate-x-full"
+        } relative z-6 flex h-full min-w-0 flex-col overflow-hidden border-l bg-(--theme-surface-navigation) max-chat:fixed max-chat:inset-y-0 max-chat:right-0 max-chat:z-22 max-chat:h-svh max-chat:w-(--chat-panel-width) max-chat:flex-[0_0_auto] max-chat:border-(--theme-line-subtle-color) max-chat:bg-(--theme-surface-navigation-solid) max-mobile:left-0 max-mobile:w-full`}
         aria-label="Chat about this summary"
-        aria-modal={modal || undefined}
+        aria-modal={(modal && open) || undefined}
+        aria-hidden={!open || undefined}
+        inert={!open}
         role="dialog"
         onKeyDown={handleKeyDown}
       >
         <header
-          className={`${styles.header} max-mobile:pt-[max(var(--space-2),env(safe-area-inset-top))]`}
+          className={`${styles.header} min-w-(--chat-panel-width) max-chat:min-w-0 max-mobile:pt-[max(var(--space-2),env(safe-area-inset-top))]`}
         >
           <div>
             <span aria-hidden="true">✦</span>
             <h2>Chat</h2>
           </div>
-          <button
-            ref={(node) => {
-              if (node && focusClose.current) {
-                focusClose.current = false
-                node.focus()
-              }
-            }}
-            type="button"
-            onClick={onClose}
-            aria-label="Close chat"
-          >
+          <button ref={closeButton} type="button" onClick={onClose} aria-label="Close chat">
             ×
           </button>
         </header>
-        <ChatMessages sessionId={sessionId} />
+        <ChatMessages enabled={open} sessionId={sessionId} />
         <ChatComposer sessionId={sessionId} {...(initialPrompt ? { initialPrompt } : {})} />
       </aside>
     </>

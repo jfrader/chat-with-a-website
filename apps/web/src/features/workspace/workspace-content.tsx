@@ -212,9 +212,9 @@ function SelectedWorkspace({
           ) : null}
         </main>
       </div>
-      {chatOpen && detail.data?.status === "complete" ? (
+      {detail.data?.status === "complete" ? (
         <ChatPanel
-          key={`${sessionId}:${suggestedPrompt ?? ""}`}
+          open={chatOpen}
           modal={chatOverlay}
           sessionId={sessionId}
           {...(suggestedPrompt ? { initialPrompt: suggestedPrompt } : {})}

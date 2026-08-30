@@ -43,6 +43,7 @@
 - Placed a chat toggle where the chat close control lands so closing chat never leaves the pointer on the regenerate button.
 - Shrank the chat toggle away while chat is open and grew it back on close, collapsing its space so the regenerate button sits flush.
 - Played interface transitions regardless of the reduced-motion preference, which now pauses only looping effects like skeletons and the streaming caret.
+- Slid the chat panel open and closed by animating its real width so the layout glides instead of jumping.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.
