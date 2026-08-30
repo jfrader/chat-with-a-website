@@ -54,7 +54,7 @@
   --composer-field-gap: var(--space-2);
   --composer-field-padding: var(--space-2);
   --composer-field-font-size: var(--font-size-label);
-  --composer-field-placeholder-color: var(--theme-text-dim);
+  --composer-field-placeholder-color: var(--theme-text-placeholder);
 
   backdrop-filter: blur(var(--blur-control));
 }

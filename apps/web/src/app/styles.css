@@ -19,6 +19,7 @@
   --theme-text-dim: #646464;
   --theme-text-description: rgb(255 255 255 / 70%);
   --theme-text-disabled: rgb(255 255 255 / 30%);
+  --theme-text-placeholder: rgb(255 255 255 / 55%);
   --theme-text-danger: #ff8a8d;
   --theme-link: #d9a8fa;
   --theme-status-active: #b66af0;
