@@ -3,7 +3,6 @@
   --history-toggle-inset: 10px;
   --history-toggle-collapsed-inset: 2px;
   --history-search-height: 40px;
-  --history-mobile-drawer-width: 320px;
   --history-session-menu-width: 168px;
   --history-dialog-width: 420px;
   --history-card-min-height: 128px;
@@ -40,7 +39,8 @@
   transition:
     width var(--history-motion-layout) var(--motion-easing-standard),
     flex-basis var(--history-motion-layout) var(--motion-easing-standard),
-    transform var(--history-motion-layout) var(--motion-easing-standard);
+    transform var(--history-motion-layout) var(--motion-easing-standard),
+    visibility var(--history-motion-layout) var(--motion-easing-standard);
 }
 
 .logo {
@@ -175,6 +175,24 @@
 .sessionCard {
   position: relative;
   border-bottom: var(--border-subtle);
+}
+
+.actionFeedback {
+  position: absolute;
+  z-index: 6;
+  right: var(--space-4);
+  bottom: var(--space-2);
+  padding: var(--space-1) var(--space-2-5);
+  border: var(--border-subtle);
+  border-radius: var(--radius-pill);
+  color: var(--theme-text-secondary);
+  background: var(--theme-surface-elevated);
+  font-size: var(--font-size-caption);
+  pointer-events: none;
+}
+
+.actionFeedback:empty {
+  display: none;
 }
 
 .sessionCard.selected {

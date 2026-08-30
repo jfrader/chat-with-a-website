@@ -9,7 +9,6 @@
   z-index: 3;
   top: var(--space-4);
   right: var(--space-6);
-  display: flex;
 }
 
 .articleActions button {

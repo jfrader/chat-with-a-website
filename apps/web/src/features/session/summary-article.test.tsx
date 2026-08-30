@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react"
+import { screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createSession } from "../../test/fixtures"
@@ -88,7 +88,8 @@ describe("completed summary actions", () => {
       `/sessions/${session.id}`,
     )
 
-    await user.click(await screen.findByRole("button", { name: "Regenerate summary" }))
+    const main = await screen.findByRole("main")
+    await user.click(await within(main).findByRole("button", { name: "Regenerate summary" }))
 
     await waitFor(() => expect(regenerate).toHaveBeenCalledOnce())
     await waitFor(() =>

@@ -174,7 +174,7 @@ export function SummaryArticle({
   return (
     <>
       {session.status === "complete" ? (
-        <div className={styles.articleActions}>
+        <div className={`${styles.articleActions} flex max-mobile:hidden`}>
           <button
             type="button"
             aria-label="Regenerate summary"

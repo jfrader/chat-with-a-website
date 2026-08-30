@@ -3,7 +3,7 @@ import { type FormEvent, type RefObject, useRef, useState } from "react"
 import { ComposerField, ComposerIconButton } from "../../components/composer-control"
 import { useMediaQuery } from "../../components/use-media-query"
 import { ChatPanel } from "../session/chat-panel"
-import { useCreateSession, useSession } from "../session/session-queries"
+import { useCreateSession, useRegenerateSession, useSession } from "../session/session-queries"
 import { SessionWorkspace } from "../session/session-workspace"
 import { UrlComposer } from "./url-composer"
 import styles from "./workspace-shell.module.css"
@@ -20,6 +20,8 @@ interface MobileHeaderProps {
   historyTriggerRef: RefObject<HTMLButtonElement | null>
   onOpenChat?: () => void
   onOpenHistory: () => void
+  onRegenerate?: () => void
+  regenerating?: boolean
 }
 
 interface SessionChatEntryProps {
@@ -80,9 +82,11 @@ function MobileHeader({
   historyTriggerRef,
   onOpenChat,
   onOpenHistory,
+  onRegenerate,
+  regenerating = false,
 }: MobileHeaderProps) {
   const buttonClass =
-    "grid size-11 cursor-pointer place-items-center border-0 bg-transparent text-(--theme-text-primary)"
+    "grid size-11 cursor-pointer place-items-center border-0 bg-transparent text-(--theme-text-primary) disabled:opacity-(--opacity-disabled)"
 
   return (
     <header className="relative z-3 hidden min-h-14 items-center justify-between border-b border-(--theme-line-subtle-color) bg-(--theme-surface-navigation-solid) p-2 max-mobile:flex">
@@ -95,16 +99,46 @@ function MobileHeader({
       >
         <span aria-hidden="true">☰</span>
       </button>
-      <img className="size-6" src="/assets/profound-mark.svg" alt="Profound" />
+      <img
+        className="absolute left-1/2 size-6 -translate-x-1/2"
+        src="/assets/profound-mark.svg"
+        alt="Profound"
+      />
       {canChat ? (
-        <button
-          className={buttonClass}
-          type="button"
-          onClick={() => onOpenChat?.()}
-          aria-label="Open chat"
-        >
-          <span aria-hidden="true">✦</span>
-        </button>
+        <div className="flex">
+          <button
+            className={buttonClass}
+            type="button"
+            disabled={regenerating}
+            onClick={() => onRegenerate?.()}
+            aria-label="Regenerate summary"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M13.5 8a5.5 5.5 0 1 1-1.61-3.89M13.5 2.75V6h-3.25"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+          <button
+            className={buttonClass}
+            type="button"
+            onClick={() => onOpenChat?.()}
+            aria-label="Open chat"
+          >
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+              <path
+                d="M8 2.5c-3.31 0-6 2.19-6 4.9 0 1.55.89 2.93 2.27 3.83L4 13.9l2.63-1.32c.44.08.9.13 1.37.13 3.31 0 6-2.2 6-4.91S11.31 2.5 8 2.5Z"
+                stroke="currentColor"
+                strokeWidth="1.4"
+                strokeLinejoin="round"
+              />
+            </svg>
+          </button>
+        </div>
       ) : (
         <span className="size-11" />
       )}
@@ -127,7 +161,7 @@ function EmptyWorkspace({
 
   return (
     <div
-      className="min-w-0 flex flex-1 flex-col"
+      className="min-w-0 min-h-0 flex flex-1 flex-col"
       aria-hidden={historyOpen || undefined}
       inert={historyOpen}
     >
@@ -163,6 +197,7 @@ function SelectedWorkspace({
   const navigate = useNavigate()
   const detail = useSession(sessionId)
   const chatOverlay = useMediaQuery("(max-width: 1100px)")
+  const regenerate = useRegenerateSession(sessionId)
   const [chatOpen, setChatOpen] = useState(false)
   const [suggestedPrompt, setSuggestedPrompt] = useState<string>()
   const chatTriggerRef = useRef<HTMLElement>(null)
@@ -189,7 +224,7 @@ function SelectedWorkspace({
   return (
     <>
       <div
-        className="min-w-0 flex flex-1 flex-col"
+        className="min-w-0 min-h-0 flex flex-1 flex-col"
         aria-hidden={modalOpen || undefined}
         inert={modalOpen}
       >
@@ -198,6 +233,8 @@ function SelectedWorkspace({
           historyTriggerRef={historyTriggerRef}
           onOpenChat={openChat}
           onOpenHistory={onOpenHistory}
+          onRegenerate={() => regenerate.mutate()}
+          regenerating={regenerate.isPending}
         />
         <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
           <SessionWorkspace

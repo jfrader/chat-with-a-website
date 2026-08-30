@@ -6,7 +6,7 @@ import { Scrim } from "../../components/scrim"
 import { trapFocus } from "../../components/trap-focus"
 import { useStickToBottom } from "../../components/use-stick-to-bottom"
 import styles from "./chat-panel.module.css"
-import { useMessages, useSendMessage } from "./session-queries"
+import { useMessages, useSendMessage, useSession } from "./session-queries"
 
 interface ChatPanelProps {
   initialPrompt?: string
@@ -191,6 +191,7 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
 }
 
 export function ChatPanel({ initialPrompt, modal, onClose, open, sessionId }: ChatPanelProps) {
+  const { data: session } = useSession(sessionId)
   const closeButton = useRef<HTMLButtonElement>(null)
   const wasOpen = useRef(false)
 
@@ -225,11 +226,14 @@ export function ChatPanel({ initialPrompt, modal, onClose, open, sessionId }: Ch
         onKeyDown={handleKeyDown}
       >
         <header
-          className={`${styles.header} max-mobile:pt-[max(var(--space-2),env(safe-area-inset-top))]`}
+          className={`${styles.header} max-mobile:min-h-14 max-mobile:pr-2 max-mobile:pt-[max(var(--space-2),env(safe-area-inset-top))]`}
         >
           <div>
             <span aria-hidden="true">✦</span>
             <h2>Chat</h2>
+            {session ? (
+              <span className={styles.headerContext}>{session.title ?? session.host}</span>
+            ) : null}
           </div>
           <button ref={closeButton} type="button" onClick={onClose} aria-label="Close chat">
             ×

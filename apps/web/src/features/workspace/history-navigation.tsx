@@ -206,14 +206,21 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
   useEffect(() => {
     if (!menuOpen) return
     const close = () => setMenuOpen(false)
+    const closeOutside = (event: PointerEvent) => {
+      const target = event.target as Node
+      if (menu.current?.contains(target) || menuTrigger.current?.contains(target)) return
+      close()
+    }
     const listen = window.setTimeout(() => {
       window.addEventListener("scroll", close, { capture: true })
       window.addEventListener("resize", close)
+      window.addEventListener("pointerdown", closeOutside)
     }, MENU_SCROLL_GRACE_MS)
     return () => {
       window.clearTimeout(listen)
       window.removeEventListener("scroll", close, { capture: true })
       window.removeEventListener("resize", close)
+      window.removeEventListener("pointerdown", closeOutside)
     }
   }, [menuOpen])
 
@@ -243,7 +250,22 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
 
   async function copySummary() {
     try {
-      await navigator.clipboard.writeText(session.summary)
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(session.summary)
+      } else {
+        const area = document.createElement("textarea")
+        area.value = session.summary
+        area.setAttribute("readonly", "")
+        area.style.position = "fixed"
+        area.style.opacity = "0"
+        document.body.append(area)
+        area.select()
+        try {
+          if (!document.execCommand("copy")) throw new Error("copy rejected")
+        } finally {
+          area.remove()
+        }
+      }
       finishSummaryAction("Summary copied")
     } catch {
       finishSummaryAction("Copy failed. Select the summary text to copy it manually.")
@@ -271,6 +293,7 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
       className={`${styles.sessionCard} ${selected ? styles.selected : ""}`}
       onBlur={(event) => {
         if (
+          event.relatedTarget &&
           !event.currentTarget.contains(event.relatedTarget) &&
           !menu.current?.contains(event.relatedTarget)
         ) {
@@ -329,6 +352,7 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
               style={menuPosition}
               onBlur={(event) => {
                 if (
+                  event.relatedTarget &&
                   !event.currentTarget.contains(event.relatedTarget) &&
                   event.relatedTarget !== menuTrigger.current
                 ) {
@@ -381,7 +405,7 @@ function SessionCard({ onSelect, selected, session }: SessionCardProps) {
             document.body,
           )
         : null}
-      <span className="sr-only" aria-live="polite">
+      <span className={styles.actionFeedback} aria-live="polite">
         {actionFeedback}
       </span>
       {deleteOpen ? <DeleteSessionDialog session={session} onClose={closeActions} /> : null}
@@ -434,7 +458,7 @@ function HistoryContent({
 
   return (
     <div
-      className={`${styles.content} absolute inset-x-0 top-16 bottom-28 flex flex-col py-5 max-mobile:top-12`}
+      className={`${styles.content} absolute inset-x-0 top-16 bottom-28 flex flex-col py-5 max-mobile:top-12 max-mobile:pt-6`}
       id="summary-history-content"
       aria-hidden={hidden}
       inert={hidden}
@@ -530,7 +554,7 @@ export function HistoryNavigation({ mobileOpen, onCloseMobile }: HistoryNavigati
     trapFocus(event, navigation.current)
   }
 
-  const className = `${styles.navigation} ${collapsedClass} ${mobileClass} relative z-5 h-full w-80 min-w-0 flex-[0_0_20rem] overflow-hidden border-r border-(--theme-line-subtle-color) bg-(--theme-surface-navigation) max-mobile:fixed max-mobile:inset-y-0 max-mobile:left-0 max-mobile:z-21 max-mobile:h-svh max-mobile:w-[min(var(--history-mobile-drawer-width),100%)] max-mobile:flex-[0_0_auto] max-mobile:border-r-0 max-mobile:bg-(--theme-surface-navigation-solid)`
+  const className = `${styles.navigation} ${collapsedClass} ${mobileClass} relative z-5 h-full w-80 min-w-0 flex-[0_0_20rem] overflow-hidden border-r border-(--theme-line-subtle-color) bg-(--theme-surface-navigation) max-mobile:fixed max-mobile:inset-y-0 max-mobile:left-0 max-mobile:z-21 max-mobile:h-svh max-mobile:w-full max-mobile:flex-[0_0_auto] max-mobile:border-r-0 max-mobile:bg-(--theme-surface-navigation-solid)`
   const content = (
     <>
       <HistoryHeader
