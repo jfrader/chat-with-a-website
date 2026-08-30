@@ -433,10 +433,11 @@
 }
 
 .collapsed .header {
-  padding: var(--space-2);
+  justify-content: center;
+  padding: var(--space-2) var(--space-0);
 }
 .collapsed .logo {
-  opacity: var(--opacity-hidden);
+  display: none;
 }
 .collapsed .toggle img {
   transform: var(--history-collapse-transform);
