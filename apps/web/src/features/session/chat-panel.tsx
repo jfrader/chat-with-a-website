@@ -73,7 +73,7 @@ function ChatMessages({ enabled, sessionId }: { enabled: boolean; sessionId: str
   return (
     <div
       ref={container}
-      className={`${styles.messages} min-w-(--chat-panel-width) max-chat:min-w-0`}
+      className={`${styles.messages}`}
       role="log"
       aria-live="polite"
       aria-relevant="additions"
@@ -143,7 +143,7 @@ function ChatComposer({ initialPrompt, sessionId }: { initialPrompt?: string; se
 
   return (
     <form
-      className={`${styles.composer} min-w-(--chat-panel-width) max-chat:min-w-0 max-mobile:mb-[max(var(--space-4),env(safe-area-inset-bottom))]`}
+      className={`${styles.composer} max-mobile:mb-[max(var(--space-4),env(safe-area-inset-bottom))]`}
       onSubmit={submit}
     >
       <label className="sr-only" htmlFor={inputId}>
@@ -225,7 +225,7 @@ export function ChatPanel({ initialPrompt, modal, onClose, open, sessionId }: Ch
         onKeyDown={handleKeyDown}
       >
         <header
-          className={`${styles.header} min-w-(--chat-panel-width) max-chat:min-w-0 max-mobile:pt-[max(var(--space-2),env(safe-area-inset-top))]`}
+          className={`${styles.header} max-mobile:pt-[max(var(--space-2),env(safe-area-inset-top))]`}
         >
           <div>
             <span aria-hidden="true">✦</span>
