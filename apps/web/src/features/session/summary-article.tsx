@@ -193,9 +193,12 @@ export function SummaryArticle({
             </svg>
           </button>
           <button
+            className={`${styles.chatToggle} ${chatOpen ? styles.chatToggleHidden : ""}`}
             type="button"
-            aria-label={chatOpen ? "Hide chat" : "Show chat"}
-            title={chatOpen ? "Hide chat" : "Show chat"}
+            aria-label="Show chat"
+            title="Show chat"
+            aria-hidden={chatOpen || undefined}
+            inert={chatOpen}
             onClick={onToggleChat}
           >
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">

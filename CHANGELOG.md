@@ -41,6 +41,7 @@
 - Rebuilt the history search on the shared composer field so it matches the other inputs with an aligned icon.
 - Showed the link icon with the full address on history cards, dropped the duplicated domain line, and kept taglines to one line.
 - Placed a chat toggle where the chat close control lands so closing chat never leaves the pointer on the regenerate button.
+- Shrank the chat toggle away while chat is open and grew it back on close.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.

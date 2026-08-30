@@ -39,8 +39,27 @@
   cursor: default;
 }
 
+.chatToggle {
+  --summary-chat-toggle-shown: scale(1);
+  --summary-chat-toggle-hidden: scale(0);
+
+  transform: var(--summary-chat-toggle-shown);
+  transition:
+    transform var(--motion-duration-standard) var(--motion-easing-standard),
+    opacity var(--motion-duration-standard) var(--motion-easing-standard),
+    color var(--motion-duration-standard) var(--motion-easing-standard),
+    border-color var(--motion-duration-standard) var(--motion-easing-standard);
+}
+
+.chatToggleHidden {
+  opacity: var(--opacity-hidden);
+  transform: var(--summary-chat-toggle-hidden);
+  pointer-events: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .articleActions button {
+  .articleActions button,
+  .chatToggle {
     transition: none;
   }
 }
