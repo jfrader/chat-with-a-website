@@ -46,7 +46,9 @@
 - Slid the chat panel open and closed by animating its real width so the layout glides instead of jumping.
 - Fixed mobile summary scrolling and moved the summary actions into the mobile top bar as clear regenerate and chat icons.
 - Named the open session in the chat header, aligned its close control with the top bar, and slid the now full-width mobile history drawer.
-- Kept the session actions menu open on touch, copied summaries without a secure clipboard, and confirmed copy and download with a visible message.
+- Kept the session actions menu open on touch, copied without a secure clipboard, and confirmed copy and download with a visible message.
+- Made the session actions menu keyboard operable and dropped it below its trigger on narrow screens with a solid backdrop.
+- Copied the session link from the actions menu, matching the design's copy-beside-URL pill, while Download Markdown keeps exporting the summary.
 - Matched the session actions menu to the supplied design's floating copy, download, and delete pills.
 - Matched the empty workspace sidebar, empty chat panel, and chat composer copy to the supplied design.
 - Added a collapsible Thought line above assistant chat replies whenever the model streams reasoning content.

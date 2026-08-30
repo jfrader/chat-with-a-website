@@ -9,7 +9,7 @@ afterEach(() => {
 })
 
 describe("completed summary actions", () => {
-  it("copies the Markdown summary and downloads a safe Markdown file", async () => {
+  it("copies the session link and downloads a safe Markdown file", async () => {
     const user = userEvent.setup()
     const session = createSession()
     const writeText = vi.fn().mockResolvedValue(undefined)
@@ -34,9 +34,9 @@ describe("completed summary actions", () => {
     expect(await screen.findByText("Summary ready.")).toBeInTheDocument()
     const menuTrigger = await screen.findByRole("button", { name: `Actions for ${session.title}` })
     await user.click(menuTrigger)
-    await user.click(screen.getByRole("button", { name: "Copy summary" }))
-    expect(writeText).toHaveBeenCalledWith(session.summary)
-    expect(screen.getByText("Summary copied")).toBeVisible()
+    await user.click(screen.getByRole("button", { name: "Copy link" }))
+    expect(writeText).toHaveBeenCalledWith(session.originalUrl)
+    expect(screen.getByText("Link copied")).toBeVisible()
 
     await user.click(menuTrigger)
     await user.click(screen.getByRole("button", { name: "Download Markdown" }))
