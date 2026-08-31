@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: profound-url-summarization
+    runtime: docker
+    plan: free
+    dockerCommand: sh -c "node node_modules/@profound/db/dist/migrate.js && node dist/server.js"
+    healthCheckPath: /health/ready
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: profound-url-summarization-db
+          property: connectionString
+      - key: LLM_MODEL
+        value: deepseek-v4-flash
+      - key: LLM_BASE_URL
+        value: https://api.deepseek.com
+      - key: LLM_API_KEY
+        sync: false
+
+databases:
+  - name: profound-url-summarization-db
+    plan: free
+    databaseName: urlsum
+    user: urlsum
