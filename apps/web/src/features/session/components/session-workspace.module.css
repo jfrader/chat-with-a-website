@@ -1,0 +1,36 @@
+.blurredTitle {
+  position: absolute;
+  top: 0;
+  left: 240px;
+  filter: blur(1.5px);
+  white-space: nowrap;
+  animation: resolve-title 1.8s var(--motion-easing-in-out) infinite alternate;
+}
+
+.glow {
+  background: url("/assets/url-composer-glow.svg") center / 100% 100% no-repeat;
+}
+
+.sourcePill {
+  background: linear-gradient(180deg, rgb(255 255 255 / 7%), rgb(255 255 255 / 10%));
+  box-shadow: var(--theme-shadow-control);
+  backdrop-filter: blur(3.5px);
+}
+
+@keyframes resolve-title {
+  from {
+    opacity: 0.64;
+    filter: blur(2px);
+  }
+
+  to {
+    opacity: 1;
+    filter: blur(1px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .blurredTitle {
+    animation: none;
+  }
+}

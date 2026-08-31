@@ -1,12 +1,11 @@
+import { listSessionsQuerySchema } from "@profound/contracts"
 import {
-  Outlet,
   createRootRoute,
   createRoute,
   createRouter,
   type RouterHistory,
 } from "@tanstack/react-router"
-import { listSessionsQuerySchema } from "@profound/contracts"
-import { WorkspaceShell } from "../features/workspace/workspace-shell"
+import { WorkspaceShell } from "../features/workspace/components/workspace-shell"
 
 const rootRoute = createRootRoute({
   validateSearch: (search) => {
@@ -20,16 +19,14 @@ const rootRoute = createRootRoute({
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/",
-  component: Outlet,
 })
 
 const sessionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/sessions/$sessionId",
-  component: Outlet,
 })
 
-export const routeTree = rootRoute.addChildren([indexRoute, sessionRoute])
+const routeTree = rootRoute.addChildren([indexRoute, sessionRoute])
 
 export function createAppRouter(history?: RouterHistory) {
   return createRouter({ routeTree, ...(history ? { history } : {}) })

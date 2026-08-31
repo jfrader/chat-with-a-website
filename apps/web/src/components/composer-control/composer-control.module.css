@@ -1,0 +1,118 @@
+.field {
+  --composer-field-gap: 0.75rem;
+  --composer-field-padding: 0 1rem;
+  --composer-field-font-size: var(--font-size-body);
+
+  position: relative;
+  width: 100%;
+  min-width: 0;
+  height: var(--control-height);
+  display: flex;
+  align-items: center;
+  gap: var(--composer-field-gap);
+  overflow: hidden;
+  padding: var(--composer-field-padding);
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: linear-gradient(180deg, rgb(255 255 255 / 11%), rgb(255 255 255 / 16%));
+  box-shadow: var(--theme-shadow-control);
+  transition: box-shadow var(--motion-duration-standard) var(--motion-easing-standard);
+}
+
+.field:has(> :is(input, textarea):focus-visible) {
+  --gradient-border-background: linear-gradient(
+    180deg,
+    rgb(255 255 255 / 58%),
+    rgb(203 114 255 / 24%)
+  );
+}
+
+.field:has(> :is(input, textarea)[aria-invalid="true"]) {
+  box-shadow:
+    0 0 0 1px rgb(255 93 97 / 75%),
+    0 17px 36px rgb(0 0 0 / 10%),
+    inset 0 -1px rgb(255 255 255 / 20%);
+}
+
+.field > :is(input, textarea) {
+  min-width: 0;
+  flex: 1;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  color: var(--theme-text-primary);
+  background: transparent;
+  font-size: var(--composer-field-font-size);
+  font-weight: 400;
+  line-height: var(--line-height-body);
+}
+
+.field > input {
+  height: 100%;
+}
+
+.field > :is(input, textarea):focus-visible {
+  outline: 0;
+}
+
+.field > :is(input, textarea)::placeholder {
+  color: var(--theme-text-placeholder);
+  opacity: 1;
+}
+
+.field > input:-webkit-autofill,
+.field > input:-webkit-autofill:hover,
+.field > input:-webkit-autofill:focus {
+  -webkit-text-fill-color: var(--theme-text-primary);
+  box-shadow: 0 0 0 1000px transparent inset;
+  transition: background-color 9999s ease-out;
+}
+
+.multiline {
+  --composer-field-gap: 0.5rem;
+  --composer-field-padding: 0.5rem 0.5rem 0.5rem 1rem;
+  --composer-field-font-size: var(--font-size-label);
+
+  height: auto;
+  align-items: flex-end;
+}
+
+.multiline > textarea {
+  max-height: 120px;
+  resize: none;
+  padding: 0.5rem 0;
+}
+
+.search {
+  --composer-field-gap: 0.5rem;
+  --composer-field-padding: 0 0.9375rem;
+  --composer-field-font-size: var(--font-size-label);
+
+  height: 40px;
+}
+
+.chat {
+  --composer-field-gap: 0.5rem;
+  --composer-field-padding: 0.5rem;
+  --composer-field-font-size: var(--font-size-label);
+}
+
+.iconButton {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: var(--border-strong);
+  border-radius: var(--radius-pill);
+  color: var(--theme-text-primary);
+  background: var(--theme-gradient-action);
+  cursor: pointer;
+}
+
+.iconButton:disabled {
+  color: var(--theme-text-disabled);
+  background: var(--theme-gradient-control-idle);
+  cursor: default;
+}

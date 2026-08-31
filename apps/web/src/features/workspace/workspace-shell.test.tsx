@@ -2,6 +2,7 @@ import type { ChatStreamEvent, SummaryStreamEvent } from "@profound/contracts"
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import { MOBILE_LAYOUT_QUERY } from "../../app/media-queries"
 import {
   assistantMessageId,
   createMessage,
@@ -11,8 +12,8 @@ import {
   sessionId,
 } from "../../test/fixtures"
 import { createTestApi, renderApp } from "../../test/render-app"
-import { SessionApiError } from "../session/session-client"
-import { sessionKeys } from "../session/session-queries"
+import { SessionApiError } from "../session/api/session-client"
+import { sessionKeys } from "../session/hooks/session-queries"
 
 afterEach(() => vi.unstubAllGlobals())
 
@@ -168,7 +169,7 @@ describe("workspace routing and history", () => {
       get matches() {
         return matches
       },
-      media: "(max-width: 720px)",
+      media: MOBILE_LAYOUT_QUERY,
       onchange: null,
       addEventListener: (_type: string, listener: () => void) => listeners.add(listener),
       removeEventListener: (_type: string, listener: () => void) => listeners.delete(listener),

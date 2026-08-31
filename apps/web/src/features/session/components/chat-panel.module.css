@@ -1,0 +1,27 @@
+.panel {
+  --chat-panel-width: 400px;
+
+  transition:
+    width 180ms var(--motion-easing-standard),
+    flex-basis 180ms var(--motion-easing-standard),
+    border-color 180ms var(--motion-easing-standard),
+    transform 180ms var(--motion-easing-standard);
+}
+
+.user {
+  border: var(--border-subtle);
+  border-radius: 18px;
+  background: linear-gradient(150deg, rgb(120 50 160 / 24%), rgb(255 255 255 / 8%));
+}
+
+.thought summary::-webkit-details-marker {
+  display: none;
+}
+
+.thoughtChevron {
+  transition: transform var(--motion-duration-standard) var(--motion-easing-standard);
+}
+
+.thought[open] .thoughtChevron {
+  transform: rotate(180deg);
+}

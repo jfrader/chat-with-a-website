@@ -2,8 +2,8 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { createMemoryHistory, RouterProvider } from "@tanstack/react-router"
 import { render } from "@testing-library/react"
 import { createAppRouter } from "../app/router"
-import { SessionApiProvider } from "../features/session/session-api-context"
-import type { SessionApi } from "../features/session/session-client"
+import type { SessionApi } from "../features/session/api/session-client"
+import { SessionApiProvider } from "../features/session/components/session-api-provider"
 
 export function createTestApi(overrides: Partial<SessionApi> = {}): SessionApi {
   return {

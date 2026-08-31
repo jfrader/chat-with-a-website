@@ -4,9 +4,9 @@ import { createDatabaseClient } from "@profound/db"
 import closeWithGrace from "close-with-grace"
 import { z } from "zod"
 import { createApiApp } from "./app"
-import { createLlmFromEnvironment } from "./openai-llm"
-import { DrizzleSessionRepository } from "./session-repository"
-import { SessionService } from "./session-service"
+import { createLlmFromEnvironment } from "./llm/openai"
+import { DrizzleSessionRepository } from "./sessions/repository"
+import { SessionService } from "./sessions/service"
 
 const environmentSchema = z.object({
   DATABASE_URL: z.string().min(1),

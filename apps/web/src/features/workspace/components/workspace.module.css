@@ -1,0 +1,7 @@
+.background {
+  background: url("/assets/workspace-background.svg") center top / 100% 100% no-repeat;
+}
+
+.glow {
+  background: url("/assets/url-composer-glow.svg") center / 100% 100% no-repeat;
+}
