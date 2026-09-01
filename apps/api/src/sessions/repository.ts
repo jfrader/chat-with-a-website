@@ -15,8 +15,6 @@ import { and, asc, desc, eq, ilike, lt, ne, or, sql } from "drizzle-orm"
 import { z } from "zod"
 import { ServiceError } from "../errors"
 
-export const UNAUTHENTICATED_WORKSPACE_ID = "unauthenticated"
-
 export type SessionRecord = Omit<
   SessionDto,
   "attemptId" | "completedAt" | "createdAt" | "updatedAt"
@@ -102,10 +100,10 @@ export interface SessionRepository {
     requestId: string,
     content: string,
   ): Promise<CreateMessagesResult>
-  createOrGet(request: CreateSessionRequest): Promise<CreateSessionResult>
-  delete(id: string): Promise<boolean>
-  findById(id: string): Promise<SessionRecord | null>
-  list(query: ListSessionsQuery): Promise<SessionPage>
+  createOrGet(workspaceId: string, request: CreateSessionRequest): Promise<CreateSessionResult>
+  delete(workspaceId: string, id: string): Promise<boolean>
+  findById(workspaceId: string, id: string): Promise<SessionRecord | null>
+  list(workspaceId: string, query: ListSessionsQuery): Promise<SessionPage>
   listMessages(sessionId: string): Promise<MessageRecord[]>
   reconcileInterrupted(): Promise<void>
   update(id: string, update: SessionUpdate): Promise<SessionRecord | null>
@@ -206,12 +204,15 @@ export class DrizzleSessionRepository implements SessionRepository {
     this.#database = database
   }
 
-  async createOrGet(request: CreateSessionRequest): Promise<CreateSessionResult> {
+  async createOrGet(
+    workspaceId: string,
+    request: CreateSessionRequest,
+  ): Promise<CreateSessionResult> {
     const canonicalUrl = new URL(request.url).toString()
     const [inserted] = await this.#database
       .insert(sessions)
       .values({
-        workspaceId: UNAUTHENTICATED_WORKSPACE_ID,
+        workspaceId,
         idempotencyKey: request.idempotencyKey,
         originalUrl: request.url,
         canonicalUrl,
@@ -227,7 +228,7 @@ export class DrizzleSessionRepository implements SessionRepository {
       .from(sessions)
       .where(
         and(
-          eq(sessions.workspaceId, UNAUTHENTICATED_WORKSPACE_ID),
+          eq(sessions.workspaceId, workspaceId),
           eq(sessions.idempotencyKey, request.idempotencyKey),
         ),
       )
@@ -240,16 +241,16 @@ export class DrizzleSessionRepository implements SessionRepository {
     return { created: false, session: toSessionRecord(existing) }
   }
 
-  async findById(id: string): Promise<SessionRecord | null> {
+  async findById(workspaceId: string, id: string): Promise<SessionRecord | null> {
     const [row] = await this.#database
       .select()
       .from(sessions)
-      .where(and(eq(sessions.workspaceId, UNAUTHENTICATED_WORKSPACE_ID), eq(sessions.id, id)))
+      .where(and(eq(sessions.workspaceId, workspaceId), eq(sessions.id, id)))
       .limit(1)
     return row ? toSessionRecord(row) : null
   }
 
-  async list(query: ListSessionsQuery): Promise<SessionPage> {
+  async list(workspaceId: string, query: ListSessionsQuery): Promise<SessionPage> {
     const cursor = decodeCursor(query.cursor)
     const literalQuery = escapeIlikePattern(query.query)
     const search = query.query
@@ -269,7 +270,7 @@ export class DrizzleSessionRepository implements SessionRepository {
     const rows = await this.#database
       .select()
       .from(sessions)
-      .where(and(eq(sessions.workspaceId, UNAUTHENTICATED_WORKSPACE_ID), search, cursorFilter))
+      .where(and(eq(sessions.workspaceId, workspaceId), search, cursorFilter))
       .orderBy(desc(sessions.createdAt), desc(sessions.id))
       .limit(query.limit + 1)
     const page = rows.slice(0, query.limit).map(toSessionRecord)
@@ -284,15 +285,15 @@ export class DrizzleSessionRepository implements SessionRepository {
     const [row] = await this.#database
       .update(sessions)
       .set({ ...update, updatedAt: sql`now()` })
-      .where(and(eq(sessions.workspaceId, UNAUTHENTICATED_WORKSPACE_ID), eq(sessions.id, id)))
+      .where(eq(sessions.id, id))
       .returning()
     return row ? toSessionRecord(row) : null
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(workspaceId: string, id: string): Promise<boolean> {
     const deleted = await this.#database
       .delete(sessions)
-      .where(and(eq(sessions.workspaceId, UNAUTHENTICATED_WORKSPACE_ID), eq(sessions.id, id)))
+      .where(and(eq(sessions.workspaceId, workspaceId), eq(sessions.id, id)))
       .returning({ id: sessions.id })
     return deleted.length > 0
   }
@@ -375,13 +376,7 @@ export class DrizzleSessionRepository implements SessionRepository {
         completedAt: now,
         updatedAt: now,
       })
-      .where(
-        and(
-          eq(sessions.workspaceId, UNAUTHENTICATED_WORKSPACE_ID),
-          ne(sessions.status, "complete"),
-          ne(sessions.status, "failed"),
-        ),
-      )
+      .where(and(ne(sessions.status, "complete"), ne(sessions.status, "failed")))
     await this.#database
       .update(messages)
       .set({

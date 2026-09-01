@@ -18,7 +18,6 @@ import type {
   SessionRepository,
   SessionUpdate,
 } from "./repository"
-import { UNAUTHENTICATED_WORKSPACE_ID } from "./repository"
 
 const baseTime = new Date("2026-08-26T00:00:00.000Z")
 
@@ -27,8 +26,12 @@ export class MemorySessionRepository implements SessionRepository {
   readonly records = new Map<string, SessionRecord>()
   readonly #sessionKeys = new Map<string, string>()
 
-  async createOrGet(input: CreateSessionRequest): Promise<CreateSessionResult> {
-    const existingId = this.#sessionKeys.get(input.idempotencyKey)
+  async createOrGet(
+    workspaceId: string,
+    input: CreateSessionRequest,
+  ): Promise<CreateSessionResult> {
+    const sessionKey = `${workspaceId}:${input.idempotencyKey}`
+    const existingId = this.#sessionKeys.get(sessionKey)
     if (existingId) {
       const existing = this.records.get(existingId)
       if (!existing) throw new Error("Missing idempotent session")
@@ -41,7 +44,7 @@ export class MemorySessionRepository implements SessionRepository {
     const timestamp = new Date(baseTime.getTime() + this.records.size)
     const session: SessionRecord = {
       id: randomUUID(),
-      workspaceId: UNAUTHENTICATED_WORKSPACE_ID,
+      workspaceId,
       idempotencyKey: input.idempotencyKey,
       originalUrl: input.url,
       canonicalUrl,
@@ -73,12 +76,13 @@ export class MemorySessionRepository implements SessionRepository {
       completedAt: null,
     }
     this.records.set(session.id, session)
-    this.#sessionKeys.set(input.idempotencyKey, session.id)
+    this.#sessionKeys.set(sessionKey, session.id)
     return { created: true, session }
   }
 
-  async findById(id: string): Promise<SessionRecord | null> {
-    return this.records.get(id) ?? null
+  async findById(workspaceId: string, id: string): Promise<SessionRecord | null> {
+    const session = this.records.get(id)
+    return session?.workspaceId === workspaceId ? session : null
   }
 
   async update(id: string, update: SessionUpdate): Promise<SessionRecord | null> {
@@ -89,19 +93,21 @@ export class MemorySessionRepository implements SessionRepository {
     return updated
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(workspaceId: string, id: string): Promise<boolean> {
     const session = this.records.get(id)
+    if (session?.workspaceId !== workspaceId) return false
     const deleted = this.records.delete(id)
-    if (session) this.#sessionKeys.delete(session.idempotencyKey)
+    if (session) this.#sessionKeys.delete(`${workspaceId}:${session.idempotencyKey}`)
     for (const [messageId, message] of this.messagesById) {
       if (message.sessionId === id) this.messagesById.delete(messageId)
     }
     return deleted
   }
 
-  async list(query: ListSessionsQuery): Promise<SessionPage> {
+  async list(workspaceId: string, query: ListSessionsQuery): Promise<SessionPage> {
     const lowered = query.query.toLowerCase()
     const all = [...this.records.values()]
+      .filter((session) => session.workspaceId === workspaceId)
       .filter((session) =>
         lowered
           ? [session.title, session.originalUrl, session.canonicalUrl, session.summary].some(

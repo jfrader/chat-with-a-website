@@ -54,15 +54,15 @@ export type SessionCreation = { created: boolean; session: SessionDto }
 export type SessionEventStream = { close(): void; events: AsyncIterable<SessionStreamEvent> }
 
 export type SessionServiceApi = {
-  chat(id: string, request: CreateChatRequest): Promise<ChatEventStream | null>
-  create(request: CreateSessionRequest): Promise<SessionCreation>
-  delete(id: string): Promise<boolean>
-  get(id: string): Promise<SessionDto | null>
+  chat(workspaceId: string, id: string, request: CreateChatRequest): Promise<ChatEventStream | null>
+  create(workspaceId: string, request: CreateSessionRequest): Promise<SessionCreation>
+  delete(workspaceId: string, id: string): Promise<boolean>
+  get(workspaceId: string, id: string): Promise<SessionDto | null>
   initialize(): Promise<void>
-  list(query: ListSessionsQuery): Promise<ListSessionsResponse>
-  messages(id: string): Promise<MessageDto[] | null>
-  regenerate(id: string): Promise<SessionDto | null>
-  stream(id: string): Promise<SessionEventStream | null>
+  list(workspaceId: string, query: ListSessionsQuery): Promise<ListSessionsResponse>
+  messages(workspaceId: string, id: string): Promise<MessageDto[] | null>
+  regenerate(workspaceId: string, id: string): Promise<SessionDto | null>
+  stream(workspaceId: string, id: string): Promise<SessionEventStream | null>
 }
 
 export type SessionServiceOptions = {
@@ -211,30 +211,30 @@ export class SessionService implements SessionServiceApi {
     await this.#repository.reconcileInterrupted()
   }
 
-  async create(request: CreateSessionRequest): Promise<SessionCreation> {
+  async create(workspaceId: string, request: CreateSessionRequest): Promise<SessionCreation> {
     this.#assertAcceptingWork()
-    return this.#createOperations.run(request.idempotencyKey, async () => {
-      const result = await this.#repository.createOrGet(request)
+    return this.#createOperations.run(`${workspaceId}:${request.idempotencyKey}`, async () => {
+      const result = await this.#repository.createOrGet(workspaceId, request)
       return this.#sessionOperations.run(result.session.id, async () => {
         if (!this.#acceptingWork) {
           if (result.created) {
-            await this.#repository.delete(result.session.id)
+            await this.#repository.delete(workspaceId, result.session.id)
             this.#eventHub.clear(result.session.id)
           }
           throw new ServiceError("GENERATION_INTERRUPTED")
         }
 
-        const current = await this.#repository.findById(result.session.id)
+        const current = await this.#repository.findById(workspaceId, result.session.id)
         if (!current) throw new ServiceError("GENERATION_INTERRUPTED")
         if (!this.#acceptingWork) {
           if (result.created) {
-            await this.#repository.delete(current.id)
+            await this.#repository.delete(workspaceId, current.id)
             this.#eventHub.clear(current.id)
           }
           throw new ServiceError("GENERATION_INTERRUPTED")
         }
         if (result.created && !this.#startSummary(current)) {
-          const deleted = await this.#repository.delete(current.id)
+          const deleted = await this.#repository.delete(workspaceId, current.id)
           this.#eventHub.clear(current.id)
           if (!deleted) throw new Error("Failed to remove an unadmitted session")
           throw new ServiceError("RATE_LIMITED")
@@ -244,15 +244,15 @@ export class SessionService implements SessionServiceApi {
     })
   }
 
-  async get(id: string): Promise<SessionDto | null> {
-    const session = await this.#repository.findById(id)
+  async get(workspaceId: string, id: string): Promise<SessionDto | null> {
+    const session = await this.#repository.findById(workspaceId, id)
     return session ? toSessionDto(session) : null
   }
 
-  async regenerate(id: string): Promise<SessionDto | null> {
+  async regenerate(workspaceId: string, id: string): Promise<SessionDto | null> {
     this.#assertAcceptingWork()
     return this.#sessionOperations.run(id, async () => {
-      const current = await this.#repository.findById(id)
+      const current = await this.#repository.findById(workspaceId, id)
       if (!current) return null
       if (current.status !== "complete" && current.status !== "failed") {
         return toSessionDto(current)
@@ -285,24 +285,25 @@ export class SessionService implements SessionServiceApi {
     })
   }
 
-  async list(query: ListSessionsQuery): Promise<ListSessionsResponse> {
-    const page = await this.#repository.list(query)
+  async list(workspaceId: string, query: ListSessionsQuery): Promise<ListSessionsResponse> {
+    const page = await this.#repository.list(workspaceId, query)
     return { nextCursor: page.nextCursor, sessions: page.sessions.map(toSessionDto) }
   }
 
-  async messages(id: string): Promise<MessageDto[] | null> {
-    if (!(await this.#repository.findById(id))) return null
+  async messages(workspaceId: string, id: string): Promise<MessageDto[] | null> {
+    if (!(await this.#repository.findById(workspaceId, id))) return null
     return (await this.#repository.listMessages(id)).map(toMessageDto)
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(workspaceId: string, id: string): Promise<boolean> {
     return this.#sessionOperations.run(id, async () => {
+      if (!(await this.#repository.findById(workspaceId, id))) return false
       for (const controller of this.#controllers.get(id) ?? []) controller.abort()
       this.#controllers.delete(id)
       const messageIds = (await this.#repository.listMessages(id)).map(
         ({ id: messageId }) => messageId,
       )
-      const deleted = await this.#repository.delete(id)
+      const deleted = await this.#repository.delete(workspaceId, id)
       if (deleted) {
         this.#eventHub.clear(id)
         for (const messageId of messageIds) this.#chatHub.clear(messageId)
@@ -311,9 +312,9 @@ export class SessionService implements SessionServiceApi {
     })
   }
 
-  async stream(id: string): Promise<SessionEventStream | null> {
+  async stream(workspaceId: string, id: string): Promise<SessionEventStream | null> {
     this.#assertAcceptingWork()
-    const persisted = await this.#repository.findById(id)
+    const persisted = await this.#repository.findById(workspaceId, id)
     this.#assertAcceptingWork()
     if (!persisted) return null
     const subscription = this.#eventHub.subscribe(
@@ -321,7 +322,7 @@ export class SessionService implements SessionServiceApi {
       summaryEvent(persisted),
       this.#running.has(id),
     )
-    const latest = await this.#repository.findById(id)
+    const latest = await this.#repository.findById(workspaceId, id)
     if (!this.#acceptingWork) {
       subscription.close()
       this.#assertAcceptingWork()
@@ -339,11 +340,15 @@ export class SessionService implements SessionServiceApi {
     return this.#trackStream({ close: subscription.close, events: subscription })
   }
 
-  async chat(id: string, request: CreateChatRequest): Promise<ChatEventStream | null> {
+  async chat(
+    workspaceId: string,
+    id: string,
+    request: CreateChatRequest,
+  ): Promise<ChatEventStream | null> {
     this.#assertAcceptingWork()
     return this.#sessionOperations.run(id, async () => {
       this.#assertAcceptingWork()
-      const session = await this.#repository.findById(id)
+      const session = await this.#repository.findById(workspaceId, id)
       this.#assertAcceptingWork()
       if (!session) return null
       if (session.status !== "complete") throw new ServiceError("GENERATION_INTERRUPTED")

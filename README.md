@@ -39,8 +39,7 @@ content after a refresh, and let users retry without creating a new session.
 
 ## What I would improve with more time
 
-- Add authentication and per-user workspaces because the current preview shares one session history
-  between all visitors.
+- Add real authentication for durable history that follows users across browsers and devices.
 - Get each summarized URL's favicon to show it instead of the default link icon when available.
 - Virtualize history and chat lists for better performance when they grow.
 - Make the history and chat panels resizable and persist their size and collapsed state.

@@ -12,6 +12,8 @@ const request = createSessionRequestSchema.parse({
   url: "https://example.com/article",
   idempotencyKey: "33333333-3333-4333-8333-333333333333",
 })
+const workspaceId = "66666666-6666-4666-8666-666666666666"
+const otherWorkspaceId = "77777777-7777-4777-8777-777777777777"
 
 const page = { finalUrl: request.url, html: fetchedHtml }
 
@@ -36,13 +38,13 @@ class BlockingDeleteRepository extends MemorySessionRepository {
   readonly releaseDelete = deferred<void>()
   #shouldBlockDelete = true
 
-  override async delete(id: string): Promise<boolean> {
+  override async delete(workspaceId: string, id: string): Promise<boolean> {
     if (this.#shouldBlockDelete) {
       this.#shouldBlockDelete = false
       this.deleteStarted.resolve()
       await this.releaseDelete.promise
     }
-    return super.delete(id)
+    return super.delete(workspaceId, id)
   }
 }
 
@@ -51,8 +53,11 @@ class BlockingCreateResultRepository extends MemorySessionRepository {
   readonly releaseCreate = deferred<void>()
   #shouldBlockCreate = true
 
-  override async createOrGet(input: Parameters<MemorySessionRepository["createOrGet"]>[0]) {
-    const result = await super.createOrGet(input)
+  override async createOrGet(
+    workspaceId: string,
+    input: Parameters<MemorySessionRepository["createOrGet"]>[1],
+  ) {
+    const result = await super.createOrGet(workspaceId, input)
     if (this.#shouldBlockCreate) {
       this.#shouldBlockCreate = false
       this.createdSessionId.resolve(result.session.id)
@@ -117,8 +122,8 @@ class StaleSessionReadRepository extends MemorySessionRepository {
     this.#armed = true
   }
 
-  override async findById(id: string) {
-    const snapshot = await super.findById(id)
+  override async findById(workspaceId: string, id: string) {
+    const snapshot = await super.findById(workspaceId, id)
     if (this.#armed && !this.#captured) {
       this.#captured = true
       this.readCaptured.resolve()
@@ -138,8 +143,8 @@ describe("SessionService", () => {
       partialWriteIntervalMs: 0,
       fetchPage: () => new Promise((resolve) => (releaseFetch = resolve)),
     })
-    const created = await service.create(request)
-    const stream = await service.stream(created.session.id)
+    const created = await service.create(workspaceId, request)
+    const stream = await service.stream(workspaceId, created.session.id)
     if (!stream) throw new Error("Expected stream")
     const eventsPromise = collect(stream.events)
     releaseFetch(page)
@@ -154,7 +159,7 @@ describe("SessionService", () => {
     expect(deltas.map(({ offset }) => offset)).toEqual([0, 6])
     expect(new Set(events.map(({ eventId }) => eventId)).size).toBe(events.length)
     expect(events.at(-1)?.type).toBe("summary.completed")
-    expect(await service.get(created.session.id)).toMatchObject({
+    expect(await service.get(workspaceId, created.session.id)).toMatchObject({
       status: "complete",
       summary: "First second.",
       provider: "fake",
@@ -171,16 +176,16 @@ describe("SessionService", () => {
       llm: new FakeLlm(["Partial", new LlmError("LLM_RATE_LIMITED")]),
       fetchPage: async () => page,
     })
-    const created = await service.create(request)
+    const created = await service.create(workspaceId, request)
     await service.waitForAll()
 
-    expect(await service.get(created.session.id)).toMatchObject({
+    expect(await service.get(workspaceId, created.session.id)).toMatchObject({
       status: "failed",
       summary: "Partial",
       failureStage: "summarizing",
       failureCode: "LLM_RATE_LIMITED",
     })
-    const stream = await service.stream(created.session.id)
+    const stream = await service.stream(workspaceId, created.session.id)
     expect(stream && (await collect(stream.events)).at(-1)?.type).toBe("summary.failed")
   })
 
@@ -192,8 +197,8 @@ describe("SessionService", () => {
       llm: new FakeLlm([new LlmError("LLM_RATE_LIMITED")]),
       fetchPage: async () => page,
     })
-    const created = await service.create(request)
-    const stream = await service.stream(created.session.id)
+    const created = await service.create(workspaceId, request)
+    const stream = await service.stream(workspaceId, created.session.id)
     if (!stream) throw new Error("Expected stream")
     const eventsPromise = collect(stream.events)
 
@@ -213,9 +218,9 @@ describe("SessionService", () => {
       llm: new FakeLlm(),
       fetchPage: async () => page,
     })
-    await service.create(request)
+    await service.create(workspaceId, request)
     await expect(
-      service.create({ ...request, url: "https://example.org/other" }),
+      service.create(workspaceId, { ...request, url: "https://example.org/other" }),
     ).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" })
     await service.waitForAll()
   })
@@ -239,8 +244,8 @@ describe("SessionService", () => {
     })
 
     const outcomes = await Promise.allSettled([
-      service.create(request),
-      service.create(otherRequest),
+      service.create(workspaceId, request),
+      service.create(workspaceId, otherRequest),
     ])
     expect(outcomes.filter(({ status }) => status === "fulfilled")).toHaveLength(1)
     expect(outcomes.filter(({ status }) => status === "rejected")).toHaveLength(1)
@@ -269,13 +274,13 @@ describe("SessionService", () => {
         return page
       },
     })
-    const created = await service.create(request)
+    const created = await service.create(workspaceId, request)
     await fetchStarted
 
-    const replay = await service.create(request)
+    const replay = await service.create(workspaceId, request)
     expect(replay).toMatchObject({ created: false, session: { id: created.session.id } })
     await expect(
-      service.create({
+      service.create(workspaceId, {
         url: "https://example.net/rejected",
         idempotencyKey: "44444444-4444-4444-8444-444444444444",
       }),
@@ -300,16 +305,16 @@ describe("SessionService", () => {
         return page
       },
     })
-    await service.create(request)
+    await service.create(workspaceId, request)
     await fetchStarted.promise
     const rejectedRequest = createSessionRequestSchema.parse({
       url: "https://example.net/rejected",
       idempotencyKey: "44444444-4444-4444-8444-444444444444",
     })
 
-    const firstAttempt = service.create(rejectedRequest)
+    const firstAttempt = service.create(workspaceId, rejectedRequest)
     await repository.deleteStarted.promise
-    const replay = service.create(rejectedRequest)
+    const replay = service.create(workspaceId, rejectedRequest)
     let replaySettled = false
     void replay.then(
       () => {
@@ -337,14 +342,14 @@ describe("SessionService", () => {
     const fetchPage = vi.fn(async () => page)
     const service = new SessionService({ repository, llm: new FakeLlm(), fetchPage })
 
-    const creation = service.create(request)
+    const creation = service.create(workspaceId, request)
     const sessionId = await repository.createdSessionId.promise
-    expect(await service.delete(sessionId)).toBe(true)
+    expect(await service.delete(workspaceId, sessionId)).toBe(true)
     repository.releaseCreate.resolve()
 
     await expect(creation).rejects.toMatchObject({ code: "GENERATION_INTERRUPTED" })
     expect(fetchPage).not.toHaveBeenCalled()
-    expect(await service.get(sessionId)).toBeNull()
+    expect(await service.get(workspaceId, sessionId)).toBeNull()
   })
 
   it("rejects admission that resumes after shutdown and removes its unstarted row", async () => {
@@ -352,15 +357,17 @@ describe("SessionService", () => {
     const fetchPage = vi.fn(async () => page)
     const service = new SessionService({ repository, llm: new FakeLlm(), fetchPage })
 
-    const creation = service.create(request)
+    const creation = service.create(workspaceId, request)
     const sessionId = await repository.createdSessionId.promise
     service.shutdown()
     repository.releaseCreate.resolve()
 
     await expect(creation).rejects.toMatchObject({ code: "GENERATION_INTERRUPTED" })
-    await expect(service.create(request)).rejects.toMatchObject({ code: "GENERATION_INTERRUPTED" })
+    await expect(service.create(workspaceId, request)).rejects.toMatchObject({
+      code: "GENERATION_INTERRUPTED",
+    })
     expect(fetchPage).not.toHaveBeenCalled()
-    expect(await service.get(sessionId)).toBeNull()
+    expect(await service.get(workspaceId, sessionId)).toBeNull()
   })
 
   it("lists newest sessions, searches persisted fields, and deletes with cascade", async () => {
@@ -370,30 +377,50 @@ describe("SessionService", () => {
       llm: new FakeLlm(),
       fetchPage: async () => page,
     })
-    const first = await repository.createOrGet(request)
+    const first = await repository.createOrGet(workspaceId, request)
     await repository.update(first.session.id, { title: "Needle title", status: "complete" })
-    const second = await repository.createOrGet({
+    const second = await repository.createOrGet(workspaceId, {
       url: "https://example.net/newer",
       idempotencyKey: "44444444-4444-4444-8444-444444444444",
     })
     await repository.update(second.session.id, { status: "complete", summary: "Other summary" })
     await repository.createMessages(first.session.id, "55555555-5555-4555-8555-555555555555", "Hi")
 
-    expect((await service.list({ query: "", limit: 1 })).sessions[0]?.id).toBe(second.session.id)
+    expect((await service.list(workspaceId, { query: "", limit: 1 })).sessions[0]?.id).toBe(
+      second.session.id,
+    )
     expect(
-      (await service.list({ query: "needle", limit: 20 })).sessions.map(({ id }) => id),
+      (await service.list(workspaceId, { query: "needle", limit: 20 })).sessions.map(
+        ({ id }) => id,
+      ),
     ).toEqual([first.session.id])
-    expect(await service.delete(first.session.id)).toBe(true)
-    expect(await service.get(first.session.id)).toBeNull()
+    expect(await service.delete(workspaceId, first.session.id)).toBe(true)
+    expect(await service.get(workspaceId, first.session.id)).toBeNull()
     expect(await repository.listMessages(first.session.id)).toEqual([])
+  })
+
+  it("does not expose sessions across workspaces", async () => {
+    const repository = new MemorySessionRepository()
+    const service = new SessionService({ repository, llm: new FakeLlm() })
+    const first = await repository.createOrGet(workspaceId, request)
+    const second = await repository.createOrGet(otherWorkspaceId, request)
+
+    expect(second.session.id).not.toBe(first.session.id)
+    expect(await service.get(otherWorkspaceId, first.session.id)).toBeNull()
+    expect(await service.messages(otherWorkspaceId, first.session.id)).toBeNull()
+    expect(await service.delete(otherWorkspaceId, first.session.id)).toBe(false)
+    expect((await service.list(workspaceId, { query: "", limit: 20 })).sessions).toHaveLength(1)
+    expect((await service.list(otherWorkspaceId, { query: "", limit: 20 })).sessions).toHaveLength(
+      1,
+    )
   })
 
   it("persists isolated session chat and replays idempotent completion", async () => {
     const repository = new MemorySessionRepository()
     const llm = new FakeLlm(["Answer ", "one."])
     const service = new SessionService({ repository, llm, fetchPage: async () => page })
-    const first = await repository.createOrGet(request)
-    const second = await repository.createOrGet({
+    const first = await repository.createOrGet(workspaceId, request)
+    const second = await repository.createOrGet(workspaceId, {
       url: "https://example.net/second",
       idempotencyKey: "44444444-4444-4444-8444-444444444444",
     })
@@ -411,20 +438,23 @@ describe("SessionService", () => {
       content: "What happened?",
       idempotencyKey: "55555555-5555-4555-8555-555555555555",
     })
-    const firstChat = await service.chat(first.session.id, chatRequest)
+    const firstChat = await service.chat(workspaceId, first.session.id, chatRequest)
     if (!firstChat) throw new Error("Expected chat")
     await collect(firstChat.events)
     await service.waitForAll()
-    const replay = await service.chat(first.session.id, chatRequest)
+    const replay = await service.chat(workspaceId, first.session.id, chatRequest)
     if (!replay) throw new Error("Expected replay")
     expect((await collect(replay.events)).map(({ type }) => type)).toEqual(["chat.completed"])
     expect(
-      (await service.messages(first.session.id))?.map(({ role, content }) => ({ role, content })),
+      (await service.messages(workspaceId, first.session.id))?.map(({ role, content }) => ({
+        role,
+        content,
+      })),
     ).toEqual([
       { role: "user", content: "What happened?" },
       { role: "assistant", content: "Answer one." },
     ])
-    expect(await service.messages(second.session.id)).toEqual([])
+    expect(await service.messages(workspaceId, second.session.id)).toEqual([])
     expect(llm.requests).toHaveLength(1)
   })
 
@@ -437,10 +467,10 @@ describe("SessionService", () => {
       ],
     )
     const service = new SessionService({ repository, llm, fetchPage: async () => page })
-    const { session } = await service.create(request)
+    const { session } = await service.create(workspaceId, request)
     await service.waitForAll()
 
-    const completed = await service.get(session.id)
+    const completed = await service.get(workspaceId, session.id)
     expect(completed?.status).toBe("complete")
     expect(completed?.tagline).toBe("Daily garden logic puzzle game")
     expect(completed?.suggestedPrompts).toEqual([
@@ -454,10 +484,10 @@ describe("SessionService", () => {
     const repository = new MemorySessionRepository()
     const llm = new FakeLlm(["A useful summary."], [new Error("suggestions down")])
     const service = new SessionService({ repository, llm, fetchPage: async () => page })
-    const { session } = await service.create(request)
+    const { session } = await service.create(workspaceId, request)
     await service.waitForAll()
 
-    const completed = await service.get(session.id)
+    const completed = await service.get(workspaceId, session.id)
     expect(completed?.status).toBe("complete")
     expect(completed?.suggestedPrompts).toEqual([])
     expect(completed?.tagline).toBeNull()
@@ -467,17 +497,17 @@ describe("SessionService", () => {
     const repository = new MemorySessionRepository()
     const llm = new FakeLlm(["First summary."], [], ["Second summary."], [])
     const service = new SessionService({ repository, llm, fetchPage: async () => page })
-    const { session } = await service.create(request)
+    const { session } = await service.create(workspaceId, request)
     await service.waitForAll()
-    const first = await service.get(session.id)
+    const first = await service.get(workspaceId, session.id)
     expect(first?.summary).toBe("First summary.")
 
-    const restarted = await service.regenerate(session.id)
+    const restarted = await service.regenerate(workspaceId, session.id)
     expect(restarted?.status).toBe("fetching")
     expect(restarted?.summary).toBe("")
     await service.waitForAll()
 
-    const second = await service.get(session.id)
+    const second = await service.get(workspaceId, session.id)
     expect(second?.status).toBe("complete")
     expect(second?.summary).toBe("Second summary.")
     expect(second?.attemptNumber).toBe((first?.attemptNumber ?? 1) + 1)
@@ -493,13 +523,13 @@ describe("SessionService", () => {
       llm: new FakeLlm(["Only one."]),
       fetchPage: () => new Promise((resolve) => (releaseFetch = resolve)),
     })
-    const { session } = await service.create(request)
-    const during = await service.regenerate(session.id)
+    const { session } = await service.create(workspaceId, request)
+    const during = await service.regenerate(workspaceId, session.id)
     expect(during?.status).toBe("fetching")
     expect(during?.attemptNumber).toBe(1)
     releaseFetch(page)
     await service.waitForAll()
-    expect((await service.get(session.id))?.summary).toBe("Only one.")
+    expect((await service.get(workspaceId, session.id))?.summary).toBe("Only one.")
   })
 
   it("loads a linked page from the chat message into the model context", async () => {
@@ -511,13 +541,13 @@ describe("SessionService", () => {
       html: "<html><head><title>Registro</title></head><body><main>Create your club with an email and a club name to join the alpha league today.</main></body></html>",
     }))
     const service = new SessionService({ repository, llm, fetchPage })
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     await repository.update(created.session.id, {
       status: "complete",
       sourceText: "Landing source",
       summary: "Landing summary",
     })
-    const chat = await service.chat(created.session.id, {
+    const chat = await service.chat(workspaceId, created.session.id, {
       content: "What does /register ask for?",
       idempotencyKey: "77777777-7777-4777-8777-777777777777",
     })
@@ -544,13 +574,13 @@ describe("SessionService", () => {
       "two.",
     ])
     const service = new SessionService({ repository, llm, fetchPage: async () => page })
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     await repository.update(created.session.id, {
       status: "complete",
       sourceText: "Chat source",
       summary: "Chat summary",
     })
-    const chat = await service.chat(created.session.id, {
+    const chat = await service.chat(workspaceId, created.session.id, {
       content: "Why?",
       idempotencyKey: "66666666-6666-4666-8666-666666666666",
     })
@@ -559,7 +589,7 @@ describe("SessionService", () => {
     await service.waitForAll()
     const reasoningEvents = events.filter((event) => event.type === "chat.reasoning")
     expect(reasoningEvents.map((event) => event.delta).join("")).toBe("Consider the source first.")
-    const assistant = (await service.messages(created.session.id))?.find(
+    const assistant = (await service.messages(workspaceId, created.session.id))?.find(
       (message) => message.role === "assistant",
     )
     expect(assistant?.content).toBe("Answer two.")
@@ -596,7 +626,7 @@ describe("SessionService", () => {
       yield "Late answer"
     })
     const service = new SessionService({ repository, llm })
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     await repository.update(created.session.id, {
       status: "complete",
       sourceText: "Source",
@@ -607,9 +637,9 @@ describe("SessionService", () => {
       idempotencyKey: "55555555-5555-4555-8555-555555555555",
     })
 
-    const chatPromise = service.chat(created.session.id, chatRequest)
+    const chatPromise = service.chat(workspaceId, created.session.id, chatRequest)
     await repository.createMessagesStarted.promise
-    const deletePromise = service.delete(created.session.id)
+    const deletePromise = service.delete(workspaceId, created.session.id)
     let deletionSettled = false
     void deletePromise.then(() => {
       deletionSettled = true
@@ -625,7 +655,7 @@ describe("SessionService", () => {
     await abortSeen.promise
     expect(observedAbort).toBe(true)
     expect(await repository.listMessages(created.session.id)).toEqual([])
-    expect(await service.get(created.session.id)).toBeNull()
+    expect(await service.get(workspaceId, created.session.id)).toBeNull()
     expect(await collect(stream.events)).toEqual([])
 
     releaseLlm.resolve()
@@ -635,7 +665,7 @@ describe("SessionService", () => {
   it("persists a terminal chat failure when the provider update throws", async () => {
     const repository = new FailingInitialChatUpdateRepository()
     const service = new SessionService({ repository, llm: new FakeLlm() })
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     await repository.update(created.session.id, {
       status: "complete",
       sourceText: "Source",
@@ -646,7 +676,7 @@ describe("SessionService", () => {
       idempotencyKey: "55555555-5555-4555-8555-555555555555",
     })
 
-    const stream = await service.chat(created.session.id, chatRequest)
+    const stream = await service.chat(workspaceId, created.session.id, chatRequest)
     if (!stream) throw new Error("Expected chat stream")
     await service.waitForAll()
 
@@ -669,7 +699,7 @@ describe("SessionService", () => {
       repository,
       llm: new FakeLlm([new LlmError("LLM_RATE_LIMITED")]),
     })
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     await repository.update(created.session.id, {
       status: "complete",
       sourceText: "Source",
@@ -680,7 +710,7 @@ describe("SessionService", () => {
       idempotencyKey: "55555555-5555-4555-8555-555555555555",
     })
 
-    const stream = await service.chat(created.session.id, chatRequest)
+    const stream = await service.chat(workspaceId, created.session.id, chatRequest)
     if (!stream) throw new Error("Expected chat stream")
     const eventsPromise = collect(stream.events)
 
@@ -695,7 +725,7 @@ describe("SessionService", () => {
     const repository = new MemorySessionRepository()
     const llm = new FakeLlm(["New answer"])
     const service = new SessionService({ repository, llm })
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     await repository.update(created.session.id, {
       status: "complete",
       sourceText: "Source",
@@ -736,6 +766,7 @@ describe("SessionService", () => {
     repository.messagesById.delete(unmatched.assistantMessage.id)
 
     const stream = await service.chat(
+      workspaceId,
       created.session.id,
       createChatRequestSchema.parse({
         content: "Current question",
@@ -761,7 +792,7 @@ describe("SessionService", () => {
       llm: new FakeLlm(["A", "B"]),
       partialWriteIntervalMs: 0,
     })
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     await repository.update(created.session.id, {
       status: "complete",
       sourceText: "Source",
@@ -772,7 +803,7 @@ describe("SessionService", () => {
       idempotencyKey: "55555555-5555-4555-8555-555555555555",
     })
 
-    const stream = await service.chat(created.session.id, chatRequest)
+    const stream = await service.chat(workspaceId, created.session.id, chatRequest)
     if (!stream) throw new Error("Expected chat stream")
     await service.waitForAll()
     const events = await collect(stream.events)
@@ -795,7 +826,7 @@ describe("SessionService", () => {
       yield "B"
     })
     const service = new SessionService({ repository, llm, partialWriteIntervalMs: 0 })
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     await repository.update(created.session.id, {
       status: "complete",
       sourceText: "Source",
@@ -805,11 +836,11 @@ describe("SessionService", () => {
       content: "Question?",
       idempotencyKey: "55555555-5555-4555-8555-555555555555",
     })
-    const first = await service.chat(created.session.id, chatRequest)
+    const first = await service.chat(workspaceId, created.session.id, chatRequest)
     if (!first) throw new Error("Expected first chat stream")
     await firstProcessed
 
-    const replay = await service.chat(created.session.id, chatRequest)
+    const replay = await service.chat(workspaceId, created.session.id, chatRequest)
     if (!replay) throw new Error("Expected replay chat stream")
     const iterator = replay.events[Symbol.asyncIterator]()
     expect((await iterator.next()).value?.type).toBe("chat.created")
@@ -833,7 +864,7 @@ describe("SessionService", () => {
 
   it("marks stale sessions and messages interrupted during initialization", async () => {
     const repository = new MemorySessionRepository()
-    const created = await repository.createOrGet(request)
+    const created = await repository.createOrGet(workspaceId, request)
     const pair = await repository.createMessages(
       created.session.id,
       "55555555-5555-4555-8555-555555555555",
@@ -841,7 +872,7 @@ describe("SessionService", () => {
     )
     const service = new SessionService({ repository, llm: new FakeLlm() })
     await service.initialize()
-    expect(await service.get(created.session.id)).toMatchObject({
+    expect(await service.get(workspaceId, created.session.id)).toMatchObject({
       status: "failed",
       failureCode: "GENERATION_INTERRUPTED",
     })
@@ -865,12 +896,12 @@ describe("SessionService", () => {
       throw new LlmError("GENERATION_INTERRUPTED")
     })
     const service = new SessionService({ repository, llm, fetchPage: async () => page })
-    const created = await service.create(request)
+    const created = await service.create(workspaceId, request)
     await started
-    expect(await service.delete(created.session.id)).toBe(true)
+    expect(await service.delete(workspaceId, created.session.id)).toBe(true)
     await service.waitForAll()
     expect(observedAbort).toBe(true)
-    expect(await service.get(created.session.id)).toBeNull()
+    expect(await service.get(workspaceId, created.session.id)).toBeNull()
   })
 
   it("returns one persisted terminal event after a completion raced stream setup", async () => {
@@ -880,9 +911,9 @@ describe("SessionService", () => {
       llm: new FakeLlm(["Done"]),
       fetchPage: async () => page,
     })
-    const created = await service.create(request)
+    const created = await service.create(workspaceId, request)
     await service.waitForAll()
-    const stream = await service.stream(created.session.id)
+    const stream = await service.stream(workspaceId, created.session.id)
     if (!stream) throw new Error("Expected stream")
     const events = await collect(stream.events)
     expect(events).toHaveLength(1)
@@ -903,11 +934,11 @@ describe("SessionService", () => {
       }),
       fetchPage: async () => page,
     })
-    const created = await service.create(request)
+    const created = await service.create(workspaceId, request)
     await generationStarted.promise
     repository.arm()
 
-    const streamPromise = service.stream(created.session.id)
+    const streamPromise = service.stream(workspaceId, created.session.id)
     await repository.readCaptured.promise
     releaseGeneration.resolve()
     await service.waitForAll()
