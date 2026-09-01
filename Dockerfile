@@ -48,4 +48,4 @@ EXPOSE 4311
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:4311/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 
-CMD ["node", "dist/server.js"]
+CMD ["sh", "-c", "node node_modules/@profound/db/dist/migrate.js && exec node dist/server.js"]

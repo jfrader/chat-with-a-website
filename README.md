@@ -71,25 +71,22 @@ PostgreSQL repository tests; use a disposable database because those tests trunc
 
 ## Product
 
-- Safe public-URL submission with stable validation and idempotent retries.
-- Live summary stages and token deltas with refresh-safe persisted partial output.
-- Searchable, paginated session history with routed selection and deletion recovery.
-- Markdown summaries with source metadata, copy, download, and safe source links.
-- Session-scoped, streaming follow-up chat grounded in the extracted source and summary.
-- Chat loads a URL or path mentioned in a message through the same SSRF-safe fetcher, so conversations can explore linked pages.
-- Suggested follow-up prompts as the additional user-facing experience requested by the brief.
-- Responsive history and chat drawers with keyboard, focus, and touch support; looping effects pause under reduced motion.
+- Submit a public URL and create a summary without duplicate sessions on retries.
+- Watch the summary appear as it is generated. Partial output remains after a refresh.
+- Search, open, and delete previous sessions.
+- Copy or download a Markdown summary and open its source page.
+- Ask follow-up questions about the source and summary.
+- Include another URL or path in chat to load and discuss a related page.
+- Use suggested questions to continue exploring a completed summary.
+- Use history and chat on desktop or mobile with a keyboard or touch screen.
 
 ## Design decisions
 
-The summary remains the dominant reading surface, with history providing orientation and chat acting
-as contextual secondary tooling. On narrower screens, those supporting surfaces become modal drawers
-instead of compressing the article. Static Figma-specific visuals stay in token-backed CSS Modules;
-Tailwind utilities express responsive layout changes beside the components they affect.
+The summary is the main reading area. History helps users find earlier work, and chat supports the
+open summary. On small screens, history and chat open as drawers instead of making the summary narrow.
 
-Suggested follow-up prompts are the deliberate addition beyond the brief. They turn a completed
-summary into clear next actions, reduce blank-composer friction, and open the same source-grounded chat
-flow rather than introducing another product surface.
+CSS Modules hold design-specific styles. Tailwind handles responsive layout changes. Suggested
+questions give users a simple next step and open the existing chat.
 
 ## Architecture
 
@@ -107,21 +104,16 @@ process. The production image runs as a non-root user with pruned dependencies.
 
 ### Session flow
 
-1. The browser generates an `idempotencyKey` and reuses it when a create request is retried.
-2. PostgreSQL's unique constraint arbitrates concurrent creates. The repository inserts the session
-   with `ON CONFLICT DO NOTHING`, then returns either the inserted row or the existing row.
-3. The session service starts one local background promise only when the repository reports that the
-   row was newly created. Idempotent POSTs return the persisted session without starting another job.
-4. That job securely fetches the public URL, deterministically extracts readable content, streams an
-   LLM-generated summary, persists each stage and partial result, and publishes typed deltas and
-   snapshots over local SSE. GET and terminal SSE snapshots read the persisted session.
-5. Chat follows the same durability boundary: user/assistant records are created atomically, partial
-   assistant output is batched to PostgreSQL, and terminal messages are persisted before the stream
-   closes.
+1. The browser creates an `idempotencyKey` and reuses it if the request is retried.
+2. PostgreSQL uses that key to prevent duplicate sessions and returns the existing session when needed.
+3. Only a new session starts a background summary job.
+4. The job checks and fetches the URL, extracts readable content, streams the summary, saves partial
+   results, and sends live updates through SSE.
+5. Chat saves user messages and partial assistant replies before each stream closes.
 
-The service treats fetched content as untrusted data, validates every redirect and resolved address
-against SSRF restrictions, caps downloaded/extracted content, limits request bodies and concurrent
-generations, and sends prompts that forbid following source-page instructions.
+Fetched pages are treated as untrusted. The service checks every URL and redirect to block private
+addresses, limits download and request sizes, limits concurrent generation, and tells the model not to
+follow instructions found in the source page.
 
 ## Configuration
 
@@ -135,26 +127,3 @@ generations, and sends prompts that forbid following source-page instructions.
 | `API_PROXY_TARGET` | Vite development API target | `http://localhost:4311` |
 
 Local `.env` files are ignored by Git and Docker build context.
-
-## Failure and recovery
-
-Typed failures distinguish invalid/private URLs, inaccessible pages, empty content, provider rate
-limits, provider outages, interrupted work, and internal failures. Terminal state is persisted before
-being published. A process restart marks stale sessions and messages interrupted; an incomplete SSE
-connection is treated as recoverable rather than as success.
-
-## Scope and scale path
-
-This challenge intentionally runs as one API process with in-memory ownership of active jobs and
-streams. PostgreSQL preserves results and idempotency, but an in-progress job is not resumed after a
-restart. Authentication, organizations, billing, long-term retention controls, and a hosted preview
-are not included.
-
-Horizontal scaling would require moving admission and execution to a durable queue, assigning each job
-an owner/lease, publishing deltas through shared infrastructure, and routing SSE subscribers across
-instances. PostgreSQL full-text search and tenant-scoped authorization would replace the current
-challenge-sized literal search and unauthenticated workspace.
-
-With more time, the next product improvements would be authenticated workspaces, durable resumable
-jobs, richer source context such as pasted text or files, and production observability for model cost,
-latency, and stream failures.

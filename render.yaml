@@ -3,9 +3,8 @@ services:
     name: profound-url-summarization
     runtime: docker
     plan: free
-    dockerCommand: sh -c "node node_modules/@profound/db/dist/migrate.js && node dist/server.js"
     healthCheckPath: /health/ready
-    autoDeployTrigger: checksPass
+    autoDeployTrigger: commit
     envVars:
       - key: DATABASE_URL
         fromDatabase:
