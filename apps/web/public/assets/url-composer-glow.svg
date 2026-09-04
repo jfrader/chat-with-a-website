@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 765.699 491.817">
+  <title>Lime composer glow</title>
+  <g opacity=".7" filter="url(#outer-blur)">
+    <g filter="url(#left-blur)">
+      <ellipse cx="274" cy="240.5" rx="142" ry="108.5" fill="#65a30d" fill-opacity=".4" />
+    </g>
+    <g filter="url(#right-blur)">
+      <ellipse cx="542.867" cy="240.405" rx="84.065" ry="108.471" transform="rotate(-30.102 542.867 240.405)" fill="#65a30d" fill-opacity=".4" />
+    </g>
+    <g filter="url(#center-blur)">
+      <ellipse cx="428.287" cy="252.547" rx="95.9" ry="108.471" transform="rotate(18.741 428.287 252.547)" fill="#4d7c0f" fill-opacity=".25" />
+    </g>
+  </g>
+  <defs>
+    <filter id="outer-blur" x="0" y="0" width="765.699" height="491.817" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="66" />
+    </filter>
+    <filter id="left-blur" x="12" y="12" width="524" height="457" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="60" />
+    </filter>
+    <filter id="right-blur" x="332.037" y="17.501" width="421.658" height="445.808" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="60" />
+    </filter>
+    <filter id="center-blur" x="210.986" y="25.277" width="434.598" height="454.54" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="60" />
+    </filter>
+  </defs>
+</svg>

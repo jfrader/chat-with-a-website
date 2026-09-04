@@ -1,0 +1,84 @@
+.skeleton {
+  height: 92px;
+  border-radius: var(--radius-card);
+  background: linear-gradient(
+    100deg,
+    rgb(255 255 255 / 4%),
+    rgb(255 255 255 / 9%),
+    rgb(255 255 255 / 4%)
+  );
+  animation: breathe 1.4s var(--motion-easing-in-out) infinite alternate;
+}
+
+.selected {
+  background: linear-gradient(90deg, rgb(101 163 13 / 4%), rgb(101 163 13 / 20%));
+}
+
+.selected::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 1.5px;
+  background: linear-gradient(
+    180deg,
+    rgb(101 163 13 / 0%),
+    #65a30d 30%,
+    #65a30d 70%,
+    rgb(101 163 13 / 0%)
+  );
+  pointer-events: none;
+}
+
+.menuTrigger {
+  isolation: isolate;
+}
+
+.menuTrigger::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  top: 50%;
+  left: 50%;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-pill);
+  background: transparent;
+  transform: translate(-50%, -50%);
+  transition: background var(--motion-duration-standard) var(--motion-easing-standard);
+}
+
+.menuTrigger:hover::before,
+.menuTrigger[aria-expanded="true"]::before {
+  background: var(--theme-surface-hover);
+  backdrop-filter: blur(var(--blur-control));
+}
+
+.menuUrl {
+  background: var(--theme-gradient-control-idle);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 55%);
+}
+
+.newSummaryButton {
+  background: var(--theme-gradient-action);
+  box-shadow:
+    inset 0 -4px 12px rgb(255 255 255 / 15%),
+    inset 0 0 12px rgb(255 255 255 / 30%);
+}
+
+.dialog {
+  box-shadow: 0 28px 90px rgb(0 0 0 / 70%);
+}
+
+@keyframes breathe {
+  to {
+    opacity: 0.64;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}

@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1620 954" preserveAspectRatio="none">
+  <title>Lime workspace background</title>
+  <rect width="1620" height="954" fill="#000" />
+  <g filter="url(#lime-glow-one)">
+    <circle cx="498.5" cy="2149.5" r="1602.5" fill="#3f6212" fill-opacity=".3" />
+  </g>
+  <g filter="url(#lime-glow-two)">
+    <circle cx="498.5" cy="2438.5" r="1602.5" fill="#4d7c0f" fill-opacity=".6" />
+  </g>
+  <defs>
+    <filter id="lime-glow-one" x="-1304" y="347" width="3605" height="3605" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="100" />
+    </filter>
+    <filter id="lime-glow-two" x="-1304" y="636" width="3605" height="3605" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feGaussianBlur stdDeviation="100" />
+    </filter>
+  </defs>
+</svg>

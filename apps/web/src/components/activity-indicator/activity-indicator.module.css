@@ -1,0 +1,33 @@
+.statusDot {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-pill);
+  background: var(--theme-status-active);
+  box-shadow: 0 0 14px rgb(101 163 13 / 75%);
+}
+
+.streamingCaret {
+  width: 1px;
+  height: var(--line-height-compact);
+  display: inline-block;
+  background: var(--theme-focus-ring);
+  animation: streaming-caret 900ms steps(1) infinite;
+}
+
+.inlineCaret {
+  height: var(--line-height-label);
+  margin-left: 0.25rem;
+  vertical-align: text-bottom;
+}
+
+@keyframes streaming-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .streamingCaret {
+    animation: none;
+  }
+}

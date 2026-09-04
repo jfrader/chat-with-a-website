@@ -1,0 +1,1 @@
+ALTER TABLE "sessions" ADD COLUMN "suggested_prompts" jsonb DEFAULT '[]'::jsonb NOT NULL;
