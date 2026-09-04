@@ -33,7 +33,7 @@ export function MobileHeader({
       </button>
       <img
         className="absolute left-1/2 size-6 -translate-x-1/2"
-        src="/assets/logo-mark.svg"
+        src="/assets/app-mark.svg"
         alt="Chat With a Website"
       />
       {canChat ? (

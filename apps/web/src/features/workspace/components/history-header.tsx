@@ -13,7 +13,7 @@ export function HistoryHeader({
     <header className="relative z-2 flex h-16 w-full items-center justify-between border-b border-(--theme-line-subtle-color) px-6 py-4 max-mobile:h-12 max-mobile:border-b-0 max-mobile:px-4 max-mobile:py-2">
       <img
         className={`size-6 flex-none object-contain transition-opacity duration-120 ease-(--motion-easing-standard) ${collapsed && !mobileOpen ? "opacity-0" : ""}`}
-        src="/assets/logo-mark.svg"
+        src="/assets/app-mark.svg"
         alt="Chat With a Website"
       />
       {mobileOpen ? (

@@ -53,7 +53,7 @@ export function createApiApp(options: ApiAppOptions = {}) {
       }),
     )
     app.get(
-      "/favicon.svg",
+      "/app-icon.svg",
       serveStatic({
         root: options.staticRoot,
         onFound(_path, context) {

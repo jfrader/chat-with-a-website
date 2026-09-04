@@ -43,7 +43,7 @@ describe("production static routes", () => {
         join(staticRoot, "index.html"),
         "<!doctype html><title>Chat With a Website</title>",
       ),
-      writeFile(join(staticRoot, "favicon.svg"), '<svg xmlns="http://www.w3.org/2000/svg" />'),
+      writeFile(join(staticRoot, "app-icon.svg"), '<svg xmlns="http://www.w3.org/2000/svg" />'),
       writeFile(join(staticRoot, "assets", "app-ABC123.js"), "export {}"),
     ])
   })
@@ -69,7 +69,7 @@ describe("production static routes", () => {
   it("serves versioned and root assets with appropriate metadata", async () => {
     const app = createApiApp({ staticRoot })
     const versionedAsset = await app.request("/assets/app-ABC123.js")
-    const favicon = await app.request("/favicon.svg")
+    const favicon = await app.request("/app-icon.svg")
 
     expect(versionedAsset.status).toBe(200)
     expect(versionedAsset.headers.get("cache-control")).toBe("public, max-age=31536000, immutable")
