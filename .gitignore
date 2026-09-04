@@ -11,5 +11,3 @@ coverage/
 .vite/
 playwright-report/
 test-results/
-
-graphify-out/
