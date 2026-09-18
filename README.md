@@ -1,5 +1,11 @@
 # Chat With a Website
 
+[![npm version](https://img.shields.io/npm/v/chat-with-a-website?style=flat)](https://www.npmjs.com/package/chat-with-a-website)
+[![npm downloads](https://img.shields.io/npm/dm/chat-with-a-website?style=flat)](https://www.npmjs.com/package/chat-with-a-website)
+[![ci](https://img.shields.io/github/actions/workflow/status/jfrader/chat-with-a-website/ci.yml?branch=main&style=flat&label=ci)](https://github.com/jfrader/chat-with-a-website/actions)
+[![license](https://img.shields.io/github/license/jfrader/chat-with-a-website?style=flat)](./LICENSE)
+[![node](https://img.shields.io/node/v/chat-with-a-website?style=flat)](https://www.npmjs.com/package/chat-with-a-website)
+
 Paste any URL and turn the page into a knowledge session: a summary of the page streams in live,
 then you keep asking follow-up questions about its content.
 
