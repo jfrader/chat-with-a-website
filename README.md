@@ -1,5 +1,8 @@
 # Chat With a Website
 
+[![ci](https://img.shields.io/github/actions/workflow/status/jfrader/chat-with-a-website/ci.yml?branch=main&style=flat&label=ci)](https://github.com/jfrader/chat-with-a-website/actions)
+[![license](https://img.shields.io/github/license/jfrader/chat-with-a-website?style=flat)](./LICENSE)
+
 Paste any URL and turn the page into a knowledge session: a summary of the page streams in live,
 then you keep asking follow-up questions about its content.
 
