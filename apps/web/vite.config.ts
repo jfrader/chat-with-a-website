@@ -15,6 +15,7 @@ export default defineConfig({
     proxy: {
       "/api": apiProxy,
       "/health": apiProxy,
+      "/config": apiProxy,
     },
   },
   test: {

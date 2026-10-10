@@ -3,6 +3,8 @@ import { configSchema, healthSchema } from "@chat-with-a-website/contracts"
 import { Hono } from "hono"
 import { createApiError, ServiceError } from "./errors"
 import { registerSessionRoutes } from "./routes/sessions"
+import { registerBrowserRoutes } from "./routes/browser"
+import type { BrowserCompute } from "./sessions/browser-compute"
 import type { SessionServiceApi } from "./sessions/service"
 
 export type ApiAppOptions = {
@@ -10,6 +12,7 @@ export type ApiAppOptions = {
   sessionService?: SessionServiceApi
   staticRoot?: string
   databaseFree?: boolean
+  browserCompute?: BrowserCompute
 }
 
 const reservedApplicationPathRoots = ["/api", "/health", "/assets", "/config"] as const
@@ -46,7 +49,8 @@ export function createApiApp(options: ApiAppOptions = {}) {
     return context.json(configSchema.parse({ databaseFree }))
   })
 
-  registerSessionRoutes(app, options.sessionService)
+  if (options.browserCompute) registerBrowserRoutes(app, options.browserCompute)
+  registerSessionRoutes(app, databaseFree ? undefined : options.sessionService)
 
   if (options.staticRoot) {
     app.use(

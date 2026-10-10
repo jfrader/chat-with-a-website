@@ -12,12 +12,14 @@ export function useSummaryStream(session: SessionDto | undefined) {
   const queryClient = useQueryClient()
   const [connectionError, setConnectionError] = useState<string>()
   const activeSessionId = session && !isTerminal(session) ? session.id : undefined
-  const activeVersion = session && !isTerminal(session) ? session.generationVersion : undefined
+  const activeAttempt = session && !isTerminal(session) ? session.attemptNumber : undefined
+  const initialVersion = useRef(0)
+  initialVersion.current = session?.generationVersion ?? 0
   const initialOffset = useRef(0)
   initialOffset.current = session?.summary.length ?? 0
 
   useEffect(() => {
-    if (!activeSessionId || activeVersion === undefined) {
+    if (!activeSessionId || activeAttempt === undefined) {
       setConnectionError(undefined)
       return
     }
@@ -25,7 +27,7 @@ export function useSummaryStream(session: SessionDto | undefined) {
     const controller = new AbortController()
     const sessionId = activeSessionId
     let terminalReceived = false
-    let lastVersion = activeVersion
+    let lastVersion = initialVersion.current
     let lastOffset = initialOffset.current
 
     const follow = async () => {
@@ -76,7 +78,7 @@ export function useSummaryStream(session: SessionDto | undefined) {
 
     void follow()
     return () => controller.abort()
-  }, [activeSessionId, activeVersion, api, queryClient])
+  }, [activeSessionId, activeAttempt, api, queryClient])
 
   return connectionError
 }

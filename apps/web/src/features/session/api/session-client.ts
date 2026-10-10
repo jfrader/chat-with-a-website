@@ -47,7 +47,7 @@ export interface SessionApi {
   ): Promise<void>
 }
 
-async function throwResponseError(response: Response): Promise<never> {
+export async function throwResponseError(response: Response): Promise<never> {
   const body = await response.json().catch(() => null)
   const error = apiErrorSchema.safeParse(body)
 
@@ -61,7 +61,7 @@ async function throwResponseError(response: Response): Promise<never> {
   )
 }
 
-async function parseEventStream<T>(
+export async function parseEventStream<T>(
   response: Response,
   parse: (input: unknown) => T,
   onEvent: (event: T) => void,
@@ -76,10 +76,14 @@ async function parseEventStream<T>(
   let parseError: Error | undefined
   const parser = createParser({
     onEvent(event) {
+      if (signal.aborted || parseError) return
       try {
         onEvent(parse(JSON.parse(event.data)))
-      } catch {
-        parseError = new SessionApiError("INTERNAL_ERROR", "The live response was interrupted.")
+      } catch (error) {
+        parseError =
+          error instanceof Error
+            ? error
+            : new SessionApiError("INTERNAL_ERROR", "The live response was interrupted.")
       }
     },
     onError() {
@@ -100,6 +104,7 @@ async function parseEventStream<T>(
     if (parseError) throw parseError
   } finally {
     signal.removeEventListener("abort", abort)
+    await reader.cancel()
     reader.releaseLock()
   }
 }

@@ -48,6 +48,4 @@ EXPOSE 4311
 HEALTHCHECK --interval=10s --timeout=3s --start-period=10s --retries=5 \
   CMD ["node", "-e", "fetch('http://127.0.0.1:4311/health/ready').then(r=>{if(!r.ok)process.exit(1)}).catch(()=>process.exit(1))"]
 
-# For NO_DATABASE=true (no db): omit DATABASE_URL or set NO_DATABASE=true; migrate skipped.
-# Default (no flag or false): requires DATABASE_URL and runs migrate (existing behavior).
-CMD ["sh", "-c", "if [ \"$NO_DATABASE\" = \"true\" ] || [ \"$NO_DATABASE\" = \"1\" ]; then echo 'NO_DATABASE mode, skipping migrate'; else node node_modules/@chat-with-a-website/db/dist/migrate.js || exit 1; fi && exec node dist/server.js"]
+CMD ["node", "dist/server.js", "--migrate"]

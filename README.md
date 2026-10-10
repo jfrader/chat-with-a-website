@@ -63,6 +63,39 @@ docker compose up --build
 
 Open http://localhost:4310. Stop with `docker compose down`.
 
+### Without PostgreSQL
+
+Set `NO_DATABASE=true` on the API. Unset or `false` keeps PostgreSQL mode;
+other values are rejected. No database connection or migration is made in browser mode.
+
+With Node 24 and pnpm 11.24:
+
+```sh
+pnpm install --frozen-lockfile
+NO_DATABASE=true LLM_API_KEY=your-key pnpm --filter @chat-with-a-website/api dev
+# In another terminal:
+pnpm --filter @chat-with-a-website/web dev
+```
+
+Open http://localhost:4310. For a standalone Docker image:
+
+```sh
+docker build -t chat-with-a-website .
+docker run --rm -p 4311:4311 -e NO_DATABASE=true -e LLM_API_KEY chat-with-a-website
+```
+
+Export `LLM_API_KEY` in the shell before running Docker. `LLM_MODEL` and
+`LLM_BASE_URL` remain optional server-side settings. Never put provider keys in
+Vite variables or browser storage. The same web build reads the API's runtime mode.
+Existing Docker Compose and Render deployments retain their PostgreSQL setup.
+
+History, extracted page text, summaries, and chat messages are stored in this
+browser's localStorage, not on the API. Completed sessions can be reopened and
+chatted with after an API restart. Clearing site storage deletes that history;
+it does not sync across devices, browsers, or origins. In-progress requests cannot
+resume after a restart or reload; retry the failed summary or message. Blocked or
+full browser storage must be enabled or cleared before new results can be saved.
+
 ## Ideas for next steps
 
 - Share a session through a public link.

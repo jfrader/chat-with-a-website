@@ -39,7 +39,7 @@ type EventStream<Event> = {
   events: AsyncIterable<Event>
 }
 
-const streamEvents = <Event extends { eventId: string }>(
+export const streamEvents = <Event extends { eventId: string }>(
   context: Context,
   result: EventStream<Event>,
 ) =>
