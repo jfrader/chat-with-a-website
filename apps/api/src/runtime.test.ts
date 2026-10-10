@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest"
 import { createApiApp } from "./app"
+import { createLlmFromEnvironment } from "./llm/openai"
 import { createRuntime, environmentSchema } from "./runtime"
 
 describe("database-free runtime", () => {
@@ -19,6 +20,31 @@ describe("database-free runtime", () => {
           .success,
       ).toBe(false)
     }
+  })
+  it("validates the optional provider token-limit field", async () => {
+    for (const value of ["max_tokens", "max_completion_tokens"]) {
+      expect(
+        environmentSchema.parse({ NO_DATABASE: "true", LLM_TOKEN_LIMIT_FIELD: value })
+          .LLM_TOKEN_LIMIT_FIELD,
+      ).toBe(value)
+    }
+    for (const value of ["", "tokens", "MAX_TOKENS"]) {
+      expect(
+        environmentSchema.safeParse({ NO_DATABASE: "true", LLM_TOKEN_LIMIT_FIELD: value }).success,
+      ).toBe(false)
+    }
+    const llmFactory = vi.fn(() => createLlmFromEnvironment({ LLM_MODEL: "test" }))
+    const runtime = await createRuntime(
+      environmentSchema.parse({ NO_DATABASE: "true", LLM_TOKEN_LIMIT_FIELD: "max_tokens" }),
+      undefined,
+      undefined,
+      llmFactory,
+    )
+    expect(llmFactory).toHaveBeenCalledWith(
+      expect.objectContaining({ LLM_TOKEN_LIMIT_FIELD: "max_tokens" }),
+    )
+    runtime.worker.shutdown()
+    await runtime.budget.dispose()
   })
   it("does not construct a database or migrate even with an unreachable URL", async () => {
     const database = vi.fn(() => {

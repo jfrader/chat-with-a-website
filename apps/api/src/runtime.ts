@@ -1,6 +1,6 @@
 import { createDatabaseClient } from "@chat-with-a-website/db"
 import { z } from "zod"
-import { createLlmFromEnvironment } from "./llm/openai"
+import { createLlmFromEnvironment, DEFAULT_LLM_BASE_URL, tokenLimitFieldSchema } from "./llm/openai"
 import { BrowserCompute } from "./sessions/browser-compute"
 import { DrizzleSessionRepository } from "./sessions/repository"
 import { SessionService } from "./sessions/service"
@@ -20,8 +20,9 @@ export const environmentSchema = z
     LLM_API_KEY: z.preprocess((value) => value || undefined, z.string().min(1).optional()),
     LLM_BASE_URL: z.preprocess(
       (value) => value || undefined,
-      z.string().url().default("https://api.deepseek.com"),
+      z.string().url().default(DEFAULT_LLM_BASE_URL),
     ),
+    LLM_TOKEN_LIMIT_FIELD: tokenLimitFieldSchema.optional(),
     LLM_MODEL: z.string().min(1).default("deepseek-v4-flash"),
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
     PORT: z.coerce.number().int().positive().max(65_535).default(4311),
@@ -43,6 +44,9 @@ export async function createRuntime(
     ...(environment.LLM_API_KEY ? { LLM_API_KEY: environment.LLM_API_KEY } : {}),
     LLM_BASE_URL: environment.LLM_BASE_URL,
     RATE_LIMIT_PROVIDER_TIMEOUT_MS: environment.RATE_LIMIT_PROVIDER_TIMEOUT_MS,
+    ...(environment.LLM_TOKEN_LIMIT_FIELD
+      ? { LLM_TOKEN_LIMIT_FIELD: environment.LLM_TOKEN_LIMIT_FIELD }
+      : {}),
   })
   const llm = new BudgetedLlm(rawLlm, budget)
   if (environment.NO_DATABASE) {

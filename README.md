@@ -89,6 +89,12 @@ Export `LLM_API_KEY` in the shell before running Docker. `LLM_MODEL` and
 Vite variables or browser storage. The same web build reads the API's runtime mode.
 Existing Docker Compose and Render deployments retain their PostgreSQL setup.
 
+Output-token limits use DeepSeek's documented `max_tokens` field for the exact
+`api.deepseek.com` hostname; other endpoints retain `max_completion_tokens`.
+Set `LLM_TOKEN_LIMIT_FIELD=max_tokens` or `max_completion_tokens` when a custom
+provider or proxy requires a different field. Only one field is sent. The existing
+`deepseek-v4-flash` model name remains accepted by DeepSeek.
+
 History, extracted page text, summaries, and chat messages are stored in this
 browser's localStorage, not on the API. Completed sessions can be reopened and
 chatted with after an API restart. Clearing site storage deletes that history;
