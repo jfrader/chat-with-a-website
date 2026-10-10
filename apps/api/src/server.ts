@@ -13,7 +13,7 @@ const migration = process.argv.includes("--migrate")
       )
     }
   : undefined
-const { database, worker, sessionService, browserCompute } = await createRuntime(
+const { database, worker, sessionService, browserCompute, budget } = await createRuntime(
   environment,
   undefined,
   migration,
@@ -24,6 +24,7 @@ const staticRoot =
     : undefined
 
 const app = createApiApp({
+  budget,
   isReady: database ? database.isReady : () => true,
   ...(sessionService ? { sessionService } : {}),
   ...(browserCompute ? { browserCompute } : {}),
@@ -57,6 +58,7 @@ const closeListeners = closeWithGrace({ delay: 20_000 }, async ({ err, signal })
     })
   })
   await worker.waitForAll()
+  await budget.dispose()
   if (database) {
     await database.close()
   }

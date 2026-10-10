@@ -4,9 +4,14 @@ import { createLlmFromEnvironment } from "./llm/openai"
 import { BrowserCompute } from "./sessions/browser-compute"
 import { DrizzleSessionRepository } from "./sessions/repository"
 import { SessionService } from "./sessions/service"
+import { GenerationBudget } from "./limits/generation-budget"
+import { budgetEnvironmentSchema } from "./limits/policy"
+import { BudgetedLlm } from "./llm/budgeted"
+import type { Llm } from "./llm/client"
 
 export const environmentSchema = z
   .object({
+    ...budgetEnvironmentSchema.shape,
     NO_DATABASE: z
       .enum(["true", "false"])
       .default("false")
@@ -30,12 +35,16 @@ export async function createRuntime(
   environment: z.infer<typeof environmentSchema>,
   databaseFactory = createDatabaseClient,
   migrate: (() => Promise<void>) | undefined = undefined,
+  llmFactory: typeof createLlmFromEnvironment = createLlmFromEnvironment,
 ) {
-  const llm = createLlmFromEnvironment({
+  const budget = new GenerationBudget(environment)
+  const rawLlm: Llm = llmFactory({
     LLM_MODEL: environment.LLM_MODEL,
     ...(environment.LLM_API_KEY ? { LLM_API_KEY: environment.LLM_API_KEY } : {}),
     LLM_BASE_URL: environment.LLM_BASE_URL,
+    RATE_LIMIT_PROVIDER_TIMEOUT_MS: environment.RATE_LIMIT_PROVIDER_TIMEOUT_MS,
   })
+  const llm = new BudgetedLlm(rawLlm, budget)
   if (environment.NO_DATABASE) {
     const browserCompute = new BrowserCompute({ llm })
     return {
@@ -43,6 +52,7 @@ export async function createRuntime(
       worker: browserCompute,
       browserCompute,
       sessionService: undefined,
+      budget,
     }
   }
   if (!environment.DATABASE_URL) throw new Error("DATABASE_URL is required")
@@ -53,5 +63,5 @@ export async function createRuntime(
     repository: new DrizzleSessionRepository(database.db),
   })
   await sessionService.initialize()
-  return { database, worker: sessionService, sessionService, browserCompute: undefined }
+  return { database, worker: sessionService, sessionService, browserCompute: undefined, budget }
 }

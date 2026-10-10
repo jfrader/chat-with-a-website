@@ -96,6 +96,46 @@ it does not sync across devices, browsers, or origins. In-progress requests cann
 resume after a restart or reload; retry the failed summary or message. Blocked or
 full browser storage must be enabled or cleared before new results can be saved.
 
+## Public usage limits
+
+Both hosting modes enforce the same process-local limits before accepting any
+summary, regeneration, or chat POST. History, live streams, health checks, and
+deletion do not consume request allowance. Limits use fixed 60-second and
+24-hour windows starting with the first request, not calendar days.
+
+| API environment variable | Default | Meaning |
+| --- | ---: | --- |
+| `RATE_LIMIT_CLIENT_MINUTE` | 5 | Generation requests per client / 60 seconds |
+| `RATE_LIMIT_CLIENT_DAY` | 30 | Generation requests per client / 24 hours |
+| `RATE_LIMIT_GLOBAL_MINUTE` | 20 | Generation requests per process / 60 seconds |
+| `RATE_LIMIT_GLOBAL_DAY` | 100 | Generation requests per process / 24 hours |
+| `RATE_LIMIT_PROVIDER_MINUTE` | 20 | Provider attempts per process / 60 seconds |
+| `RATE_LIMIT_PROVIDER_DAY` | 150 | Provider attempts per process / 24 hours |
+| `RATE_LIMIT_PROVIDER_CONCURRENCY` | 4 | Simultaneous provider calls |
+| `RATE_LIMIT_PROVIDER_TIMEOUT_MS` | 60000 | Maximum provider-call lifetime in milliseconds |
+| `RATE_LIMIT_MAX_CLIENTS` | 1024 | Maximum retained client identities |
+
+Unset variables use these defaults. Empty, non-integer, zero, negative, or
+excessive values reject startup. Summary completion suggestions count as a
+separate provider attempt; they are omitted if allowance is exhausted. Failed,
+aborted, and uncertain provider calls are not refunded. SDK paid retries are
+disabled. Rejected requests can also consume allowance in other windows.
+
+Clients are identified by the actual socket peer: mapped IPv4 addresses are
+normalized and IPv6 clients are grouped by /64. Forwarded-IP headers and cookies
+are never trusted. Behind Render or another reverse proxy, users sharing a
+proxy socket address may therefore share the stricter client allowance. There
+is no unverified trusted-proxy switch. New identities are rejected when memory
+is full; active counters are never evicted to admit new clients. Inactive
+identities expire after 24 hours and are pruned on subsequent admission.
+
+Responses rejected before streaming use 429 with `Retry-After`; wait before
+retrying. Provider exhaustion during streaming produces a typed failure, and
+interrupted browser results can be retried manually. No additional storage or
+authentication gate is required. These counters are per process, reset on
+restart, and multiply across replicas: **they are not a hard spending ceiling**.
+Keep `LLM_API_KEY` server-side. No deployed settings are changed by this feature.
+
 ## Ideas for next steps
 
 - Share a session through a public link.

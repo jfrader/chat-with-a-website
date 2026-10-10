@@ -57,6 +57,9 @@ importers:
       openai:
         specifier: 7.5.0
         version: 7.5.0(zod@4.4.3)
+      rate-limiter-flexible:
+        specifier: 11.2.1
+        version: 11.2.1
       undici:
         specifier: 7.29.1
         version: 7.29.1
@@ -2477,6 +2480,9 @@ packages:
     resolution: {integrity: sha512-vYt7UD1U9Wg6138shLtLOvdAu+8DsC/ilFtEVHcH+wydcSpNE20AfSOduf6MkRFahL5FY7X1oU7nKVZFtfq8Fg==}
     engines: {node: '>=6'}
 
+  rate-limiter-flexible@11.2.1:
+    resolution: {integrity: sha512-JAaz01HZ893zAw+Hx5MdM1z3lLAkyVvNpqR+GNp0k3kjuQB8gY91fXhf5C0osWs+A7iKgFv585qzwmjS3aBHlA==}
+
   react-dom@19.2.8:
     resolution: {integrity: sha512-rVprimfGBG3DR+Tq0IQG2DT5PxKth1WIGDmj5yPmlzr4YBe7uyE+Du4oVqTDXZSHGGGXRtTJEGSSePyQCMBglQ==}
     peerDependencies:
@@ -4772,6 +4778,8 @@ snapshots:
   property-information@7.2.0: {}
 
   punycode@2.3.1: {}
+
+  rate-limiter-flexible@11.2.1: {}
 
   react-dom@19.2.8(react@19.2.8):
     dependencies:

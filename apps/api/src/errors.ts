@@ -14,7 +14,7 @@ const errorDefinitions: Record<ApiErrorCode, { message: string; retryable: boole
   EMPTY_CONTENT: { message: "No readable content was found on the webpage.", retryable: false },
   CONTENT_TOO_LARGE: { message: "The webpage is too large to process.", retryable: false },
   LLM_UNAVAILABLE: { message: "The language model is currently unavailable.", retryable: true },
-  LLM_RATE_LIMITED: { message: "The language model is temporarily rate limited.", retryable: true },
+  LLM_RATE_LIMITED: { message: "Provider usage is limited. Wait and retry.", retryable: true },
   GENERATION_INTERRUPTED: { message: "Generation was interrupted.", retryable: true },
   INVALID_MESSAGE: { message: "The chat message is invalid.", retryable: false },
   IDEMPOTENCY_CONFLICT: {
@@ -22,7 +22,7 @@ const errorDefinitions: Record<ApiErrorCode, { message: string; retryable: boole
     retryable: false,
   },
   SESSION_NOT_FOUND: { message: "The requested session was not found.", retryable: false },
-  RATE_LIMITED: { message: "Too many generations are currently active.", retryable: true },
+  RATE_LIMITED: { message: "Too many requests. Wait and retry.", retryable: true },
   INTERNAL_ERROR: { message: "An unexpected error occurred.", retryable: true },
 }
 
@@ -46,10 +46,16 @@ export class ServiceError extends Error {
   }
 }
 
-export const createApiError = (code: ApiErrorCode, requestId = randomUUID()): ApiErrorDto =>
+export const createApiError = (
+  code: ApiErrorCode,
+  requestId = randomUUID(),
+  retryAfterSeconds?: number,
+): ApiErrorDto =>
   apiErrorSchema.parse({
     code,
-    message: errorDefinitions[code].message,
+    message: retryAfterSeconds
+      ? `Usage is limited. Wait ${new Intl.NumberFormat("en", { style: "unit", unit: "second", unitDisplay: "long" }).format(retryAfterSeconds)} and retry.`
+      : errorDefinitions[code].message,
     requestId,
     retryable: errorDefinitions[code].retryable,
   })

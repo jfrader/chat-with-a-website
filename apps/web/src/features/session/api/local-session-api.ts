@@ -449,6 +449,8 @@ export class LocalSessionApi implements SessionApi {
             else message.reasoningContent = (message.reasoningContent ?? "") + event.delta
           }
           onEvent(event)
+          if (event.type === "chat.failed")
+            throw new SessionApiError(event.error.code, event.error.message)
         },
         combined,
       )

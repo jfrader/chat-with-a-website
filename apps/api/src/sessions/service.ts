@@ -127,7 +127,11 @@ export const toMessageDto = (message: MessageRecord): MessageDto =>
     completedAt: message.completedAt?.toISOString() ?? null,
   })
 
-const summaryEvent = (session: SessionRecord, includeSource = false): SessionStreamEvent => {
+const summaryEvent = (
+  session: SessionRecord,
+  includeSource = false,
+  retryAfterSeconds?: number,
+): SessionStreamEvent => {
   const dto = toSessionDto(session)
   if (includeSource && (session.status === "complete" || session.status === "failed")) {
     dto.sourceText = session.sourceText
@@ -145,7 +149,7 @@ const summaryEvent = (session: SessionRecord, includeSource = false): SessionStr
     return sessionStreamEventSchema.parse({
       ...base,
       type: "summary.failed",
-      error: createApiError(session.failureCode ?? "INTERNAL_ERROR"),
+      error: createApiError(session.failureCode ?? "INTERNAL_ERROR", undefined, retryAfterSeconds),
     })
   }
   return sessionStreamEventSchema.parse({ ...base, type: "summary.snapshot" })
@@ -584,7 +588,14 @@ export class SessionService implements SessionServiceApi {
           completedAt: new Date(),
         })
         if (failed)
-          this.#eventHub.publish(session.id, summaryEvent(failed, this.#includeTerminalSource))
+          this.#eventHub.publish(
+            session.id,
+            summaryEvent(
+              failed,
+              this.#includeTerminalSource,
+              error instanceof LlmError ? error.retryAfterSeconds : undefined,
+            ),
+          )
         else this.#eventHub.clear(session.id)
       } catch (persistenceError) {
         this.#eventHub.clear(session.id)
@@ -629,14 +640,14 @@ export class SessionService implements SessionServiceApi {
     })
   }
 
-  #chatFailedEvent(message: MessageRecord): ChatStreamEvent {
+  #chatFailedEvent(message: MessageRecord, retryAfterSeconds?: number): ChatStreamEvent {
     return chatStreamEventSchema.parse({
       type: "chat.failed",
       eventId: `${message.requestId}:${message.content.length}:failed`,
       requestId: message.requestId,
       offset: message.content.length,
       message: toMessageDto(message),
-      error: createApiError(message.failureCode ?? "INTERNAL_ERROR"),
+      error: createApiError(message.failureCode ?? "INTERNAL_ERROR", undefined, retryAfterSeconds),
     })
   }
 
@@ -814,7 +825,14 @@ export class SessionService implements SessionServiceApi {
           failureCode: code,
           completedAt: new Date(),
         })
-        if (failed) this.#chatHub.publish(failed.id, this.#chatFailedEvent(failed))
+        if (failed)
+          this.#chatHub.publish(
+            failed.id,
+            this.#chatFailedEvent(
+              failed,
+              error instanceof LlmError ? error.retryAfterSeconds : undefined,
+            ),
+          )
         else this.#chatHub.clear(assistant.id)
       } catch (persistenceError) {
         this.#chatHub.clear(assistant.id)

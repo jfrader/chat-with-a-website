@@ -1,4 +1,4 @@
-import type OpenAI from "openai"
+import OpenAI from "openai"
 import { describe, expect, it, vi } from "vitest"
 import { createLlmFromEnvironment, OpenAiLlm, readOpenAiDeltas } from "./openai"
 
@@ -29,7 +29,7 @@ describe("OpenAiLlm", () => {
       },
     }))
     const client = { chat: { completions: { create } } } as unknown as OpenAI
-    const llm = new OpenAiLlm({ apiKey: "test", model: "chosen-model", client })
+    const llm = new OpenAiLlm({ apiKey: "test", model: "chosen-model", client, timeoutMs: 1_234 })
     const output: unknown[] = []
     for await (const delta of llm.stream({
       signal,
@@ -46,8 +46,27 @@ describe("OpenAiLlm", () => {
         stream: true,
         max_completion_tokens: 321,
       },
-      { signal },
+      { signal, maxRetries: 0, timeout: 1_234 },
     )
+  })
+
+  it("does not retry a real SDK request even when the injected client enables retries", async () => {
+    const fetcher = vi.fn<typeof fetch>(async () =>
+      Response.json({ error: { message: "Unavailable" } }, { status: 503 }),
+    )
+    const client = new OpenAI({
+      apiKey: "fake-test-key",
+      baseURL: "https://example.com/v1",
+      fetch: fetcher,
+      maxRetries: 2,
+    })
+    const llm = new OpenAiLlm({ apiKey: "fake-test-key", model: "test", client })
+    const consume = async () => {
+      for await (const _delta of llm.stream({ signal, messages: [] })) {
+      }
+    }
+    await expect(consume()).rejects.toMatchObject({ code: "LLM_UNAVAILABLE" })
+    expect(fetcher).toHaveBeenCalledTimes(1)
   })
 
   it("fails safely when provider configuration is missing", async () => {

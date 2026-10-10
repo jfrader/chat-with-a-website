@@ -43,6 +43,74 @@ afterEach(() => {
 })
 
 describe("browser-owned sessions", () => {
+  it("surfaces streamed provider exhaustion and retries the saved failed pair manually", async () => {
+    let attempts = 0
+    const fetcher = vi.fn<typeof fetch>(async (url, init) => {
+      const body = JSON.parse(String(init?.body))
+      if (url === "/api/browser/summary") return response([summary(body.id)])
+      attempts++
+      const user = createMessage({
+        id: crypto.randomUUID(),
+        sessionId: body.session.id,
+        requestId: body.request.idempotencyKey,
+        content: body.request.content,
+      })
+      const assistant = createMessage({
+        id: crypto.randomUUID(),
+        sessionId: body.session.id,
+        requestId: user.requestId,
+        role: "assistant",
+        status: "streaming",
+        content: "",
+      })
+      const base = { eventId: "terminal", requestId: user.requestId, offset: 0 }
+      const terminal =
+        attempts === 1
+          ? {
+              ...base,
+              type: "chat.failed",
+              message: { ...assistant, status: "failed", failureCode: "LLM_RATE_LIMITED" },
+              error: {
+                code: "LLM_RATE_LIMITED",
+                message: "Usage is limited. Wait 60 seconds and retry.",
+                requestId,
+                retryable: true,
+              },
+            }
+          : {
+              ...base,
+              type: "chat.completed",
+              message: { ...assistant, status: "complete", content: "Recovered" },
+            }
+      return response([
+        {
+          type: "chat.created",
+          eventId: "created",
+          requestId: user.requestId,
+          offset: 0,
+          userMessage: user,
+          assistantMessage: assistant,
+        },
+        terminal,
+      ])
+    })
+    const api = new LocalSessionApi(() => localStorage, fetcher)
+    const id = await completeSession(api)
+    await expect(
+      api.chat(id, "Question", () => {}, new AbortController().signal, requestId),
+    ).rejects.toThrow("Wait 60 seconds and retry")
+    expect((await api.messages(id)).at(-1)).toMatchObject({
+      status: "failed",
+      failureCode: "LLM_RATE_LIMITED",
+    })
+    await api.chat(id, "Question", () => {}, new AbortController().signal, requestId)
+    expect(await api.messages(id)).toHaveLength(2)
+    expect((await api.messages(id)).at(-1)).toMatchObject({
+      status: "complete",
+      content: "Recovered",
+    })
+    expect(attempts).toBe(2)
+  })
   it("does not start compute for an abandoned effect subscription", async () => {
     const fetcher = vi.fn<typeof fetch>(async (_url, init) =>
       response([summary(JSON.parse(String(init?.body)).id)]),

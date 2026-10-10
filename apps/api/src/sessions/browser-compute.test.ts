@@ -8,6 +8,8 @@ import { createApiApp } from "../app"
 import { LlmError, UnavailableLlm } from "../llm/client"
 import { fetchPublicPage } from "../webpage/secure-fetch"
 import { BrowserCompute } from "./browser-compute"
+import { GenerationBudget } from "../limits/generation-budget"
+import { defaultBudgetPolicy } from "../limits/policy"
 import { browserWorkspaceId, ScratchRepository } from "./scratch-repository"
 import { toSessionDto } from "./service"
 import { FakeLlm, fetchedHtml } from "./test-support"
@@ -137,7 +139,12 @@ describe("stateless browser compute", () => {
   })
   it("rejects invalid or oversized contexts before compute", async () => {
     const compute = new BrowserCompute({ llm: new FakeLlm(), fetchPage: page })
-    const app = createApiApp({ databaseFree: true, browserCompute: compute })
+    const app = createApiApp({
+      databaseFree: true,
+      browserCompute: compute,
+      clientAddress: () => "127.0.0.1",
+      budget: new GenerationBudget({ ...defaultBudgetPolicy, RATE_LIMIT_CLIENT_MINUTE: 100 }),
+    })
     const send = (body: unknown) =>
       app.request("/api/browser/chat", {
         method: "POST",

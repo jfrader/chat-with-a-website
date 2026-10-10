@@ -23,15 +23,17 @@ export interface Llm {
 }
 
 export class LlmError extends Error {
+  readonly retryAfterSeconds: number | undefined
   readonly code: Extract<
     ApiErrorCode,
     "GENERATION_INTERRUPTED" | "LLM_RATE_LIMITED" | "LLM_UNAVAILABLE"
   >
 
-  constructor(code: LlmError["code"], options?: ErrorOptions) {
+  constructor(code: LlmError["code"], options?: ErrorOptions & { retryAfterSeconds?: number }) {
     super(code, options)
     this.name = "LlmError"
     this.code = code
+    this.retryAfterSeconds = options?.retryAfterSeconds
   }
 }
 

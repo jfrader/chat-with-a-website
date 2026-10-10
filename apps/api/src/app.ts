@@ -6,6 +6,9 @@ import { registerSessionRoutes } from "./routes/sessions"
 import { registerBrowserRoutes } from "./routes/browser"
 import type { BrowserCompute } from "./sessions/browser-compute"
 import type { SessionServiceApi } from "./sessions/service"
+import { GenerationBudget } from "./limits/generation-budget"
+import { generationAdmission, type ClientAddressResolver } from "./limits/http-admission"
+import { MINUTE_SECONDS } from "./limits/policy"
 
 export type ApiAppOptions = {
   isReady?: () => boolean | Promise<boolean>
@@ -13,6 +16,8 @@ export type ApiAppOptions = {
   staticRoot?: string
   databaseFree?: boolean
   browserCompute?: BrowserCompute
+  budget?: GenerationBudget
+  clientAddress?: ClientAddressResolver
 }
 
 const reservedApplicationPathRoots = ["/api", "/health", "/assets", "/config"] as const
@@ -36,6 +41,10 @@ export function createApiApp(options: ApiAppOptions = {}) {
   const app = new Hono()
   const isReady = options.isReady ?? (() => true)
   const databaseFree = options.databaseFree ?? false
+  app.use(
+    "/api/*",
+    generationAdmission(options.budget ?? new GenerationBudget(), options.clientAddress),
+  )
 
   app.get("/health/live", (context) => context.json(healthSchema.parse({ status: "ok" })))
 
@@ -94,6 +103,10 @@ export function createApiApp(options: ApiAppOptions = {}) {
 
   app.onError((error, context) => {
     if (error instanceof ServiceError) {
+      context.header("Cache-Control", "no-store")
+      if (error.code === "RATE_LIMITED" || error.code === "LLM_RATE_LIMITED") {
+        context.header("Retry-After", String(MINUTE_SECONDS))
+      }
       return context.json(createApiError(error.code), errorStatus(error.code))
     }
     console.error("Unhandled API error", error)
