@@ -1,6 +1,7 @@
 import { useNavigate } from "@tanstack/react-router"
 import type { RefObject } from "react"
 import { useCreateSession } from "../../session/hooks/session-queries"
+import { AuthorCredit } from "./author-credit"
 import { MobileHeader } from "./mobile-header"
 import { UrlComposer } from "./url-composer"
 import styles from "./workspace.module.css"
@@ -52,6 +53,7 @@ export function EmptyWorkspace({
           <UrlComposer onSubmit={create} />
         </section>
       </main>
+      <AuthorCredit />
     </div>
   )
 }

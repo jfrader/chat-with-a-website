@@ -18,6 +18,18 @@ import { sessionKeys } from "../session/hooks/session-queries"
 afterEach(() => vi.unstubAllGlobals())
 
 describe("workspace routing and history", () => {
+  it.each(["/", `/sessions/${sessionId}`])(
+    "links the creator credit to Fran’s site from %s",
+    async (route) => {
+      renderApp(createTestApi({ get: async () => createSession() }), route)
+
+      const credit = await screen.findByRole("link", { name: "Made by Fran" })
+      expect(credit).toHaveAttribute("href", "https://jfrader.com")
+      expect(credit).toHaveAttribute("target", "_blank")
+      expect(credit).toHaveAttribute("rel", "noopener noreferrer")
+    },
+  )
+
   it("searches persisted history, reports no results, and selects a session route", async () => {
     const user = userEvent.setup()
     const first = createSession()
