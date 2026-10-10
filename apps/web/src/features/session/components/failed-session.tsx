@@ -12,23 +12,31 @@ const failureMessages: Record<ApiErrorCode, string> = {
   EMPTY_CONTENT: "No readable content was found on the webpage.",
   CONTENT_TOO_LARGE: "The webpage is too large to summarize.",
   LLM_UNAVAILABLE: "The summary provider is temporarily unavailable.",
-  LLM_RATE_LIMITED: "The summary provider is busy. Try again shortly.",
+  LLM_RATE_LIMITED: "Provider usage is limited. Wait and retry.",
   GENERATION_INTERRUPTED: "The summary generation was interrupted.",
   INVALID_MESSAGE: "That message could not be sent.",
   IDEMPOTENCY_CONFLICT: "That request conflicts with an earlier request.",
   SESSION_NOT_FOUND: "This summary session could not be found.",
-  RATE_LIMITED: "Too many requests were made. Try again shortly.",
+  RATE_LIMITED: "Too many requests. Wait and retry.",
   INTERNAL_ERROR: "An unexpected error interrupted the summary.",
 }
 
-export function FailedSession({ onReset, session }: { onReset: () => void; session: SessionDto }) {
+export function FailedSession({
+  onReset,
+  session,
+  connectionError,
+}: {
+  onReset: () => void
+  session: SessionDto
+  connectionError?: string
+}) {
   const message = failureMessages[session.failureCode ?? "INTERNAL_ERROR"]
 
   return (
     <SessionFailureView
-      label="Summary interrupted"
+      label="Summary unavailable"
       title="We couldn’t summarize this page"
-      message={message}
+      message={connectionError ?? message}
       actions={
         <>
           <SummaryRetry sessionId={session.id} />

@@ -7,6 +7,7 @@ import { createTestApi, renderApp } from "../../../test/render-app"
 import { LocalSessionApi } from "../api/local-session-api"
 import { ChatComposer } from "./chat-composer"
 import { SessionApiProvider } from "./session-api-provider"
+import { sessionKeys } from "../hooks/session-queries"
 
 const encode = (event: unknown) => new TextEncoder().encode(`data: ${JSON.stringify(event)}\n\n`)
 const response = (events: unknown[]) =>
@@ -21,6 +22,97 @@ const response = (events: unknown[]) =>
 afterEach(() => {
   localStorage.clear()
   vi.restoreAllMocks()
+})
+
+it("shows HTTP quota wait after URL submission, persists its code, and retries the same summary", async () => {
+  let calls = 0
+  const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
+    const body = JSON.parse(String(init?.body))
+    calls++
+    if (calls === 1)
+      return Response.json(
+        {
+          code: "RATE_LIMITED",
+          message: "Too many requests. Wait and retry.",
+          retryable: true,
+          requestId: crypto.randomUUID(),
+        },
+        { status: 429, headers: { "Retry-After": "56" } },
+      )
+    const session = createSession({
+      id: body.id,
+      attemptNumber: body.attemptNumber,
+      sourceText: "Source facts",
+      summary: "Recovered quota summary",
+    })
+    return response([
+      {
+        type: "summary.completed",
+        eventId: "done",
+        version: 1,
+        offset: session.summary.length,
+        session,
+      },
+    ])
+  })
+  const api = new LocalSessionApi(() => localStorage, fetcher)
+  const app = renderApp(api)
+  const user = userEvent.setup()
+  await user.type(
+    await screen.findByRole("textbox", { name: "Webpage URL" }),
+    "https://example.com/article",
+  )
+  await user.click(screen.getByRole("button", { name: "Summarize" }))
+  expect(await screen.findByText("Too many requests. Wait 56 seconds and retry.")).toBeVisible()
+  const failed = (await api.list()).sessions[0]
+  if (!failed) throw new Error("Missing failed summary")
+  expect(failed).toMatchObject({ status: "failed", failureCode: "RATE_LIMITED" })
+  expect(app.router.state.location.pathname).toBe(`/sessions/${failed.id}`)
+  await user.click(screen.getByRole("button", { name: "Retry summary" }))
+  expect(await screen.findByText("Recovered quota summary")).toBeVisible()
+  expect(await api.get(failed.id)).toMatchObject({ status: "complete", attemptNumber: 2 })
+  expect((await api.list()).sessions).toHaveLength(1)
+  expect(
+    screen.queryByText("Too many requests. Wait 56 seconds and retry."),
+  ).not.toBeInTheDocument()
+})
+
+it("keeps a typed streamed summary wait message through terminal cache rerenders", async () => {
+  const message = "Usage is limited. Wait 59 seconds and retry."
+  const fetcher = vi.fn<typeof fetch>(async (_url, init) => {
+    const body = JSON.parse(String(init?.body))
+    const session = createSession({
+      id: body.id,
+      status: "failed",
+      summary: "",
+      attemptNumber: body.attemptNumber,
+      failureCode: "LLM_RATE_LIMITED",
+    })
+    return response([
+      {
+        type: "summary.failed",
+        eventId: "failed",
+        version: 1,
+        offset: 0,
+        session,
+        error: {
+          code: "LLM_RATE_LIMITED",
+          message,
+          requestId: crypto.randomUUID(),
+          retryable: true,
+        },
+      },
+    ])
+  })
+  const api = new LocalSessionApi(() => localStorage, fetcher)
+  const stub = await api.create("https://example.com/article")
+  const app = renderApp(api, `/sessions/${stub.id}`)
+  expect(await screen.findByText(message)).toBeVisible()
+  await act(async () => {
+    app.queryClient.setQueryData(sessionKeys.detail(stub.id), { ...(await api.get(stub.id)) })
+  })
+  expect(screen.getByText(message)).toBeVisible()
+  expect(await api.get(stub.id)).toMatchObject({ failureCode: "LLM_RATE_LIMITED" })
 })
 
 it("restores the composer draft after EOF and retries the failed pair without duplicates", async () => {

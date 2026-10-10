@@ -43,6 +43,23 @@ afterEach(() => {
 })
 
 describe("browser-owned sessions", () => {
+  it.each(["RATE_LIMITED", "LLM_RATE_LIMITED", "LLM_UNAVAILABLE"])(
+    "persists pre-stream %s without relabeling it as interruption",
+    async (code) => {
+      const fetcher = vi.fn<typeof fetch>(async () =>
+        Response.json(
+          { code, message: "Wait and retry.", retryable: true, requestId },
+          { status: code === "LLM_UNAVAILABLE" ? 503 : 429 },
+        ),
+      )
+      const api = new LocalSessionApi(() => localStorage, fetcher)
+      const stub = await api.create("https://example.com/article")
+      await expect(
+        api.stream(stub.id, () => {}, new AbortController().signal),
+      ).rejects.toMatchObject({ code, message: "Wait and retry." })
+      expect(await api.get(stub.id)).toMatchObject({ status: "failed", failureCode: code })
+    },
+  )
   it("surfaces streamed provider exhaustion and retries the saved failed pair manually", async () => {
     let attempts = 0
     const fetcher = vi.fn<typeof fetch>(async (url, init) => {

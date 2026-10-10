@@ -293,6 +293,7 @@ export class LocalSessionApi implements SessionApi {
     }
     const { working, operation, signal: combined } = this.#begin(record, signal)
     let terminal = false
+    let failureCode: SessionDto["failureCode"] = "GENERATION_INTERRUPTED"
     try {
       const request = browserSummaryRequestSchema.parse({
         id,
@@ -316,12 +317,15 @@ export class LocalSessionApi implements SessionApi {
         combined,
       )
       if (!terminal) throw interrupted()
+    } catch (error) {
+      if (!combined.aborted && error instanceof SessionApiError) failureCode = error.code
+      throw error
     } finally {
       if (!terminal)
         working.session = {
           ...working.session,
           status: "failed",
-          failureCode: "GENERATION_INTERRUPTED",
+          failureCode,
           completedAt: new Date().toISOString(),
         }
       this.#finish(working, operation)

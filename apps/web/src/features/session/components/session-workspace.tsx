@@ -58,7 +58,13 @@ export function SessionWorkspace(props: SessionWorkspaceProps) {
     )
   }
   if (session.status === "failed") {
-    return <FailedSession session={session} onReset={props.onReset} />
+    return (
+      <FailedSession
+        session={session}
+        onReset={props.onReset}
+        {...(connectionError ? { connectionError } : {})}
+      />
+    )
   }
   return <GeneratingSession session={session} {...(connectionError ? { connectionError } : {})} />
 }
