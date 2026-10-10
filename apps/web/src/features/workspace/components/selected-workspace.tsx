@@ -5,6 +5,7 @@ import { useMediaQuery } from "../../../hooks/use-media-query"
 import { ChatPanel } from "../../session/components/chat-panel"
 import { SessionWorkspace } from "../../session/components/session-workspace"
 import { useRegenerateSession, useSession } from "../../session/hooks/session-queries"
+import { AuthorCredit } from "./author-credit"
 import { MobileHeader } from "./mobile-header"
 import { SessionChatEntry } from "./session-chat-entry"
 
@@ -74,6 +75,7 @@ export function SelectedWorkspace({
             <SessionChatEntry chatOpen={chatOpen} onOpenChat={openChat} />
           ) : null}
         </main>
+        <AuthorCredit />
       </div>
       {detail.data?.status === "complete" ? (
         <ChatPanel
