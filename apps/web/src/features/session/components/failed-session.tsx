@@ -1,9 +1,7 @@
 import type { ApiErrorCode, SessionDto } from "@chat-with-a-website/contracts"
-import { useNavigate } from "@tanstack/react-router"
-import { useState } from "react"
-import { useCreateSession, useDeleteSession } from "../hooks/session-queries"
 import { SessionFailureButton } from "./session-failure-button"
 import { SessionFailureView } from "./session-failure-view"
+import { SummaryRetry } from "./summary-retry"
 
 const failureMessages: Record<ApiErrorCode, string> = {
   INVALID_URL: "That URL is not valid.",
@@ -24,41 +22,16 @@ const failureMessages: Record<ApiErrorCode, string> = {
 }
 
 export function FailedSession({ onReset, session }: { onReset: () => void; session: SessionDto }) {
-  const navigate = useNavigate()
-  const createSession = useCreateSession()
-  const removeSession = useDeleteSession()
-  const [retryError, setRetryError] = useState<string>()
   const message = failureMessages[session.failureCode ?? "INTERNAL_ERROR"]
-
-  async function retry() {
-    setRetryError(undefined)
-    try {
-      const created = await createSession.mutateAsync({
-        url: session.originalUrl,
-        idempotencyKey: crypto.randomUUID(),
-      })
-      await navigate({ to: "/sessions/$sessionId", params: { sessionId: created.id }, search: {} })
-      removeSession.mutate(session.id)
-    } catch (error) {
-      setRetryError(error instanceof Error ? error.message : "The summary could not be restarted.")
-    }
-  }
 
   return (
     <SessionFailureView
       label="Summary interrupted"
       title="We couldn’t summarize this page"
       message={message}
-      {...(retryError ? { error: retryError } : {})}
       actions={
         <>
-          <SessionFailureButton
-            type="button"
-            disabled={createSession.isPending}
-            onClick={() => void retry()}
-          >
-            {createSession.isPending ? "Retrying…" : "Try again"}
-          </SessionFailureButton>
+          <SummaryRetry sessionId={session.id} />
           <SessionFailureButton secondary type="button" onClick={onReset}>
             Try another URL
           </SessionFailureButton>

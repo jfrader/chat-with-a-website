@@ -10,6 +10,7 @@ import { SummaryFooter } from "./summary-footer"
 import { SummaryHeader } from "./summary-header"
 import { SummaryMarkdown } from "./summary-markdown"
 import { SummaryProgress } from "./summary-progress"
+import { SummaryRetry } from "./summary-retry"
 
 interface SummaryArticleProps {
   chatOpen: boolean
@@ -97,7 +98,8 @@ export function SummaryArticle({
               role="alert"
             >
               <strong>Summary interrupted</strong>
-              <span>The partial summary is preserved. Start a new summary to try again.</span>
+              <span>Retry this summary.</span>
+              <SummaryRetry sessionId={session.id} />
             </div>
           ) : null}
           {session.status === "complete" ? (

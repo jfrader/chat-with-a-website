@@ -151,7 +151,7 @@ export class LocalSessionApi implements SessionApi {
     }
   }
 
-  async create(url: string, idempotencyKey = crypto.randomUUID()): Promise<SessionDto> {
+  async create(url: string, idempotencyKey: string = crypto.randomUUID()): Promise<SessionDto> {
     const request = createSessionRequestSchema.parse({ url, idempotencyKey })
     const ids = this.#ids()
     if (ids.includes(idempotencyKey)) {
@@ -333,7 +333,7 @@ export class LocalSessionApi implements SessionApi {
     content: string,
     onEvent: (event: ChatStreamEvent) => void,
     signal: AbortSignal,
-    idempotencyKey = crypto.randomUUID(),
+    idempotencyKey: string = crypto.randomUUID(),
   ): Promise<void> {
     const record = this.#recover(this.#read(id))
     const request = createChatRequestSchema.parse({ content, idempotencyKey })
@@ -359,9 +359,9 @@ export class LocalSessionApi implements SessionApi {
         })
         return
       }
-      throw interrupted()
+      if (assistant.status !== "failed") throw interrupted()
     }
-    if (record.messages.length >= browserLimits.storedMessages)
+    if (!(user && assistant) && record.messages.length >= browserLimits.storedMessages)
       throw new SessionApiError(
         "INVALID_MESSAGE",
         "This conversation is full. Create a new session.",
@@ -401,10 +401,39 @@ export class LocalSessionApi implements SessionApi {
         (event) => {
           this.#assertCurrent(id, operation)
           if (event.requestId !== idempotencyKey) throw interrupted()
+          if (user && assistant) {
+            if (event.type === "chat.created") {
+              event = {
+                ...event,
+                userMessage: { ...event.userMessage, id: user.id },
+                assistantMessage: {
+                  ...event.assistantMessage,
+                  id: assistant.id,
+                  attemptNumber: assistant.attemptNumber + 1,
+                },
+              }
+            } else if (event.type === "chat.completed" || event.type === "chat.failed") {
+              event = {
+                ...event,
+                message: {
+                  ...event.message,
+                  id: assistant.id,
+                  attemptNumber: assistant.attemptNumber + 1,
+                },
+              }
+            } else event = { ...event, messageId: assistant.id }
+          }
           if (event.type === "chat.created") {
             if (event.userMessage.sessionId !== id || event.assistantMessage.sessionId !== id)
               throw interrupted()
-            working.messages.push(event.userMessage, event.assistantMessage)
+            if (user && assistant) {
+              const { userMessage, assistantMessage } = event
+              working.messages = working.messages.map((message) => {
+                if (message.id === user.id) return userMessage
+                if (message.id === assistant.id) return assistantMessage
+                return message
+              })
+            } else working.messages.push(event.userMessage, event.assistantMessage)
             this.#write(working, operation.revision)
           } else if (event.type === "chat.completed" || event.type === "chat.failed") {
             if (event.message.sessionId !== id) throw interrupted()
