@@ -8,6 +8,7 @@ import {
   sessionId,
 } from "../../../test/fixtures"
 import { sessionApi } from "./session-client"
+import { throwResponseError } from "./session-client"
 
 class FakeEventSource {
   static instances: FakeEventSource[] = []
@@ -36,6 +37,22 @@ afterEach(() => {
 })
 
 describe("session API client", () => {
+  it("shows a bounded integer Retry-After instruction and ignores unsafe headers", async () => {
+    const body = {
+      code: "RATE_LIMITED",
+      message: "Too many requests. Wait and retry.",
+      retryable: true,
+      requestId,
+    }
+    await expect(
+      throwResponseError(Response.json(body, { status: 429, headers: { "Retry-After": "60" } })),
+    ).rejects.toThrow("Wait 60 seconds and retry")
+    for (const value of ["0", "-1", "999999999", "Infinity", "1.5", "tomorrow", "86401"]) {
+      await expect(
+        throwResponseError(Response.json(body, { status: 429, headers: { "Retry-After": value } })),
+      ).rejects.toThrow(body.message)
+    }
+  })
   it("validates list, create, detail, messages, and delete responses", async () => {
     const session = createSession()
     const message = createMessage()

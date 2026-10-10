@@ -55,3 +55,45 @@ jobs:
 
       - name: Audit production dependencies
         run: pnpm audit --prod
+
+      - name: Smoke-test production image in both storage modes
+        env:
+          SMOKE_PORT: 14311
+        run: |
+          image="chat-with-a-website:ci-${GITHUB_SHA}"
+          origin="http://127.0.0.1:${SMOKE_PORT}"
+          containers=()
+          trap 'for container in "${containers[@]}"; do docker rm --force "$container" >/dev/null; done' EXIT
+          docker build --tag "$image" .
+
+          verify_mode() {
+            local container="$1" expected="$2" ready=false
+            for attempt in $(seq 1 30); do
+              if curl --fail --silent --max-time 2 "$origin/health/ready" >/dev/null; then
+                ready=true
+                break
+              fi
+              sleep 1
+            done
+            if [ "$ready" != true ]; then
+              docker logs "$container"
+              return 1
+            fi
+            curl --fail --silent --show-error "$origin/config" |
+              jq --exit-status --argjson expected "$expected" '.databaseFree == $expected'
+            curl --fail --silent --show-error "$origin/" | grep --quiet 'id="root"'
+          }
+
+          container=$(docker run --detach --network host \
+            --env PORT="$SMOKE_PORT" --env NO_DATABASE=true \
+            --env DATABASE_URL=postgresql://unreachable.invalid/urlsum "$image")
+          containers+=("$container")
+          verify_mode "$container" true
+          docker rm --force "$container" >/dev/null
+          containers=()
+
+          container=$(docker run --detach --network host \
+            --env PORT="$SMOKE_PORT" --env NO_DATABASE=false \
+            --env DATABASE_URL="$DATABASE_URL" "$image")
+          containers+=("$container")
+          verify_mode "$container" false

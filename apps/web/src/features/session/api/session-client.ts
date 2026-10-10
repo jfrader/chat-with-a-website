@@ -47,12 +47,25 @@ export interface SessionApi {
   ): Promise<void>
 }
 
-async function throwResponseError(response: Response): Promise<never> {
+export async function throwResponseError(response: Response): Promise<never> {
   const body = await response.json().catch(() => null)
   const error = apiErrorSchema.safeParse(body)
 
   if (error.success) {
-    throw new SessionApiError(error.data.code, error.data.message)
+    const header = response.headers.get("Retry-After")
+    const seconds = header && /^[1-9]\d{0,4}$/.test(header) ? Number(header) : undefined
+    const limited = error.data.code === "RATE_LIMITED" || error.data.code === "LLM_RATE_LIMITED"
+    const duration =
+      seconds && seconds <= 86_400
+        ? new Intl.NumberFormat(undefined, {
+            style: "unit",
+            unit: "second",
+            unitDisplay: "long",
+          }).format(seconds)
+        : undefined
+    const message =
+      limited && duration ? `Too many requests. Wait ${duration} and retry.` : error.data.message
+    throw new SessionApiError(error.data.code, message)
   }
 
   throw new SessionApiError(
@@ -61,7 +74,7 @@ async function throwResponseError(response: Response): Promise<never> {
   )
 }
 
-async function parseEventStream<T>(
+export async function parseEventStream<T>(
   response: Response,
   parse: (input: unknown) => T,
   onEvent: (event: T) => void,
@@ -76,10 +89,14 @@ async function parseEventStream<T>(
   let parseError: Error | undefined
   const parser = createParser({
     onEvent(event) {
+      if (signal.aborted || parseError) return
       try {
         onEvent(parse(JSON.parse(event.data)))
-      } catch {
-        parseError = new SessionApiError("INTERNAL_ERROR", "The live response was interrupted.")
+      } catch (error) {
+        parseError =
+          error instanceof Error
+            ? error
+            : new SessionApiError("INTERNAL_ERROR", "The live response was interrupted.")
       }
     },
     onError() {
@@ -100,6 +117,7 @@ async function parseEventStream<T>(
     if (parseError) throw parseError
   } finally {
     signal.removeEventListener("abort", abort)
+    await reader.cancel()
     reader.releaseLock()
   }
 }
@@ -174,6 +192,8 @@ async function chat(
     (event) => {
       terminalReceived = event.type === "chat.completed" || event.type === "chat.failed"
       onEvent(event)
+      if (event.type === "chat.failed")
+        throw new SessionApiError(event.error.code, event.error.message)
     },
     signal,
   )

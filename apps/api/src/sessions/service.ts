@@ -72,6 +72,7 @@ export type SessionServiceOptions = {
   maxConcurrentGenerations?: number
   partialWriteIntervalMs?: number
   repository: SessionRepository
+  includeTerminalSource?: boolean
 }
 
 export const toSessionDto = (session: SessionRecord): SessionDto =>
@@ -126,8 +127,15 @@ export const toMessageDto = (message: MessageRecord): MessageDto =>
     completedAt: message.completedAt?.toISOString() ?? null,
   })
 
-const summaryEvent = (session: SessionRecord): SessionStreamEvent => {
+const summaryEvent = (
+  session: SessionRecord,
+  includeSource = false,
+  retryAfterSeconds?: number,
+): SessionStreamEvent => {
   const dto = toSessionDto(session)
+  if (includeSource && (session.status === "complete" || session.status === "failed")) {
+    dto.sourceText = session.sourceText
+  }
   const base = {
     eventId: `${session.generationVersion}:${session.summary.length}:${session.status}`,
     offset: session.summary.length,
@@ -141,7 +149,7 @@ const summaryEvent = (session: SessionRecord): SessionStreamEvent => {
     return sessionStreamEventSchema.parse({
       ...base,
       type: "summary.failed",
-      error: createApiError(session.failureCode ?? "INTERNAL_ERROR"),
+      error: createApiError(session.failureCode ?? "INTERNAL_ERROR", undefined, retryAfterSeconds),
     })
   }
   return sessionStreamEventSchema.parse({ ...base, type: "summary.snapshot" })
@@ -197,6 +205,7 @@ export class SessionService implements SessionServiceApi {
   readonly #running = new Map<string, Promise<void>>()
   readonly #sessionOperations = new KeyedSerialExecutor()
   readonly #activeStreams = new Set<() => void>()
+  readonly #includeTerminalSource: boolean
 
   constructor(options: SessionServiceOptions) {
     this.#eventHub = options.eventHub ?? new SessionEventHub()
@@ -205,6 +214,7 @@ export class SessionService implements SessionServiceApi {
     this.#maxConcurrentGenerations = Math.max(1, options.maxConcurrentGenerations ?? 4)
     this.#partialWriteIntervalMs = Math.max(0, options.partialWriteIntervalMs ?? 150)
     this.#repository = options.repository
+    this.#includeTerminalSource = options.includeTerminalSource ?? false
   }
 
   async initialize(): Promise<void> {
@@ -319,7 +329,7 @@ export class SessionService implements SessionServiceApi {
     if (!persisted) return null
     const subscription = this.#eventHub.subscribe(
       id,
-      summaryEvent(persisted),
+      summaryEvent(persisted, this.#includeTerminalSource),
       this.#running.has(id),
     )
     const latest = await this.#repository.findById(workspaceId, id)
@@ -328,7 +338,7 @@ export class SessionService implements SessionServiceApi {
       this.#assertAcceptingWork()
     }
     if (latest && (latest.status === "complete" || latest.status === "failed")) {
-      const terminal = summaryEvent(latest)
+      const terminal = summaryEvent(latest, this.#includeTerminalSource)
       this.#eventHub.publish(id, terminal)
       subscription.close()
       const terminalSubscription = this.#eventHub.subscribe(id, terminal, false)
@@ -497,7 +507,7 @@ export class SessionService implements SessionServiceApi {
         finalUrl: fetched.finalUrl,
         status: "extracting",
       })
-      this.#eventHub.publish(session.id, summaryEvent(session))
+      this.#eventHub.publish(session.id, summaryEvent(session, this.#includeTerminalSource))
 
       const extracted = extractReadableContent(fetched.html, fetched.finalUrl)
       stage = "summarizing"
@@ -563,7 +573,7 @@ export class SessionService implements SessionServiceApi {
         tagline: extras.tagline,
         completedAt: new Date(),
       })
-      this.#eventHub.publish(session.id, summaryEvent(session))
+      this.#eventHub.publish(session.id, summaryEvent(session, this.#includeTerminalSource))
     } catch (error) {
       const failure = asPipelineFailure(
         error instanceof LlmError ? new SessionPipelineError(error.code, { cause: error }) : error,
@@ -577,7 +587,15 @@ export class SessionService implements SessionServiceApi {
           failureCode: failure.code,
           completedAt: new Date(),
         })
-        if (failed) this.#eventHub.publish(session.id, summaryEvent(failed))
+        if (failed)
+          this.#eventHub.publish(
+            session.id,
+            summaryEvent(
+              failed,
+              this.#includeTerminalSource,
+              error instanceof LlmError ? error.retryAfterSeconds : undefined,
+            ),
+          )
         else this.#eventHub.clear(session.id)
       } catch (persistenceError) {
         this.#eventHub.clear(session.id)
@@ -622,14 +640,14 @@ export class SessionService implements SessionServiceApi {
     })
   }
 
-  #chatFailedEvent(message: MessageRecord): ChatStreamEvent {
+  #chatFailedEvent(message: MessageRecord, retryAfterSeconds?: number): ChatStreamEvent {
     return chatStreamEventSchema.parse({
       type: "chat.failed",
       eventId: `${message.requestId}:${message.content.length}:failed`,
       requestId: message.requestId,
       offset: message.content.length,
       message: toMessageDto(message),
-      error: createApiError(message.failureCode ?? "INTERNAL_ERROR"),
+      error: createApiError(message.failureCode ?? "INTERNAL_ERROR", undefined, retryAfterSeconds),
     })
   }
 
@@ -807,7 +825,14 @@ export class SessionService implements SessionServiceApi {
           failureCode: code,
           completedAt: new Date(),
         })
-        if (failed) this.#chatHub.publish(failed.id, this.#chatFailedEvent(failed))
+        if (failed)
+          this.#chatHub.publish(
+            failed.id,
+            this.#chatFailedEvent(
+              failed,
+              error instanceof LlmError ? error.retryAfterSeconds : undefined,
+            ),
+          )
         else this.#chatHub.clear(assistant.id)
       } catch (persistenceError) {
         this.#chatHub.clear(assistant.id)

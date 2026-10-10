@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useEffect, useRef, useState } from "react"
 import { type SessionPages, sessionKeys, updateSessionInPages } from "./session-queries"
 import { useSessionApi } from "./use-session-api"
+import { SessionApiError } from "../api/session-client"
 
 const isTerminal = (session: SessionDto) =>
   session.status === "complete" || session.status === "failed"
@@ -10,29 +11,40 @@ const isTerminal = (session: SessionDto) =>
 export function useSummaryStream(session: SessionDto | undefined) {
   const api = useSessionApi()
   const queryClient = useQueryClient()
-  const [connectionError, setConnectionError] = useState<string>()
+  const [failure, setFailure] = useState<{ sessionId: string; attempt: number; message: string }>()
   const activeSessionId = session && !isTerminal(session) ? session.id : undefined
-  const activeVersion = session && !isTerminal(session) ? session.generationVersion : undefined
+  const activeAttempt = session && !isTerminal(session) ? session.attemptNumber : undefined
+  const initialVersion = useRef(0)
+  initialVersion.current = session?.generationVersion ?? 0
   const initialOffset = useRef(0)
   initialOffset.current = session?.summary.length ?? 0
 
   useEffect(() => {
-    if (!activeSessionId || activeVersion === undefined) {
-      setConnectionError(undefined)
+    if (!activeSessionId || activeAttempt === undefined) {
       return
     }
 
     const controller = new AbortController()
     const sessionId = activeSessionId
+    const attempt = activeAttempt
+    const showFailure = (message: string) => setFailure({ sessionId, attempt, message })
+    setFailure(undefined)
     let terminalReceived = false
-    let lastVersion = activeVersion
+    let lastVersion = initialVersion.current
     let lastOffset = initialOffset.current
 
     const follow = async () => {
+      let streamError: string | undefined
       try {
         await api.stream(
           sessionId,
           (event) => {
+            if (
+              controller.signal.aborted ||
+              event.session.id !== sessionId ||
+              event.session.attemptNumber !== attempt
+            )
+              return
             if (event.version < lastVersion) return
             if (
               event.version === lastVersion &&
@@ -45,7 +57,8 @@ export function useSummaryStream(session: SessionDto | undefined) {
             lastVersion = event.version
             lastOffset = Math.max(event.offset, event.session.summary.length)
             terminalReceived = isTerminal(event.session)
-            setConnectionError(undefined)
+            if (event.type === "summary.failed") showFailure(event.error.message)
+            else setFailure(undefined)
             queryClient.setQueryData(sessionKeys.detail(sessionId), event.session)
             queryClient.setQueriesData<SessionPages>({ queryKey: sessionKeys.lists() }, (data) =>
               updateSessionInPages(data, event.session),
@@ -53,21 +66,35 @@ export function useSummaryStream(session: SessionDto | undefined) {
           },
           controller.signal,
         )
-      } catch {
+      } catch (error) {
         if (controller.signal.aborted) return
+        streamError =
+          error instanceof SessionApiError
+            ? error.message
+            : "Live progress disconnected. Refresh to check the summary again."
+        showFailure(streamError)
       }
 
       if (controller.signal.aborted) return
-      const latest = await queryClient
-        .fetchQuery({
+      let latest: SessionDto | undefined
+      try {
+        latest = await queryClient.fetchQuery({
           queryKey: sessionKeys.detail(sessionId),
           queryFn: () => api.get(sessionId),
           staleTime: 0,
         })
-        .catch(() => undefined)
-      if (!terminalReceived && (!latest || !isTerminal(latest))) {
-        setConnectionError("Live progress disconnected. Refresh to check the summary again.")
+      } catch (error) {
+        if (!controller.signal.aborted && !streamError && !terminalReceived) {
+          showFailure(
+            error instanceof Error ? error.message : "The summary could not be loaded. Retry.",
+          )
+        }
+        return
       }
+      if (controller.signal.aborted || !latest) return
+      if (latest.status === "complete") setFailure(undefined)
+      else if (!terminalReceived && !isTerminal(latest) && !streamError)
+        showFailure("Live progress disconnected. Refresh to check the summary again.")
       if (terminalReceived || (latest && isTerminal(latest))) {
         void queryClient.invalidateQueries({ queryKey: sessionKeys.detail(sessionId) })
         void queryClient.invalidateQueries({ queryKey: sessionKeys.lists() })
@@ -76,7 +103,12 @@ export function useSummaryStream(session: SessionDto | undefined) {
 
     void follow()
     return () => controller.abort()
-  }, [activeSessionId, activeVersion, api, queryClient])
+  }, [activeSessionId, activeAttempt, api, queryClient])
 
-  return connectionError
+  return session &&
+    session.status !== "complete" &&
+    failure?.sessionId === session.id &&
+    failure.attempt === session.attemptNumber
+    ? failure.message
+    : undefined
 }

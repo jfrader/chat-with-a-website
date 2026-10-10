@@ -1,17 +1,26 @@
 import { serveStatic } from "@hono/node-server/serve-static"
-import { healthSchema } from "@chat-with-a-website/contracts"
+import { configSchema, healthSchema } from "@chat-with-a-website/contracts"
 import { Hono } from "hono"
 import { createApiError, ServiceError } from "./errors"
 import { registerSessionRoutes } from "./routes/sessions"
+import { registerBrowserRoutes } from "./routes/browser"
+import type { BrowserCompute } from "./sessions/browser-compute"
 import type { SessionServiceApi } from "./sessions/service"
+import { GenerationBudget } from "./limits/generation-budget"
+import { generationAdmission, type ClientAddressResolver } from "./limits/http-admission"
+import { MINUTE_SECONDS } from "./limits/policy"
 
 export type ApiAppOptions = {
   isReady?: () => boolean | Promise<boolean>
   sessionService?: SessionServiceApi
   staticRoot?: string
+  databaseFree?: boolean
+  browserCompute?: BrowserCompute
+  budget?: GenerationBudget
+  clientAddress?: ClientAddressResolver
 }
 
-const reservedApplicationPathRoots = ["/api", "/health", "/assets"] as const
+const reservedApplicationPathRoots = ["/api", "/health", "/assets", "/config"] as const
 
 const errorStatus = (code: ServiceError["code"]) => {
   if (code === "SESSION_NOT_FOUND") return 404 as const
@@ -31,6 +40,11 @@ const isReservedApplicationPath = (path: string) =>
 export function createApiApp(options: ApiAppOptions = {}) {
   const app = new Hono()
   const isReady = options.isReady ?? (() => true)
+  const databaseFree = options.databaseFree ?? false
+  app.use(
+    "/api/*",
+    generationAdmission(options.budget ?? new GenerationBudget(), options.clientAddress),
+  )
 
   app.get("/health/live", (context) => context.json(healthSchema.parse({ status: "ok" })))
 
@@ -40,7 +54,12 @@ export function createApiApp(options: ApiAppOptions = {}) {
     return context.json(response, ready ? 200 : 503)
   })
 
-  registerSessionRoutes(app, options.sessionService)
+  app.get("/config", (context) => {
+    return context.json(configSchema.parse({ databaseFree }))
+  })
+
+  if (options.browserCompute) registerBrowserRoutes(app, options.browserCompute)
+  registerSessionRoutes(app, databaseFree ? undefined : options.sessionService)
 
   if (options.staticRoot) {
     app.use(
@@ -84,6 +103,10 @@ export function createApiApp(options: ApiAppOptions = {}) {
 
   app.onError((error, context) => {
     if (error instanceof ServiceError) {
+      context.header("Cache-Control", "no-store")
+      if (error.code === "RATE_LIMITED" || error.code === "LLM_RATE_LIMITED") {
+        context.header("Retry-After", String(MINUTE_SECONDS))
+      }
       return context.json(createApiError(error.code), errorStatus(error.code))
     }
     console.error("Unhandled API error", error)

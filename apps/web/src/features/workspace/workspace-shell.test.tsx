@@ -469,7 +469,7 @@ describe("progressive summary and safe failures", () => {
     expect(alert).toHaveTextContent("summary provider is temporarily unavailable")
   })
 
-  it("retries the same URL from a failed summary and replaces the failed session", async () => {
+  it("retries a failed summary in the same session", async () => {
     const user = userEvent.setup()
     const failed = createSession({
       status: "failed",
@@ -477,13 +477,15 @@ describe("progressive summary and safe failures", () => {
       failureCode: "FETCH_TIMEOUT",
       completedAt: new Date().toISOString(),
     })
-    const retried = createSession({ id: secondSessionId })
+    const retried = createSession()
     const create = vi.fn(async () => retried)
+    const regenerate = vi.fn(async () => retried)
     const remove = vi.fn(async () => {})
     const get = vi.fn(async (id: string) => (id === failed.id ? failed : retried))
     const { router } = renderApp(
       createTestApi({
         create,
+        regenerate,
         get,
         delete: remove,
         list: async () => ({ sessions: [failed], nextCursor: null }),
@@ -492,11 +494,13 @@ describe("progressive summary and safe failures", () => {
     )
 
     await screen.findByText("We couldn’t summarize this page")
-    await user.click(screen.getByRole("button", { name: "Try again" }))
+    await user.click(screen.getByRole("button", { name: "Retry summary" }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/sessions/${retried.id}`))
-    expect(create).toHaveBeenCalledWith(failed.originalUrl, expect.any(String))
-    await waitFor(() => expect(remove).toHaveBeenCalledWith(failed.id))
+    await screen.findByText("Summary ready.")
+    expect(regenerate).toHaveBeenCalledWith(failed.id)
+    expect(create).not.toHaveBeenCalled()
+    expect(remove).not.toHaveBeenCalled()
   })
 })
 

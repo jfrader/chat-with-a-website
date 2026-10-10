@@ -105,6 +105,7 @@ export const sessionSchema = z.object({
   failureCode: apiErrorCodeSchema.nullable(),
   sourceWordCount: z.number().int().nonnegative(),
   sourceTruncated: z.boolean(),
+  sourceText: z.string().optional(),
   provider: z.string().nullable(),
   model: z.string().nullable(),
   attemptId: z.uuid(),
@@ -219,3 +220,126 @@ export const healthSchema = z.object({
   status: z.enum(["ok", "unavailable"]),
 })
 export type HealthDto = z.infer<typeof healthSchema>
+
+export const configSchema = z.object({
+  databaseFree: z.boolean(),
+})
+export type ConfigDto = z.infer<typeof configSchema>
+
+export const browserLimits = {
+  storedMessages: 200,
+  requestMessages: 12,
+  historyCharacters: 24_000,
+} as const
+
+export const browserSessionSchema = sessionSchema
+  .extend({
+    originalUrl: httpUrlSchema,
+    canonicalUrl: httpUrlSchema,
+    finalUrl: httpUrlSchema.nullable(),
+    host: z.string().min(1).max(253),
+    title: z.string().max(300).nullable(),
+    siteName: z.string().max(120).nullable(),
+    description: z.string().max(500).nullable(),
+    summary: z.string().max(24_000),
+    sourceText: z.string().max(120_000).optional(),
+    tagline: z.string().max(60).nullable(),
+    provider: z.string().max(200).nullable(),
+    model: z.string().max(200).nullable(),
+  })
+  .strict()
+
+export const browserMessageSchema = messageSchema
+  .extend({
+    content: z.string().max(24_000),
+    reasoningContent: z.string().max(24_000).nullable(),
+    provider: z.string().max(200).nullable(),
+    model: z.string().max(200).nullable(),
+  })
+  .strict()
+
+export const browserRecordSchema = z
+  .object({
+    version: z.literal(2),
+    revision: z.uuid(),
+    session: browserSessionSchema,
+    messages: z.array(browserMessageSchema).max(browserLimits.storedMessages),
+  })
+  .strict()
+  .superRefine((record, context) => {
+    const ids = new Set<string>()
+    for (const message of record.messages) {
+      if (message.sessionId !== record.session.id || ids.has(message.id)) {
+        context.addIssue({ code: "custom", message: "Invalid message association." })
+      }
+      ids.add(message.id)
+    }
+  })
+export type BrowserRecord = z.infer<typeof browserRecordSchema>
+
+export const browserSummaryRequestSchema = z
+  .object({
+    id: z.uuid(),
+    url: httpUrlSchema,
+    attemptNumber: z.number().int().positive().max(1_000_000),
+    generationVersion: z.number().int().nonnegative().max(1_000_000),
+    createdAt: z.iso.datetime(),
+  })
+  .strict()
+export type BrowserSummaryRequest = z.infer<typeof browserSummaryRequestSchema>
+
+export const browserChatRequestSchema = z
+  .object({
+    session: browserSessionSchema,
+    messages: z.array(browserMessageSchema).max(browserLimits.requestMessages),
+    request: createChatRequestSchema.strict(),
+  })
+  .strict()
+  .superRefine((body, context) => {
+    if (
+      body.session.status !== "complete" ||
+      !body.session.sourceText ||
+      body.messages.some((message) => message.sessionId !== body.session.id) ||
+      body.messages.reduce(
+        (total, message) =>
+          total + message.content.length + (message.reasoningContent?.length ?? 0),
+        0,
+      ) >
+        browserLimits.historyCharacters * 2
+    ) {
+      context.addIssue({ code: "custom", message: "Invalid browser chat context." })
+    }
+  })
+export type BrowserChatRequest = z.infer<typeof browserChatRequestSchema>
+export const MAX_BROWSER_REQUEST_BYTES = 1_000_000
+
+export function createBrowserSession(request: BrowserSummaryRequest): SessionDto {
+  return sessionSchema.parse({
+    id: request.id,
+    originalUrl: request.url,
+    canonicalUrl: new URL(request.url).toString(),
+    finalUrl: null,
+    host: new URL(request.url).hostname,
+    title: null,
+    siteName: null,
+    description: null,
+    summary: "",
+    tagline: null,
+    suggestedPrompts: [],
+    status: "fetching",
+    failureStage: null,
+    failureCode: null,
+    sourceWordCount: 0,
+    sourceTruncated: false,
+    provider: null,
+    model: null,
+    attemptId: crypto.randomUUID(),
+    attemptNumber: request.attemptNumber,
+    generationVersion: request.generationVersion,
+    inputTokens: null,
+    outputTokens: null,
+    createdAt: request.createdAt,
+    updatedAt: new Date().toISOString(),
+    completedAt: null,
+  })
+}

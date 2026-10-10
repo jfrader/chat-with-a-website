@@ -7,7 +7,16 @@ import {
   sessionStreamEventSchema,
 } from "@chat-with-a-website/contracts"
 import { describe, expect, it, vi } from "vitest"
-import { createApiApp } from "../app"
+import { type ApiAppOptions, createApiApp as createRawApiApp } from "../app"
+import { GenerationBudget } from "../limits/generation-budget"
+import { defaultBudgetPolicy } from "../limits/policy"
+
+const createApiApp = (options: ApiAppOptions = {}) =>
+  createRawApiApp({
+    ...options,
+    clientAddress: () => "127.0.0.1",
+    budget: new GenerationBudget({ ...defaultBudgetPolicy, RATE_LIMIT_CLIENT_MINUTE: 100 }),
+  })
 import { ServiceError } from "../errors"
 import type { SessionServiceApi } from "../sessions/service"
 
@@ -169,6 +178,8 @@ describe("session API routes", () => {
       body: JSON.stringify({ url: session.originalUrl, idempotencyKey: requestId }),
     })
     expect(response.status).toBe(status)
+    expect(response.headers.get("Cache-Control")).toBe("no-store")
+    if (status === 429) expect(response.headers.get("Retry-After")).toBe("60")
     const body = apiErrorSchema.parse(await response.json())
     expect(body.code).toBe(error.code)
     expect(body.retryable).toBe(error.code !== "IDEMPOTENCY_CONFLICT")
