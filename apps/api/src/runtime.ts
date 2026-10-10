@@ -50,7 +50,11 @@ export async function createRuntime(
   })
   const llm = new BudgetedLlm(rawLlm, budget)
   if (environment.NO_DATABASE) {
-    const browserCompute = new BrowserCompute({ llm })
+    const browserCompute = new BrowserCompute({
+      llm,
+      providerTimeoutMs: budget.policy.RATE_LIMIT_PROVIDER_TIMEOUT_MS,
+      maxConcurrentGenerations: budget.policy.RATE_LIMIT_PROVIDER_CONCURRENCY,
+    })
     return {
       database: undefined,
       worker: browserCompute,

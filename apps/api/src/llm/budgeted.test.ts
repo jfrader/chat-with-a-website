@@ -37,10 +37,15 @@ describe("provider budget", () => {
     })
     expect(inner.requests).toHaveLength(1)
     await vi.advanceTimersByTimeAsync(60_001)
-    await expect(collect(llm.stream(request()))).rejects.toMatchObject({ code: "LLM_RATE_LIMITED" })
-    expect(inner.requests).toHaveLength(1)
-    await vi.advanceTimersByTimeAsync(DAY_SECONDS * 1_000)
     expect(await collect(llm.stream(request()))).toEqual([{ type: "content", text: "Second" }])
+    expect(inner.requests).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(60_001)
+    await expect(collect(llm.stream(request()))).rejects.toMatchObject({ code: "LLM_RATE_LIMITED" })
+    expect(inner.requests).toHaveLength(2)
+    await vi.advanceTimersByTimeAsync(DAY_SECONDS * 1_000)
+    expect(await collect(llm.stream(request()))).toEqual([
+      { type: "content", text: "A fake response." },
+    ])
     await budget.dispose()
   })
 

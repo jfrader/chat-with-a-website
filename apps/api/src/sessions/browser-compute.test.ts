@@ -3,10 +3,10 @@ import {
   createBrowserSession,
   type SessionDto,
 } from "@chat-with-a-website/contracts"
-import { describe, expect, it, vi } from "vitest"
+import { afterEach, describe, expect, it, vi } from "vitest"
 import { createApiApp } from "../app"
 import { LlmError, UnavailableLlm } from "../llm/client"
-import { fetchPublicPage } from "../webpage/secure-fetch"
+import { DEFAULT_FETCH_TIMEOUT_MS, fetchPublicPage } from "../webpage/secure-fetch"
 import { BrowserCompute } from "./browser-compute"
 import { GenerationBudget } from "../limits/generation-budget"
 import { defaultBudgetPolicy } from "../limits/policy"
@@ -34,7 +34,94 @@ const completed = (): SessionDto => ({
   summary: "Summary",
 })
 
+afterEach(() => {
+  vi.useRealTimers()
+  vi.restoreAllMocks()
+})
+
+const delay = (milliseconds: number, signal: AbortSignal) =>
+  new Promise<void>((resolve, reject) => {
+    const abort = () => {
+      clearTimeout(timer)
+      reject(new LlmError("GENERATION_INTERRUPTED"))
+    }
+    const timer = setTimeout(() => {
+      signal.removeEventListener("abort", abort)
+      resolve()
+    }, milliseconds)
+    signal.addEventListener("abort", abort, { once: true })
+    if (signal.aborted) abort()
+  })
+
 describe("stateless browser compute", () => {
+  it.each([60_000, 300_000])(
+    "allows fetch plus both provider calls to complete near their %i ms budgets",
+    async (providerTimeoutMs) => {
+      vi.useFakeTimers()
+      const llm = new FakeLlm(
+        async function* (input) {
+          await delay(providerTimeoutMs - 1, input.signal)
+          yield "A completed summary"
+        },
+        async function* (input) {
+          await delay(providerTimeoutMs - 1, input.signal)
+          yield '{"questions":["What happened?"]}'
+        },
+      )
+      const fetchPage = async (_url: string, options?: { signal?: AbortSignal }) => {
+        if (!options?.signal) throw new Error("Missing fetch signal")
+        await delay(DEFAULT_FETCH_TIMEOUT_MS - 1, options.signal)
+        return page()
+      }
+      const compute = new BrowserCompute({ llm, fetchPage, providerTimeoutMs })
+      const events = collect((await compute.summary(request, new AbortController().signal)).events)
+      await vi.advanceTimersByTimeAsync(DEFAULT_FETCH_TIMEOUT_MS + providerTimeoutMs * 2 - 1)
+      expect((await events).at(-1)).toMatchObject({
+        type: "summary.completed",
+        session: { summary: "A completed summary", suggestedPrompts: ["What happened?"] },
+      })
+      await compute.waitForAll()
+      expect(vi.getTimerCount()).toBe(0)
+    },
+  )
+
+  it("aborts at the derived total deadline, clears scratch data and frees the request slot", async () => {
+    vi.useFakeTimers()
+    const providerTimeoutMs = defaultBudgetPolicy.RATE_LIMIT_PROVIDER_TIMEOUT_MS
+    const deadline = DEFAULT_FETCH_TIMEOUT_MS + providerTimeoutMs * 2
+    const llm = new FakeLlm(async function* (input) {
+      await new Promise<void>((resolve) =>
+        input.signal.addEventListener("abort", () => resolve(), { once: true }),
+      )
+      throw new LlmError("GENERATION_INTERRUPTED")
+    })
+    const repositories: ScratchRepository[] = []
+    const dispose = ScratchRepository.prototype.dispose
+    vi.spyOn(ScratchRepository.prototype, "dispose").mockImplementation(function (
+      this: ScratchRepository,
+    ) {
+      repositories.push(this)
+      dispose.call(this)
+    })
+    const compute = new BrowserCompute({ llm, fetchPage: page, maxConcurrentGenerations: 1 })
+    const events = collect((await compute.summary(request, new AbortController().signal)).events)
+    await vi.advanceTimersByTimeAsync(deadline - 1)
+    expect(llm.requests[0]?.signal.aborted).toBe(false)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(llm.requests[0]?.signal.aborted).toBe(true)
+    expect((await events).some((event) => event.type === "summary.completed")).toBe(false)
+    await compute.waitForAll()
+    expect(repositories.length).toBeGreaterThan(0)
+    for (const repository of repositories) {
+      expect(await repository.findById(browserWorkspaceId, request.id)).toBeNull()
+      expect(await repository.listMessages(request.id)).toEqual([])
+    }
+    const next = await compute.summary(request, new AbortController().signal)
+    expect((await collect(next.events)).at(-1)?.type).toBe("summary.completed")
+    await compute.waitForAll()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
   it("streams progress with a stable client ID and returns source only at completion", async () => {
     let release!: () => void
     const gate = new Promise<void>((resolve) => {

@@ -107,7 +107,8 @@ full browser storage must be enabled or cleared before new results can be saved.
 Both hosting modes enforce the same process-local limits before accepting any
 summary, regeneration, or chat POST. History, live streams, health checks, and
 deletion do not consume request allowance. Limits use fixed 60-second and
-24-hour windows starting with the first request, not calendar days.
+24-hour windows starting with the first admitted request or provider attempt,
+not calendar days.
 
 | API environment variable | Default | Meaning |
 | --- | ---: | --- |
@@ -125,7 +126,10 @@ Unset variables use these defaults. Empty, non-integer, zero, negative, or
 excessive values reject startup. Summary completion suggestions count as a
 separate provider attempt; they are omitted if allowance is exhausted. Failed,
 aborted, and uncertain provider calls are not refunded. SDK paid retries are
-disabled. Rejected requests can also consume allowance in other windows.
+disabled. Request-budget and identity-cap rejections consume no request allowance
+in any window and do not retain new client identities. Provider-budget and
+provider-concurrency rejections consume no provider allowance. Admitted requests
+count even if later validation or generation fails.
 
 Clients are identified by the actual socket peer: mapped IPv4 addresses are
 normalized and IPv6 clients are grouped by /64. Forwarded-IP headers and cookies

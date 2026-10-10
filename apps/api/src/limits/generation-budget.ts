@@ -1,4 +1,5 @@
 import { RateLimiterMemory, RateLimiterRes } from "rate-limiter-flexible"
+import { KeyedSerialExecutor } from "../sessions/keyed-serial-executor"
 import {
   budgetEnvironmentSchema,
   DAY_SECONDS,
@@ -19,6 +20,9 @@ export class BudgetUnavailable extends Error {
 }
 
 const limiter = (points: number, duration: number) => new RateLimiterMemory({ points, duration })
+type Bucket = { limiter: RateLimiterMemory; key: string }
+const buckets = (limiters: RateLimiterMemory[], key: string): Bucket[] =>
+  limiters.map((limiter) => ({ limiter, key }))
 
 export class GenerationBudget {
   readonly policy: BudgetPolicy
@@ -26,6 +30,7 @@ export class GenerationBudget {
   readonly #provider: RateLimiterMemory[]
   readonly #client: RateLimiterMemory[]
   readonly #clients = new Map<string, number>()
+  readonly #operations = new KeyedSerialExecutor()
   #providerActive = 0
   #closed = false
 
@@ -50,63 +55,88 @@ export class GenerationBudget {
     ]
   }
 
-  async #consume(limiters: RateLimiterMemory[], key: string): Promise<void> {
+  #assertOpen(): void {
     if (this.#closed) throw new BudgetUnavailable()
-    const results = await Promise.allSettled(limiters.map((item) => item.consume(key)))
-    if (this.#closed) throw new BudgetUnavailable()
+  }
+
+  #run<T>(operation: () => Promise<T>): Promise<T> {
+    return this.#operations.run("budget", async () => {
+      this.#assertOpen()
+      try {
+        return await operation()
+      } catch (error) {
+        if (error instanceof BudgetExceeded || error instanceof BudgetUnavailable) throw error
+        this.#closed = true
+        throw new BudgetUnavailable({ cause: error })
+      }
+    })
+  }
+
+  async #reserve(buckets: Bucket[]): Promise<void> {
+    const states = await Promise.all(buckets.map(({ limiter, key }) => limiter.get(key)))
+    this.#assertOpen()
     let retryMs = 0
-    for (const result of results) {
-      if (result.status === "fulfilled") continue
-      if (!(result.reason instanceof RateLimiterRes))
-        throw new BudgetUnavailable({ cause: result.reason })
-      if (!Number.isFinite(result.reason.msBeforeNext) || result.reason.msBeforeNext < 0)
-        throw new BudgetUnavailable({ cause: result.reason })
-      retryMs = Math.max(retryMs, result.reason.msBeforeNext, 1)
+    for (const state of states) {
+      if (state === null) continue
+      if (
+        !(state instanceof RateLimiterRes) ||
+        !Number.isFinite(state.msBeforeNext) ||
+        !Number.isSafeInteger(state.remainingPoints) ||
+        state.remainingPoints < 0
+      )
+        throw new Error("Invalid limiter state")
+      if (state.msBeforeNext > 0 && state.remainingPoints === 0)
+        retryMs = Math.max(retryMs, state.msBeforeNext)
     }
     if (retryMs > 0) throw new BudgetExceeded(Math.max(1, Math.ceil(retryMs / 1_000)))
+    const consumed = await Promise.allSettled(
+      buckets.map(({ limiter, key }) => limiter.consume(key)),
+    )
+    for (const result of consumed) if (result.status === "rejected") throw result.reason
   }
 
   async admit(identity: string): Promise<void> {
-    await this.#consume(this.#global, "global")
-    const now = Date.now()
-    const expired = [...this.#clients].filter(([, expiresAt]) => expiresAt <= now)
-    for (const [key] of expired) this.#clients.delete(key)
-    await Promise.all(expired.flatMap(([key]) => this.#client.map((item) => item.delete(key))))
-    if (!this.#clients.has(identity) && this.#clients.size >= this.policy.RATE_LIMIT_MAX_CLIENTS) {
-      const earliest = Math.min(...this.#clients.values())
-      throw new BudgetExceeded(Math.max(1, Math.ceil((earliest - now) / 1_000)))
-    }
-    this.#clients.set(identity, now + DAY_SECONDS * 1_000)
-    await this.#consume(this.#client, identity)
+    return this.#run(async () => {
+      const now = Date.now()
+      const expired = [...this.#clients].filter(([, expiresAt]) => expiresAt <= now)
+      await Promise.all(expired.flatMap(([key]) => this.#client.map((item) => item.delete(key))))
+      for (const [key] of expired) this.#clients.delete(key)
+      if (
+        !this.#clients.has(identity) &&
+        this.#clients.size >= this.policy.RATE_LIMIT_MAX_CLIENTS
+      ) {
+        const earliest = Math.min(...this.#clients.values())
+        throw new BudgetExceeded(Math.max(1, Math.ceil((earliest - now) / 1_000)))
+      }
+      await this.#reserve([...buckets(this.#client, identity), ...buckets(this.#global, "global")])
+      this.#clients.set(identity, Date.now() + DAY_SECONDS * 1_000)
+    })
   }
 
   async acquireProvider(): Promise<() => void> {
-    if (this.#closed) throw new BudgetUnavailable()
-    if (this.#providerActive >= this.policy.RATE_LIMIT_PROVIDER_CONCURRENCY)
-      throw new BudgetExceeded(MINUTE_SECONDS)
-    this.#providerActive++
-    let released = false
-    const release = () => {
-      if (released) return
-      released = true
-      this.#providerActive--
-    }
-    try {
-      await this.#consume(this.#provider, "provider")
-      return release
-    } catch (error) {
-      release()
-      throw error
-    }
+    return this.#run(async () => {
+      if (this.#providerActive >= this.policy.RATE_LIMIT_PROVIDER_CONCURRENCY)
+        throw new BudgetExceeded(MINUTE_SECONDS)
+      await this.#reserve(buckets(this.#provider, "provider"))
+      this.#providerActive++
+      let released = false
+      return () => {
+        if (released) return
+        released = true
+        this.#providerActive--
+      }
+    })
   }
 
   async dispose(): Promise<void> {
     this.#closed = true
-    await Promise.all([
-      ...this.#global.map((item) => item.delete("global")),
-      ...this.#provider.map((item) => item.delete("provider")),
-      ...[...this.#clients.keys()].flatMap((key) => this.#client.map((item) => item.delete(key))),
-    ])
-    this.#clients.clear()
+    await this.#operations.run("budget", async () => {
+      await Promise.all(
+        [...this.#global, ...this.#provider, ...this.#client].flatMap((item) =>
+          item.dump().storage.map(({ key }) => item.delete(key)),
+        ),
+      )
+      this.#clients.clear()
+    })
   }
 }

@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs"
 import { RateLimiterMemory } from "rate-limiter-flexible"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { createApiApp } from "../app"
@@ -5,7 +6,7 @@ import { BudgetedLlm } from "../llm/budgeted"
 import { BrowserCompute } from "../sessions/browser-compute"
 import { SessionService } from "../sessions/service"
 import { FakeLlm, fetchedHtml, MemorySessionRepository } from "../sessions/test-support"
-import { BudgetExceeded, GenerationBudget } from "./generation-budget"
+import { BudgetExceeded, BudgetUnavailable, GenerationBudget } from "./generation-budget"
 import { normalizeClientAddress } from "./http-admission"
 import { budgetEnvironmentSchema, defaultBudgetPolicy, DAY_SECONDS } from "./policy"
 
@@ -58,10 +59,10 @@ describe("generation admission", () => {
     const budget = new GenerationBudget({
       ...defaultBudgetPolicy,
       RATE_LIMIT_GLOBAL_MINUTE: 2,
-      RATE_LIMIT_MAX_CLIENTS: 1,
+      RATE_LIMIT_MAX_CLIENTS: 3,
     })
     await budget.admit("one")
-    await expect(budget.admit("two")).rejects.toBeInstanceOf(BudgetExceeded)
+    await expect(budget.admit("two")).resolves.toBeUndefined()
     await expect(budget.admit("three")).rejects.toMatchObject({
       retryAfterSeconds: expect.any(Number),
     })
@@ -87,7 +88,7 @@ describe("generation admission", () => {
     await budget.dispose()
   })
 
-  it("rolls windows over without a short-window denial bypassing the daily ceiling", async () => {
+  it("rolls windows over without charging short-window denials to the daily ceiling", async () => {
     vi.useFakeTimers()
     vi.setSystemTime(0)
     const budget = new GenerationBudget({
@@ -98,9 +99,9 @@ describe("generation admission", () => {
     await budget.admit("one")
     await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
     await vi.advanceTimersByTimeAsync(60_001)
-    await expect(budget.admit("one")).rejects.toMatchObject({
-      retryAfterSeconds: expect.any(Number),
-    })
+    await expect(budget.admit("one")).resolves.toBeUndefined()
+    await vi.advanceTimersByTimeAsync(60_001)
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
     await vi.advanceTimersByTimeAsync(DAY_SECONDS * 1_000)
     await expect(budget.admit("one")).resolves.toBeUndefined()
     await budget.dispose()
@@ -134,7 +135,9 @@ describe("generation admission", () => {
     await budget.admit("one")
     await expect(budget.admit("two")).rejects.toBeInstanceOf(BudgetExceeded)
     await vi.advanceTimersByTimeAsync(60_001)
-    await expect(budget.admit("three")).rejects.toBeInstanceOf(BudgetExceeded)
+    await expect(budget.admit("three")).resolves.toBeUndefined()
+    await vi.advanceTimersByTimeAsync(60_001)
+    await expect(budget.admit("four")).rejects.toBeInstanceOf(BudgetExceeded)
     await vi.advanceTimersByTimeAsync(DAY_SECONDS * 1_000)
     await expect(budget.admit("four")).resolves.toBeUndefined()
     await budget.dispose()
@@ -159,6 +162,28 @@ describe("generation admission", () => {
       normalizeClientAddress("2001:db8:1234:abcd::1"),
     )
     expect(() => normalizeClientAddress("forwarded.example")).toThrow()
+  })
+
+  it("fails closed after unexpected partial reservation faults and clears all allocated counters", async () => {
+    vi.useFakeTimers()
+    const budget = new GenerationBudget()
+    const consume = vi.spyOn(RateLimiterMemory.prototype, "consume")
+    consume.mockRejectedValueOnce(new Error("Unexpected failure"))
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetUnavailable)
+    consume.mockRestore()
+    await expect(budget.admit("two")).rejects.toBeInstanceOf(BudgetUnavailable)
+    await expect(budget.acquireProvider()).rejects.toBeInstanceOf(BudgetUnavailable)
+    await budget.dispose()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("does not consume any counters when preflight state is unavailable", async () => {
+    const budget = new GenerationBudget()
+    const consume = vi.spyOn(RateLimiterMemory.prototype, "consume")
+    vi.spyOn(RateLimiterMemory.prototype, "get").mockRejectedValueOnce(new Error("Unavailable"))
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetUnavailable)
+    expect(consume).not.toHaveBeenCalled()
+    await budget.dispose()
   })
 
   it("uses adapter socket bindings rather than attacker-controlled forwarded headers", async () => {
@@ -239,5 +264,241 @@ describe("generation admission", () => {
       }
     }
     expect(budgetEnvironmentSchema.parse({})).toEqual(defaultBudgetPolicy)
+  })
+
+  it("does not let repeated capped-client denials spend global daily allowance", async () => {
+    const budget = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_CLIENT_MINUTE: 1,
+      RATE_LIMIT_GLOBAL_DAY: 2,
+    })
+    await budget.admit("one")
+    for (let index = 0; index < 10; index++)
+      await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
+    await expect(budget.admit("two")).resolves.toBeUndefined()
+    await expect(budget.admit("three")).rejects.toBeInstanceOf(BudgetExceeded)
+    await budget.dispose()
+  })
+
+  it("does not charge identity-cap denials or retain identities denied by global windows", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const capped = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_MAX_CLIENTS: 1,
+      RATE_LIMIT_GLOBAL_DAY: 2,
+    })
+    await capped.admit("one")
+    for (let index = 0; index < 3; index++)
+      await expect(capped.admit("two")).rejects.toBeInstanceOf(BudgetExceeded)
+    await expect(capped.admit("one")).resolves.toBeUndefined()
+    await capped.dispose()
+
+    const global = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_MAX_CLIENTS: 2,
+      RATE_LIMIT_GLOBAL_MINUTE: 1,
+      RATE_LIMIT_CLIENT_DAY: 1,
+    })
+    await global.admit("one")
+    await expect(global.admit("denied")).rejects.toBeInstanceOf(BudgetExceeded)
+    await vi.advanceTimersByTimeAsync(60_001)
+    await expect(global.admit("two")).resolves.toBeUndefined()
+    await global.dispose()
+  })
+
+  it("serializes concurrent bursts across client, global and identity ceilings without rollover leaks", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const budget = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_CLIENT_MINUTE: 1,
+      RATE_LIMIT_GLOBAL_MINUTE: 2,
+      RATE_LIMIT_GLOBAL_DAY: 4,
+      RATE_LIMIT_MAX_CLIENTS: 2,
+    })
+    const burst = async () => {
+      const results = await Promise.allSettled(
+        ["one", "one", "two", "two", "three"].map((identity) => budget.admit(identity)),
+      )
+      expect(results.map((result) => result.status)).toEqual([
+        "fulfilled",
+        "rejected",
+        "fulfilled",
+        "rejected",
+        "rejected",
+      ])
+    }
+    await burst()
+    await vi.advanceTimersByTimeAsync(60_000)
+    await burst()
+    await vi.advanceTimersByTimeAsync(60_000)
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
+    await vi.advanceTimersByTimeAsync(DAY_SECONDS * 1_000)
+    await expect(budget.admit("three")).resolves.toBeUndefined()
+    await budget.dispose()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("reserves the identity cap atomically during a burst of new clients", async () => {
+    const budget = new GenerationBudget({ ...defaultBudgetPolicy, RATE_LIMIT_MAX_CLIENTS: 1 })
+    const results = await Promise.allSettled(
+      Array.from({ length: 10 }, (_, index) => budget.admit(`client-${index}`)),
+    )
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+    await expect(budget.admit("client-0")).resolves.toBeUndefined()
+    await budget.dispose()
+  })
+
+  it("does not spend client allowance when the global window rejects an existing identity", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const budget = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_CLIENT_DAY: 2,
+      RATE_LIMIT_GLOBAL_MINUTE: 1,
+    })
+    await budget.admit("one")
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
+    await vi.advanceTimersByTimeAsync(60_000)
+    await expect(budget.admit("one")).resolves.toBeUndefined()
+    await vi.advanceTimersByTimeAsync(60_000)
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
+    await budget.dispose()
+  })
+
+  it("does not extend rejected identities or open a short window across daily rollover", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const budget = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_MAX_CLIENTS: 1,
+      RATE_LIMIT_CLIENT_DAY: 1,
+      RATE_LIMIT_GLOBAL_DAY: 1,
+      RATE_LIMIT_PROVIDER_DAY: 1,
+    })
+    await budget.admit("one")
+    const first = await budget.acquireProvider()
+    first()
+    await vi.advanceTimersByTimeAsync(DAY_SECONDS * 1_000 - 1)
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
+    await expect(budget.acquireProvider()).rejects.toBeInstanceOf(BudgetExceeded)
+    await vi.advanceTimersByTimeAsync(1)
+    await expect(budget.admit("two")).resolves.toBeUndefined()
+    const next = await budget.acquireProvider()
+    next()
+    await budget.dispose()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("does not extend the identity registry on a client-only daily denial", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const budget = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_MAX_CLIENTS: 1,
+      RATE_LIMIT_CLIENT_DAY: 1,
+    })
+    await budget.admit("one")
+    await vi.advanceTimersByTimeAsync(DAY_SECONDS * 1_000 - 1)
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
+    await vi.advanceTimersByTimeAsync(1)
+    await expect(budget.admit("two")).resolves.toBeUndefined()
+    await budget.dispose()
+  })
+
+  it("charges only accepted provider reservations across concurrent windows", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const budget = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_PROVIDER_MINUTE: 1,
+      RATE_LIMIT_PROVIDER_DAY: 2,
+    })
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }, () => budget.acquireProvider()),
+    )
+    const accepted = results.filter((result) => result.status === "fulfilled")
+    expect(accepted).toHaveLength(1)
+    for (const result of accepted) if (result.status === "fulfilled") result.value()
+    await vi.advanceTimersByTimeAsync(60_000)
+    const release = await budget.acquireProvider()
+    release()
+    await vi.advanceTimersByTimeAsync(60_000)
+    await expect(budget.acquireProvider()).rejects.toBeInstanceOf(BudgetExceeded)
+    await vi.advanceTimersByTimeAsync(DAY_SECONDS * 1_000)
+    const next = await budget.acquireProvider()
+    next()
+    await budget.dispose()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("does not charge concurrent provider denials and releases a slot only once", async () => {
+    const budget = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_PROVIDER_CONCURRENCY: 1,
+      RATE_LIMIT_PROVIDER_DAY: 2,
+    })
+    const results = await Promise.allSettled(
+      Array.from({ length: 5 }, () => budget.acquireProvider()),
+    )
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1)
+    const first = results[0]
+    if (first?.status !== "fulfilled") throw new Error("Missing first reservation")
+    first.value()
+    first.value()
+    const next = await budget.acquireProvider()
+    await expect(budget.acquireProvider()).rejects.toBeInstanceOf(BudgetExceeded)
+    next()
+    await expect(budget.acquireProvider()).rejects.toBeInstanceOf(BudgetExceeded)
+    await budget.dispose()
+  })
+
+  it("recognizes expired windows even before the library expiration timers run", async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(0)
+    const budget = new GenerationBudget({
+      ...defaultBudgetPolicy,
+      RATE_LIMIT_CLIENT_MINUTE: 1,
+      RATE_LIMIT_CLIENT_DAY: 2,
+      RATE_LIMIT_GLOBAL_MINUTE: 1,
+      RATE_LIMIT_GLOBAL_DAY: 2,
+      RATE_LIMIT_PROVIDER_MINUTE: 1,
+      RATE_LIMIT_PROVIDER_DAY: 2,
+    })
+    await budget.admit("one")
+    const first = await budget.acquireProvider()
+    first()
+    vi.setSystemTime(60_000)
+    await expect(budget.admit("one")).resolves.toBeUndefined()
+    const second = await budget.acquireProvider()
+    second()
+    await expect(budget.admit("one")).rejects.toBeInstanceOf(BudgetExceeded)
+    vi.setSystemTime(DAY_SECONDS * 1_000 + 1)
+    await expect(budget.admit("two")).resolves.toBeUndefined()
+    const next = await budget.acquireProvider()
+    next()
+    await budget.dispose()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it("keeps README and example environment quota defaults aligned with policy", () => {
+    const root = new URL("../../../../", import.meta.url)
+    const readme = readFileSync(new URL("README.md", root), "utf8")
+    const example = readFileSync(new URL(".env.example", root), "utf8")
+    const documented = Object.fromEntries(
+      [...readme.matchAll(/^\| `(RATE_LIMIT_\w+)` \| (\d+) \|/gm)].map((match) => [
+        match[1],
+        Number(match[2]),
+      ]),
+    )
+    const configured = Object.fromEntries(
+      [...example.matchAll(/^(RATE_LIMIT_\w+)=(\d+)$/gm)].map((match) => [
+        match[1],
+        Number(match[2]),
+      ]),
+    )
+    expect(documented).toEqual(defaultBudgetPolicy)
+    expect(configured).toEqual(defaultBudgetPolicy)
   })
 })
