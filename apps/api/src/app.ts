@@ -1,5 +1,5 @@
 import { serveStatic } from "@hono/node-server/serve-static"
-import { healthSchema } from "@chat-with-a-website/contracts"
+import { configSchema, healthSchema } from "@chat-with-a-website/contracts"
 import { Hono } from "hono"
 import { createApiError, ServiceError } from "./errors"
 import { registerSessionRoutes } from "./routes/sessions"
@@ -9,9 +9,10 @@ export type ApiAppOptions = {
   isReady?: () => boolean | Promise<boolean>
   sessionService?: SessionServiceApi
   staticRoot?: string
+  databaseFree?: boolean
 }
 
-const reservedApplicationPathRoots = ["/api", "/health", "/assets"] as const
+const reservedApplicationPathRoots = ["/api", "/health", "/assets", "/config"] as const
 
 const errorStatus = (code: ServiceError["code"]) => {
   if (code === "SESSION_NOT_FOUND") return 404 as const
@@ -31,6 +32,7 @@ const isReservedApplicationPath = (path: string) =>
 export function createApiApp(options: ApiAppOptions = {}) {
   const app = new Hono()
   const isReady = options.isReady ?? (() => true)
+  const databaseFree = options.databaseFree ?? false
 
   app.get("/health/live", (context) => context.json(healthSchema.parse({ status: "ok" })))
 
@@ -38,6 +40,10 @@ export function createApiApp(options: ApiAppOptions = {}) {
     const ready = await isReady()
     const response = healthSchema.parse({ status: ready ? "ok" : "unavailable" })
     return context.json(response, ready ? 200 : 503)
+  })
+
+  app.get("/config", (context) => {
+    return context.json(configSchema.parse({ databaseFree }))
   })
 
   registerSessionRoutes(app, options.sessionService)

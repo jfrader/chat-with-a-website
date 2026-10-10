@@ -92,6 +92,7 @@ export const toSessionDto = (session: SessionRecord): SessionDto =>
     failureCode: session.failureCode,
     sourceWordCount: session.sourceWordCount,
     sourceTruncated: session.sourceTruncated,
+    sourceText: (session as any).sourceText || "",
     provider: session.provider,
     model: session.model,
     attemptId: session.currentAttemptId,

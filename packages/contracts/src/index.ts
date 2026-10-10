@@ -105,6 +105,7 @@ export const sessionSchema = z.object({
   failureCode: apiErrorCodeSchema.nullable(),
   sourceWordCount: z.number().int().nonnegative(),
   sourceTruncated: z.boolean(),
+  sourceText: z.string().optional(),
   provider: z.string().nullable(),
   model: z.string().nullable(),
   attemptId: z.uuid(),
@@ -157,6 +158,16 @@ export type MessagesResponse = z.infer<typeof messagesResponseSchema>
 export const createChatRequestSchema = z.object({
   content: z.string().trim().min(1).max(4_000),
   idempotencyKey: z.uuid(),
+  // optional for NO_DATABASE mode only: allows stateless chat using client-owned source/history
+  // server ignores in default DB mode; untrusted input is bounded + provenance from prior server fetch
+  context: z
+    .object({
+      sourceText: z.string().max(120_000),
+      summary: z.string(),
+      title: z.string().nullable().optional(),
+      canonicalUrl: z.string().url().optional(),
+    })
+    .optional(),
 })
 export type CreateChatRequest = z.infer<typeof createChatRequestSchema>
 
@@ -219,3 +230,8 @@ export const healthSchema = z.object({
   status: z.enum(["ok", "unavailable"]),
 })
 export type HealthDto = z.infer<typeof healthSchema>
+
+export const configSchema = z.object({
+  databaseFree: z.boolean(),
+})
+export type ConfigDto = z.infer<typeof configSchema>
