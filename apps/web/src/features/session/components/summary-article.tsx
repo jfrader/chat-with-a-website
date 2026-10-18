@@ -1,3 +1,4 @@
+import { Button } from "@jfrader/ui"
 import { useEffect, useRef } from "react"
 import { ChatIcon } from "../../../components/icons/chat-icon"
 import { RegenerateIcon } from "../../../components/icons/regenerate-icon"
@@ -45,7 +46,9 @@ export function SummaryArticle({
     <>
       {session.status === "complete" ? (
         <div className={`${styles.articleActions} flex max-mobile:hidden`}>
-          <button
+          <Button
+            variant="outline"
+            size="sm"
             type="button"
             aria-label="Regenerate summary"
             title="Regenerate summary"
@@ -53,8 +56,10 @@ export function SummaryArticle({
             onClick={() => regenerate.mutate()}
           >
             <RegenerateIcon />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
             className={`${styles.chatToggle} ${chatOpen ? styles.chatToggleHidden : ""}`}
             type="button"
             aria-label="Show chat"
@@ -64,7 +69,7 @@ export function SummaryArticle({
             onClick={onToggleChat}
           >
             <ChatIcon />
-          </button>
+          </Button>
         </div>
       ) : null}
       <div

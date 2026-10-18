@@ -1,6 +1,5 @@
 import type { SessionDto } from "@chat-with-a-website/contracts"
-import { ActiveStatusDot } from "../../../components/activity-indicator/active-status-dot"
-import { StreamingCaret } from "../../../components/activity-indicator/streaming-caret"
+import { Spinner, StreamingCaret } from "@jfrader/ui"
 import { stageLabels } from "../session-labels"
 
 export function SummaryProgress({ status }: { status: SessionDto["status"] }) {
@@ -11,7 +10,7 @@ export function SummaryProgress({ status }: { status: SessionDto["status"] }) {
       role="status"
       aria-live="polite"
     >
-      <ActiveStatusDot />
+      <Spinner size="sm" decorative />
       <span>{stageLabels[status]}</span>
       <StreamingCaret />
     </div>

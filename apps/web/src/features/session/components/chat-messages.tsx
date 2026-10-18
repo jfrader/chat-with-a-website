@@ -1,3 +1,4 @@
+import { EmptyState, Spinner } from "@jfrader/ui"
 import { useEffect, useRef } from "react"
 import { useStickToBottom } from "../../../hooks/use-stick-to-bottom"
 import { useMessages } from "../hooks/session-queries"
@@ -27,15 +28,28 @@ export function ChatMessages({ enabled, sessionId }: { enabled: boolean; session
       onScroll={stick.handleScroll}
     >
       {messages.isLoading ? (
-        <p className="m-0 text-xs leading-5.5 text-(--theme-text-muted)">Loading conversation…</p>
+        <div className="flex items-center gap-2 text-xs text-(--theme-text-muted)">
+          <Spinner size="sm" decorative />
+          <span>Loading conversation…</span>
+        </div>
       ) : messages.error && !messages.data ? (
         <p className="m-0 text-xs leading-5.5 text-(--theme-text-danger)" role="alert">
           {messages.error.message}
         </p>
       ) : items.length === 0 ? (
-        <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-          <p className="m-0 text-xs leading-5.5 text-(--theme-text-muted)">Ask summary</p>
-        </div>
+        <EmptyState
+          title="Ask summary"
+          sx={{ height: "100%", padding: 0 }}
+          slotProps={{
+            title: {
+              css: {
+                fontSize: "var(--ui-text-size-sm)",
+                fontWeight: "normal",
+                color: "var(--ui-color-text-muted)",
+              },
+            },
+          }}
+        />
       ) : (
         items.map((message) => <ChatMessage key={message.id} message={message} />)
       )}

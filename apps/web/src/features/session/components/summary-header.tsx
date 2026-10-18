@@ -35,7 +35,7 @@ export function SummaryHeader({ session }: { session: SessionDto }) {
         ) : null}
       </div>
       <h1
-        className="m-0 text-[28px] leading-8 font-semibold tracking-(--tracking-title) text-(--theme-text-primary) max-mobile:text-2xl"
+        className="m-0 text-[28px] leading-8 font-semibold tracking-(--tracking-title) text-(--ui-color-text) wrap-anywhere max-mobile:text-2xl"
         id="session-title"
       >
         {title}
