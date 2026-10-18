@@ -1,10 +1,11 @@
+import { Prose } from "@jfrader/ui"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import styles from "./summary-article.module.css"
 
 export function SummaryMarkdown({ streaming, summary }: { streaming: boolean; summary: string }) {
   return (
-    <div className={styles.summary} data-streaming={streaming || undefined}>
+    <Prose className={styles.summary} data-streaming={streaming || undefined}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
@@ -19,6 +20,6 @@ export function SummaryMarkdown({ streaming, summary }: { streaming: boolean; su
       >
         {summary}
       </ReactMarkdown>
-    </div>
+    </Prose>
   )
 }

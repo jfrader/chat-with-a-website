@@ -1,4 +1,4 @@
-import { SummaryActionButton } from "./summary-action-button"
+import { Button } from "@jfrader/ui"
 
 const fallbackSuggestions = [
   "What are the three most important takeaways?",
@@ -29,14 +29,25 @@ export function FollowUpSuggestions({
       </div>
       <div className="grid gap-2">
         {suggestions.map((suggestion) => (
-          <SummaryActionButton
-            className="w-full justify-start rounded-(--radius-card) text-left"
+          <Button
+            variant="outline"
+            sx={{
+              width: "100%",
+              minWidth: 0,
+              minHeight: "var(--control-touch-target)",
+              height: "auto",
+              justifyContent: "flex-start",
+              textAlign: "start",
+              whiteSpace: "normal",
+              overflowWrap: "anywhere",
+              padding: "var(--ui-space-2) var(--ui-space-4)",
+            }}
             type="button"
             key={suggestion}
             onClick={() => onOpenChat(suggestion)}
           >
             {suggestion}
-          </SummaryActionButton>
+          </Button>
         ))}
       </div>
     </section>
