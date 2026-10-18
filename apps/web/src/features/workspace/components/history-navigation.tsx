@@ -42,7 +42,7 @@ export function HistoryNavigation({
         onCloseMobile={onCloseMobile}
         pristineEmpty={pristineEmpty}
       />
-      {pristineEmpty ? null : (
+      {pristineEmpty || (collapsed && !mobileOpen) ? null : (
         <div
           className={`${styles.footer} absolute right-6 left-6 opacity-100 transition-opacity duration-100 ease-(--motion-easing-standard)`}
           aria-hidden={collapsed && !mobileOpen}
