@@ -1,4 +1,4 @@
-import { Button, Surface, type SurfacePartProps } from "@jfrader/ui"
+import { Button, Surface } from "@jfrader/ui"
 import { type KeyboardEvent, useEffect, useRef } from "react"
 import { Scrim } from "../../../components/scrim"
 import { trapFocus } from "../../../components/trap-focus"
@@ -13,10 +13,6 @@ interface ChatPanelProps {
   onClose: () => void
   open: boolean
   sessionId: string
-}
-
-function ChatPanelSurface(props: SurfacePartProps) {
-  return <aside {...props} />
 }
 
 export function ChatPanel({ initialPrompt, modal, onClose, open, sessionId }: ChatPanelProps) {
@@ -42,11 +38,13 @@ export function ChatPanel({ initialPrompt, modal, onClose, open, sessionId }: Ch
     <>
       {modal && open ? <Scrim className="z-21" onClick={onClose} /> : null}
       <Surface
-        component={ChatPanelSurface}
         sx={{
           borderRadius: 0,
           borderBlock: 0,
           borderInlineEnd: 0,
+          backgroundColor: "var(--ui-color-bg-soft)",
+          backgroundImage: "none",
+          backdropFilter: "none",
           '&[aria-hidden="true"]': { borderInlineStartColor: "transparent" },
         }}
         className={`${styles.panel} ${

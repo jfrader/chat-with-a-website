@@ -39,3 +39,7 @@
   margin-block-start: var(--ui-space-8);
   min-width: 0;
 }
+
+.summary :is(th, td) {
+  overflow-wrap: normal;
+}

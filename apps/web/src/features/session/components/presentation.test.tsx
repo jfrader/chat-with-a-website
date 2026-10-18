@@ -7,7 +7,7 @@ import { FollowUpSkeleton } from "./follow-up-skeleton"
 import { OpeningSummary } from "./opening-summary"
 import { SessionFailureButton } from "./session-failure-button"
 import { SessionFailureView } from "./session-failure-view"
-import { SummaryActionButton } from "./summary-action-button"
+import { Button } from "@jfrader/ui"
 import { SummaryMarkdown } from "./summary-markdown"
 import { SummaryProgress } from "./summary-progress"
 
@@ -124,7 +124,9 @@ describe("presentation primitives", () => {
         <SessionFailureButton disabled onClick={retry}>
           Retry summary
         </SessionFailureButton>
-        <SummaryActionButton onClick={followUp}>What should I read next?</SummaryActionButton>
+        <Button variant="outline" onClick={followUp}>
+          What should I read next?
+        </Button>
       </>,
     )
 

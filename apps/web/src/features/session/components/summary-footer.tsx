@@ -1,5 +1,5 @@
 import type { SessionDto } from "@chat-with-a-website/contracts"
-import { SummaryActionButton } from "./summary-action-button"
+import { Button } from "@jfrader/ui"
 
 export function SummaryFooter({ onReset, session }: { onReset: () => void; session: SessionDto }) {
   return (
@@ -10,9 +10,22 @@ export function SummaryFooter({ onReset, session }: { onReset: () => void; sessi
           : "Generated summary"}
         {session.sourceTruncated ? " · source shortened" : ""}
       </p>
-      <SummaryActionButton type="button" onClick={onReset}>
+      <Button
+        variant="outline"
+        type="button"
+        onClick={onReset}
+        sx={{
+          minHeight: "var(--control-touch-target)",
+          height: "auto",
+          whiteSpace: "normal",
+          borderRadius: "var(--ui-radius-full)",
+          padding: "var(--ui-space-2) var(--ui-space-4)",
+          fontSize: "var(--ui-text-size-sm)",
+          color: "var(--ui-color-text-muted)",
+        }}
+      >
         Start a new summary
-      </SummaryActionButton>
+      </Button>
     </footer>
   )
 }
