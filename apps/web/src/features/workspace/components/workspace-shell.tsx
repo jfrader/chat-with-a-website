@@ -19,7 +19,7 @@ export function WorkspaceShell() {
   }
 
   return (
-    <div className="relative isolate flex h-svh w-full overflow-hidden bg-(--theme-surface-app) max-mobile:flex-col">
+    <div className={styles.shell}>
       <div
         className={`${styles.background} pointer-events-none absolute inset-0 -z-2 w-full select-none ${sessionId ? "h-[max(100%,954px)]" : "h-full"}`}
         aria-hidden="true"

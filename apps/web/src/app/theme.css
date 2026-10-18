@@ -1,4 +1,4 @@
-:root[data-theme="dark"] {
+[data-theme="dark"] {
   --ui-color-bg: #000000;
   --ui-color-bg-soft: #080709;
   --ui-color-surface: #0d0d0e;

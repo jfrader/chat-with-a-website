@@ -102,7 +102,7 @@ describe("workspace routing and history", () => {
     expect(confirm).toHaveFocus()
     await user.tab()
     expect(cancel).toHaveFocus()
-    await user.keyboard("{Escape}")
+    fireEvent(dialog, new Event("cancel", { cancelable: true }))
     expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
     await waitFor(() => expect(menuTrigger).toHaveFocus())
 
@@ -114,6 +114,44 @@ describe("workspace routing and history", () => {
     expect(await screen.findByRole("heading", { name: "Let’s get to it" })).toBeVisible()
     expect(remove).toHaveBeenCalledWith(selected.id)
     expect(router.state.location.pathname).toBe("/")
+  })
+
+  it("keeps a failed deletion open and leaves the selected summary available", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    const { router } = renderApp(
+      createTestApi({
+        list: async () => ({ sessions: [session], nextCursor: null }),
+        get: async () => session,
+        delete: async () => {
+          throw new Error("Deletion unavailable")
+        },
+      }),
+      `/sessions/${session.id}`,
+    )
+    await user.click(await screen.findByRole("button", { name: `Actions for ${session.title}` }))
+    await user.click(screen.getByRole("button", { name: "Delete summary" }))
+    const dialog = screen.getByRole("alertdialog", { name: "Remove this summary?" })
+    await user.click(within(dialog).getByRole("button", { name: "Delete" }))
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("Deletion unavailable")
+    expect(router.state.location.pathname).toBe(`/sessions/${session.id}`)
+    await user.click(within(dialog).getByRole("button", { name: "Cancel" }))
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    expect(screen.getByRole("heading", { level: 1, name: session.title ?? "" })).toBeVisible()
+  })
+
+  it("copies a history address and returns focus to its action trigger", async () => {
+    const user = userEvent.setup()
+    const writeText = vi.spyOn(navigator.clipboard, "writeText")
+    const session = createSession()
+    renderApp(createTestApi({ list: async () => ({ sessions: [session], nextCursor: null }) }))
+    const trigger = await screen.findByRole("button", { name: `Actions for ${session.title}` })
+    await user.click(trigger)
+    await user.click(screen.getByRole("button", { name: "Copy link" }))
+    expect(writeText).toHaveBeenCalledWith(session.originalUrl)
+    expect(await screen.findByText("Link copied")).toBeVisible()
+    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(screen.queryByRole("button", { name: "Copy link" })).not.toBeInTheDocument()
   })
 
   it("loads older persisted summaries from the next cursor page", async () => {
@@ -172,6 +210,40 @@ describe("workspace routing and history", () => {
 
     expect(screen.getByText(session.title ?? "", { selector: "strong" })).toBeVisible()
     expect(screen.queryByText("History refresh failed")).not.toBeInTheDocument()
+  })
+
+  it("keeps history actions inside the native mobile drawer and restores focus after cancellation", async () => {
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query: string) => ({
+        matches: query === MOBILE_LAYOUT_QUERY,
+        media: query,
+        addEventListener: () => {},
+        removeEventListener: () => {},
+      })),
+    )
+    const user = userEvent.setup()
+    const session = createSession()
+    renderApp(createTestApi({ list: async () => ({ sessions: [session], nextCursor: null }) }))
+    const trigger = await screen.findByRole("button", { name: "Open summary history" })
+    const nativeDrawer = document.querySelector('dialog[data-ui="drawer"]')
+    expect(nativeDrawer).not.toHaveAttribute("open")
+    await user.click(trigger)
+    const drawer = screen.getByRole("dialog", { name: "Summary history" })
+    expect(drawer).toBe(nativeDrawer)
+    const actions = await within(drawer).findByRole("button", {
+      name: `Actions for ${session.title}`,
+    })
+    await user.click(actions)
+    const remove = await screen.findByRole("button", { name: "Delete summary" })
+    expect(drawer).toContainElement(remove)
+    await user.click(remove)
+    const confirmation = screen.getByRole("alertdialog", { name: "Remove this summary?" })
+    await user.click(within(confirmation).getByRole("button", { name: "Cancel" }))
+    await waitFor(() => expect(actions).toHaveFocus())
+    fireEvent(drawer, new Event("cancel", { cancelable: true }))
+    await waitFor(() => expect(trigger).toHaveFocus())
+    expect(nativeDrawer).not.toHaveAttribute("open")
   })
 
   it("removes mobile dialog semantics when the viewport changes to desktop", async () => {

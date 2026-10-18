@@ -8,6 +8,7 @@ import { useRegenerateSession, useSession } from "../../session/hooks/session-qu
 import { AuthorCredit } from "./author-credit"
 import { MobileHeader } from "./mobile-header"
 import { SessionChatEntry } from "./session-chat-entry"
+import styles from "./workspace.module.css"
 
 export function SelectedWorkspace({
   historyOpen,
@@ -50,11 +51,7 @@ export function SelectedWorkspace({
 
   return (
     <>
-      <div
-        className="min-w-0 min-h-0 flex flex-1 flex-col"
-        aria-hidden={modalOpen || undefined}
-        inert={modalOpen}
-      >
+      <div className={styles.content} aria-hidden={modalOpen || undefined} inert={modalOpen}>
         <MobileHeader
           canChat={detail.data?.status === "complete"}
           historyTriggerRef={historyTriggerRef}
@@ -63,7 +60,7 @@ export function SelectedWorkspace({
           onRegenerate={() => regenerate.mutate()}
           regenerating={regenerate.isPending}
         />
-        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
+        <main className={styles.main}>
           <SessionWorkspace
             sessionId={sessionId}
             chatOpen={chatOpen}
