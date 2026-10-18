@@ -67,7 +67,10 @@ export function ChatComposer({
       <label className="sr-only" htmlFor={inputId}>
         Ask about this summary
       </label>
-      <InputGroup size="lg" sx={{ paddingInlineEnd: "var(--ui-space-1)" }}>
+      <InputGroup
+        size="lg"
+        sx={{ minHeight: "var(--control-height)", paddingInlineEnd: "var(--ui-space-1)" }}
+      >
         <InputGroup.Textarea
           sx={{ maxHeight: "120px", resize: "none" }}
           ref={inputRef}

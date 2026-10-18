@@ -142,7 +142,12 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
         <div
           className={`${styles.field} w-(--url-composer-field-width) shrink-0 grow-0 basis-(--url-composer-field-width) max-compact:w-[min(var(--url-composer-field-width),calc(100vw-2rem))] max-compact:flex-none`}
         >
-          <InputGroup size="lg" disabled={submitting} invalid={feedback?.kind === "error"}>
+          <InputGroup
+            size="lg"
+            disabled={submitting}
+            invalid={feedback?.kind === "error"}
+            sx={{ minHeight: "var(--control-height)" }}
+          >
             <InputGroup.Addon placement="start" aria-hidden="true">
               <Link size={16} />
             </InputGroup.Addon>

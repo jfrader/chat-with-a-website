@@ -26,7 +26,14 @@ export function SessionChatEntry({
       inert={chatOpen}
       onSubmit={submit}
     >
-      <InputGroup size="lg" sx={{ width: "100%", paddingInline: "var(--ui-space-1)" }}>
+      <InputGroup
+        size="lg"
+        sx={{
+          width: "100%",
+          minHeight: "var(--control-height)",
+          paddingInline: "var(--ui-space-1)",
+        }}
+      >
         <InputGroup.Addon placement="start">
           <Button
             variant="ghost"
