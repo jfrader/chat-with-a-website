@@ -11,6 +11,7 @@ export function ChatMessage({ message }: { message: MessageDto }) {
       author={message.role === "user" ? "You" : "Assistant"}
       aria-label={message.role === "user" ? "You" : "Assistant"}
       avatar={null}
+      className={styles.message}
       own={message.role === "user"}
       size="sm"
       offeredReactions={[]}

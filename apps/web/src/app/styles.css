@@ -120,3 +120,7 @@ input:focus-visible {
   outline: var(--focus-outline);
   outline-offset: var(--focus-outline-offset);
 }
+
+[data-ui="input-group"] :is(input, textarea):focus-visible {
+  outline: 0;
+}

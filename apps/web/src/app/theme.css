@@ -28,7 +28,7 @@
   --ui-color-danger-border: rgb(255 138 141 / 0.55);
   --ui-color-success: #82d6aa;
   --ui-color-success-soft: rgb(130 214 170 / 0.12);
-  --ui-color-focus-ring: #65a30d;
+  --ui-color-focus-ring: var(--theme-focus-ring);
   --ui-color-scrim: rgb(0 0 0 / 72%);
   --ui-color-surface-glass: rgb(8 7 9 / 0.96);
   --ui-color-surface-highlight: rgb(255 255 255 / 12%);

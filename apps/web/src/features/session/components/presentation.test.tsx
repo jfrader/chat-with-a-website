@@ -7,7 +7,7 @@ import { FollowUpSkeleton } from "./follow-up-skeleton"
 import { OpeningSummary } from "./opening-summary"
 import { SessionFailureButton } from "./session-failure-button"
 import { SessionFailureView } from "./session-failure-view"
-import { Button } from "@jfrader/ui"
+import { FollowUpSuggestions } from "./follow-up-suggestions"
 import { SummaryMarkdown } from "./summary-markdown"
 import { SummaryProgress } from "./summary-progress"
 
@@ -124,9 +124,7 @@ describe("presentation primitives", () => {
         <SessionFailureButton disabled onClick={retry}>
           Retry summary
         </SessionFailureButton>
-        <Button variant="outline" onClick={followUp}>
-          What should I read next?
-        </Button>
+        <FollowUpSuggestions prompts={["What should I read next?"]} onOpenChat={followUp} />
       </>,
     )
 
@@ -137,6 +135,17 @@ describe("presentation primitives", () => {
     expect(screen.getByRole("button", { name: "What should I read next?" })).toHaveFocus()
     await user.keyboard("{Enter}")
     expect(followUp).toHaveBeenCalledOnce()
+    expect(followUp).toHaveBeenCalledWith("What should I read next?")
+  })
+
+  it("hides the visible author name while keeping the article name", () => {
+    const { container } = render(
+      <ChatMessage message={createMessage({ role: "assistant", content: "Grounded answer" })} />,
+    )
+    const author = container.querySelector('[data-ui="chat-message-author"]')
+    expect(author).not.toBeNull()
+    expect(getComputedStyle(author!).display).toBe("none")
+    expect(screen.getByRole("article", { name: "Assistant" })).toBeVisible()
   })
 
   it("keeps follow-up placeholders decorative", () => {

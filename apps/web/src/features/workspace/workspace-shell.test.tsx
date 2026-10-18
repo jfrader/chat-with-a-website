@@ -355,6 +355,10 @@ describe("workspace routing and history", () => {
     expect(within(suggestions).getByRole("button", { name: /New summary for/ })).toHaveFocus()
     await user.keyboard("{ArrowDown}")
     expect(within(suggestions).getByRole("button", { name: /A field guide/ })).toHaveFocus()
+    await user.keyboard("{ArrowUp}")
+    expect(within(suggestions).getByRole("button", { name: /New summary for/ })).toHaveFocus()
+    await user.keyboard("{ArrowDown}")
+    expect(within(suggestions).getByRole("button", { name: /A field guide/ })).toHaveFocus()
     await user.keyboard("{Enter}")
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/sessions/${session.id}`))

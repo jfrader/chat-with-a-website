@@ -125,7 +125,8 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
         (option) => option !== null,
       )
       const index = options.indexOf(document.activeElement as HTMLButtonElement)
-      options[(index + 1) % options.length]?.focus()
+      const direction = event.key === "ArrowDown" ? 1 : -1
+      options[(index + direction + options.length) % options.length]?.focus()
     } else if (event.key === "Escape") {
       event.preventDefault()
       setDismissed(true)

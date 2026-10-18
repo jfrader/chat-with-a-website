@@ -8,6 +8,10 @@
     transform 180ms var(--motion-easing-standard);
 }
 
+.message [data-ui="chat-message-author"] {
+  display: none;
+}
+
 .thought summary::-webkit-details-marker {
   display: none;
 }
