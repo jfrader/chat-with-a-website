@@ -40,6 +40,10 @@
   min-width: 0;
 }
 
-.summary :is(th, td) {
-  overflow-wrap: normal;
+.summary > :first-child {
+  margin-block-start: 0;
+}
+
+.summary > :last-child {
+  margin-block-end: 0;
 }

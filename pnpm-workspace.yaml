@@ -10,5 +10,5 @@ injectWorkspacePackages: true
 minimumReleaseAgeExclude:
   - '@tanstack/query-core@5.102.4'
   - '@tanstack/react-query@5.102.4'
-  - '@jfrader/tokens@0.9.0'
-  - '@jfrader/ui@0.9.0'
+  - '@jfrader/tokens@0.9.1'
+  - '@jfrader/ui@0.9.1'
