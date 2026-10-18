@@ -620,6 +620,43 @@ describe("summary chat", () => {
     )
   })
 
+  it("keeps Shift+Enter multiline and blocks keyboard resubmission while chat is pending", async () => {
+    const user = userEvent.setup()
+    const session = createSession()
+    let release!: () => void
+    const pending = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    const chat = vi.fn(() => pending)
+    renderApp(createTestApi({ get: async () => session, chat }), `/sessions/${session.id}`)
+
+    await user.click(await screen.findByRole("button", { name: "Open empty chat" }))
+    const input = screen.getByRole("textbox", { name: "Ask about this summary" })
+    await user.type(input, "First line")
+    await user.keyboard("{Shift>}{Enter}{/Shift}Second line")
+    expect(input).toHaveValue("First line\nSecond line")
+    expect(chat).not.toHaveBeenCalled()
+
+    await user.keyboard("{Enter}")
+    await waitFor(() => expect(chat).toHaveBeenCalledOnce())
+    expect(chat).toHaveBeenCalledWith(
+      session.id,
+      "First line\nSecond line",
+      expect.any(Function),
+      expect.any(AbortSignal),
+      expect.any(String),
+    )
+    expect(input).toHaveAttribute("readonly")
+    expect(input).not.toBeDisabled()
+    expect(screen.getByRole("button", { name: "Send message" })).toBeDisabled()
+    await user.keyboard("Another question{Enter}")
+    expect(chat).toHaveBeenCalledOnce()
+    expect(input).toHaveValue("")
+    await act(async () => release())
+    await waitFor(() => expect(input).not.toHaveAttribute("readonly"))
+    expect(input).toHaveFocus()
+  })
+
   it("opens chat, sends a message, and renders streamed assistant text", async () => {
     const user = userEvent.setup()
     const session = createSession()

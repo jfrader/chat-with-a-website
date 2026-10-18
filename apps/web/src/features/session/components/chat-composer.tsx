@@ -1,7 +1,7 @@
 import { createChatRequestSchema } from "@chat-with-a-website/contracts"
+import { Button, InputGroup } from "@jfrader/ui"
+import { ArrowUp } from "lucide-react"
 import { type FormEvent, useEffect, useEffectEvent, useId, useRef, useState } from "react"
-import { ComposerField } from "../../../components/composer-control/composer-field"
-import { ComposerIconButton } from "../../../components/composer-control/composer-icon-button"
 import { useSendMessage } from "../hooks/session-queries"
 
 export function ChatComposer({
@@ -67,8 +67,9 @@ export function ChatComposer({
       <label className="sr-only" htmlFor={inputId}>
         Ask about this summary
       </label>
-      <ComposerField variant="multiline">
-        <textarea
+      <InputGroup size="lg" sx={{ paddingInlineEnd: "var(--ui-space-1)" }}>
+        <InputGroup.Textarea
+          sx={{ maxHeight: "120px", resize: "none" }}
           ref={inputRef}
           id={inputId}
           rows={1}
@@ -89,14 +90,21 @@ export function ChatComposer({
             }
           }}
         />
-        <ComposerIconButton
-          type="submit"
-          disabled={!parsedDraft.success || send.isPending}
-          aria-label="Send message"
-        >
-          <span aria-hidden="true">↑</span>
-        </ComposerIconButton>
-      </ComposerField>
+        <InputGroup.Addon placement="end">
+          <Button
+            sx={{
+              width: "var(--control-touch-target)",
+              height: "var(--control-touch-target)",
+              padding: 0,
+            }}
+            type="submit"
+            disabled={!parsedDraft.success || send.isPending}
+            aria-label="Send message"
+          >
+            <ArrowUp size={18} aria-hidden="true" />
+          </Button>
+        </InputGroup.Addon>
+      </InputGroup>
       <p
         className={
           send.error
