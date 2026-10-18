@@ -89,11 +89,11 @@ importers:
         specifier: 5.3.0
         version: 5.3.0
       '@jfrader/tokens':
-        specifier: 0.8.1
-        version: 0.8.1
+        specifier: 0.9.0
+        version: 0.9.0
       '@jfrader/ui':
-        specifier: 0.8.1
-        version: 0.8.1(@emotion/cache@11.14.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
+        specifier: 0.9.0
+        version: 0.9.0(@emotion/cache@11.14.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@tanstack/react-query':
         specifier: 5.102.4
         version: 5.102.4(react@19.2.8)
@@ -1050,11 +1050,11 @@ packages:
     peerDependencies:
       hono: ^4
 
-  '@jfrader/tokens@0.8.1':
-    resolution: {integrity: sha512-eONnWgHiFUmB6EynuNY0EqoZE7Y86gn/DZeunN2US4o4zSLCMHqiYLfrGgSUSzFH4ijzbTyVEd11BRIjIb6G8A==}
+  '@jfrader/tokens@0.9.0':
+    resolution: {integrity: sha512-UUnlIYDSzRtWTIb/nvu6uiaBcWvUcUQRUhxHixGzXeHuSKwrfNV5GV+1UQJthTFCPnUrItpRXgC+gH8lmZCzIw==}
 
-  '@jfrader/ui@0.8.1':
-    resolution: {integrity: sha512-i4CV83o8zIMogmQ4Arxi6q6iLlFqCvZ2qD68Dpa5WuW3AIrAD51gHHv8NPCTjfjcKROpnIQrL+u/GpAMekv01A==}
+  '@jfrader/ui@0.9.0':
+    resolution: {integrity: sha512-K88YQzknGCEgnrPUK/GN7Uf6qD89mB57l06ip3D0LcuOLKaG7FlKqLqj5w+xdZoouHbzBCG2FvhrycjApAKiow==}
     peerDependencies:
       '@emotion/cache': ^11.14.0
       next: ^15.0.0 || ^16.0.0
@@ -3729,14 +3729,14 @@ snapshots:
     dependencies:
       hono: 4.13.7
 
-  '@jfrader/tokens@0.8.1': {}
+  '@jfrader/tokens@0.9.0': {}
 
-  '@jfrader/ui@0.8.1(@emotion/cache@11.14.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
+  '@jfrader/ui@0.9.0(@emotion/cache@11.14.0)(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@emotion/react': 11.14.0(@types/react@19.2.18)(react@19.2.8)
       '@emotion/styled': 11.14.1(@emotion/react@11.14.0(@types/react@19.2.18)(react@19.2.8))(@types/react@19.2.18)(react@19.2.8)
       '@floating-ui/react': 0.27.20(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      '@jfrader/tokens': 0.8.1
+      '@jfrader/tokens': 0.9.0
       motion: 14.3.0(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       react: 19.2.8
       react-dom: 19.2.8(react@19.2.8)
