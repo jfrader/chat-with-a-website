@@ -72,7 +72,7 @@ export function ChatComposer({
         sx={{ minHeight: "var(--control-height)", paddingInlineEnd: "var(--ui-space-1)" }}
       >
         <InputGroup.Textarea
-          sx={{ maxHeight: "120px", resize: "none" }}
+          sx={{ maxHeight: "120px", resize: "none", alignSelf: "center" }}
           ref={inputRef}
           id={inputId}
           rows={1}
