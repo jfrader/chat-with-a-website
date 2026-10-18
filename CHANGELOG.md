@@ -4,6 +4,9 @@ All notable user-visible changes to this project.
 
 ## Unreleased
 
+### Changed
+- The web UI uses the `@jfrader/ui` component system for its shell, history, fields, summary and chat, keeping the existing dark palette and flows.
+
 ### Added
 - “Made by Fran” footer credit linking to jfrader.com on the home and session screens.
 - Optional `NO_DATABASE=true` hosting with summaries and chat history saved in the browser. PostgreSQL remains the default.

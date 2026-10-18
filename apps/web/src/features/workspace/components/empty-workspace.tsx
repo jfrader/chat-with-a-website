@@ -1,3 +1,4 @@
+import { EmptyState } from "@jfrader/ui"
 import { useNavigate } from "@tanstack/react-router"
 import type { RefObject } from "react"
 import { useCreateSession } from "../../session/hooks/session-queries"
@@ -39,18 +40,34 @@ export function EmptyWorkspace({
             className={`${styles.glow} pointer-events-none absolute -top-26.5 left-1/2 -z-1 h-123 w-191.5 max-w-none -translate-x-1/2 select-none max-compact:h-109.5 max-compact:w-170`}
             aria-hidden="true"
           />
-          <div className="mb-10 flex flex-col items-center gap-2 text-center max-compact:mb-8">
-            <h1
-              className="m-0 text-2xl leading-8 font-semibold tracking-[-0.02em] text-(--theme-text-primary)"
-              id="workspace-heading"
-            >
-              Let’s get to it
-            </h1>
-            <p className="m-0 max-w-none text-lg leading-6 font-normal tracking-[-0.01em] text-(--theme-text-secondary) max-mobile:max-w-105 max-mobile:text-base max-mobile:leading-5.75">
-              Paste a URL to summarize and understand any content instantly
-            </p>
-          </div>
-          <UrlComposer onSubmit={create} />
+          <EmptyState
+            headingLevel={1}
+            title={<span id="workspace-heading">Let’s get to it</span>}
+            description="Paste a URL to summarize and understand any content instantly"
+            action={<UrlComposer onSubmit={create} />}
+            sx={{
+              padding: 0,
+              gap: "var(--ui-space-10)",
+              "@media (max-width: 600px)": { gap: "var(--ui-space-8)" },
+            }}
+            slotProps={{
+              title: {
+                css: {
+                  fontSize: "var(--ui-text-size-xl)",
+                  fontWeight: 600,
+                  lineHeight: "var(--ui-line-height-tight)",
+                },
+              },
+              description: {
+                css: {
+                  maxInlineSize: "none",
+                  fontSize: "var(--ui-text-size-lg)",
+                  "@media (max-width: 720px)": { fontSize: "var(--font-size-body-mobile)" },
+                },
+              },
+              action: { css: { width: "100%", display: "block" } },
+            }}
+          />
         </section>
       </main>
       <AuthorCredit />

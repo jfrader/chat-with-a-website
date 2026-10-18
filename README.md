@@ -29,7 +29,7 @@ then you keep asking follow-up questions about its content.
 | API | Node 24, Hono, server-sent events |
 | Database | PostgreSQL, Drizzle ORM |
 | Web | React 19, Vite, TanStack Router, TanStack Query |
-| Styling | Tailwind CSS 4 + CSS Modules |
+| Styling | @jfrader/ui components and tokens, Tailwind CSS 4 + CSS Modules for app layout |
 | Contracts | Zod schemas shared across the API and web |
 | LLM | OpenAI-compatible SDK (DeepSeek by default) |
 | Tooling | pnpm workspaces, TypeScript, Biome, Vitest, Docker, GitHub Actions |

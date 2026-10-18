@@ -1,4 +1,4 @@
-import styles from "./summary-article.module.css"
+import { Skeleton } from "@jfrader/ui"
 
 export function FollowUpSkeleton() {
   return (
@@ -11,9 +11,9 @@ export function FollowUpSkeleton() {
         <p className="mt-1 mb-0 text-xs text-(--theme-text-muted)">Writing follow-up questions…</p>
       </div>
       <div className="grid gap-2">
-        <span className={styles.suggestionSkeleton} />
-        <span className={styles.suggestionSkeleton} />
-        <span className={styles.suggestionSkeleton} />
+        <Skeleton height="var(--control-touch-target)" radius="var(--ui-radius-sm)" />
+        <Skeleton height="var(--control-touch-target)" radius="var(--ui-radius-sm)" />
+        <Skeleton height="var(--control-touch-target)" radius="var(--ui-radius-sm)" />
       </div>
     </section>
   )

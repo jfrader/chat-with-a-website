@@ -1,3 +1,4 @@
+import { Button, Surface } from "@jfrader/ui"
 import { type KeyboardEvent, useEffect, useRef } from "react"
 import { Scrim } from "../../../components/scrim"
 import { trapFocus } from "../../../components/trap-focus"
@@ -36,12 +37,21 @@ export function ChatPanel({ initialPrompt, modal, onClose, open, sessionId }: Ch
   return (
     <>
       {modal && open ? <Scrim className="z-21" onClick={onClose} /> : null}
-      <aside
+      <Surface
+        sx={{
+          borderRadius: 0,
+          borderBlock: 0,
+          borderInlineEnd: 0,
+          backgroundColor: "var(--ui-color-bg-soft)",
+          backgroundImage: "none",
+          backdropFilter: "none",
+          '&[aria-hidden="true"]': { borderInlineStartColor: "transparent" },
+        }}
         className={`${styles.panel} ${
           open
-            ? "w-(--chat-panel-width) basis-(--chat-panel-width) border-(--theme-line-subtle-color) max-chat:translate-x-0"
-            : "w-0 basis-0 border-transparent max-chat:translate-x-full"
-        } relative z-6 flex h-full min-w-0 shrink-0 grow-0 flex-col overflow-hidden border-l bg-(--theme-surface-navigation) max-chat:fixed max-chat:inset-y-0 max-chat:right-0 max-chat:z-22 max-chat:h-svh max-chat:w-(--chat-panel-width) max-chat:flex-none max-chat:border-(--theme-line-subtle-color) max-chat:bg-(--theme-surface-navigation-solid) max-mobile:left-0 max-mobile:w-full`}
+            ? "w-(--chat-panel-width) basis-(--chat-panel-width) max-chat:translate-x-0"
+            : "w-0 basis-0 max-chat:translate-x-full"
+        } relative z-6 flex h-full min-w-0 shrink-0 grow-0 flex-col overflow-hidden max-chat:fixed max-chat:inset-y-0 max-chat:right-0 max-chat:z-22 max-chat:h-svh max-chat:w-(--chat-panel-width) max-chat:flex-none max-mobile:left-0 max-mobile:w-full`}
         aria-label="Chat about this summary"
         aria-modal={(modal && open) || undefined}
         aria-hidden={!open || undefined}
@@ -59,19 +69,24 @@ export function ChatPanel({ initialPrompt, modal, onClose, open, sessionId }: Ch
               </span>
             ) : null}
           </div>
-          <button
+          <Button
+            variant="ghost"
             ref={closeButton}
-            className="size-(--control-touch-target) cursor-pointer border-0 bg-transparent text-(--theme-text-muted)"
+            sx={{
+              minWidth: "var(--control-touch-target)",
+              minHeight: "var(--control-touch-target)",
+              padding: 0,
+            }}
             type="button"
             onClick={onClose}
             aria-label="Close chat"
           >
             ×
-          </button>
+          </Button>
         </header>
         <ChatMessages enabled={open} sessionId={sessionId} />
         <ChatComposer sessionId={sessionId} {...(initialPrompt ? { initialPrompt } : {})} />
-      </aside>
+      </Surface>
     </>
   )
 }

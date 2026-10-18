@@ -1,3 +1,4 @@
+import { Button } from "@jfrader/ui"
 import type { RefObject } from "react"
 import { ChatIcon } from "../../../components/icons/chat-icon"
 import { RegenerateIcon } from "../../../components/icons/regenerate-icon"
@@ -22,7 +23,13 @@ export function MobileHeader({
 
   return (
     <header className="relative z-3 hidden min-h-14 items-center justify-between border-b border-(--theme-line-subtle-color) bg-(--theme-surface-navigation-solid) p-2 max-mobile:flex">
-      <button
+      <Button
+        variant="ghost"
+        sx={{
+          width: "var(--control-touch-target)",
+          height: "var(--control-touch-target)",
+          padding: 0,
+        }}
         ref={historyTriggerRef}
         className={buttonClass}
         type="button"
@@ -30,7 +37,7 @@ export function MobileHeader({
         aria-label="Open summary history"
       >
         <span aria-hidden="true">☰</span>
-      </button>
+      </Button>
       <img
         className="absolute left-1/2 size-6 -translate-x-1/2"
         src="/assets/app-mark.svg"
@@ -38,7 +45,13 @@ export function MobileHeader({
       />
       {canChat ? (
         <div className="flex">
-          <button
+          <Button
+            variant="ghost"
+            sx={{
+              width: "var(--control-touch-target)",
+              height: "var(--control-touch-target)",
+              padding: 0,
+            }}
             className={buttonClass}
             type="button"
             disabled={regenerating}
@@ -46,15 +59,21 @@ export function MobileHeader({
             aria-label="Regenerate summary"
           >
             <RegenerateIcon />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="ghost"
+            sx={{
+              width: "var(--control-touch-target)",
+              height: "var(--control-touch-target)",
+              padding: 0,
+            }}
             className={buttonClass}
             type="button"
             onClick={() => onOpenChat?.()}
             aria-label="Open chat"
           >
             <ChatIcon />
-          </button>
+          </Button>
         </div>
       ) : (
         <span className="size-11" />

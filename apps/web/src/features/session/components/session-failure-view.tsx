@@ -1,3 +1,4 @@
+import { EmptyState } from "@jfrader/ui"
 import type { ReactNode } from "react"
 
 export function SessionFailureView({
@@ -22,13 +23,24 @@ export function SessionFailureView({
       <p className="mb-2.5 text-xs tracking-(--tracking-label) text-(--theme-text-danger) uppercase">
         {label}
       </p>
-      <h1 className="m-0 text-[28px] leading-9" id="session-title">
-        {title}
-      </h1>
-      <p className="mt-3 mb-7 max-w-105 text-sm leading-5.5 text-(--theme-text-secondary)">
-        {message}
-      </p>
-      <div className="flex flex-wrap justify-center gap-3">{actions}</div>
+      <EmptyState
+        headingLevel={1}
+        title={<span id="session-title">{title}</span>}
+        description={message}
+        action={actions}
+        sx={{ padding: 0, gap: "calc(var(--ui-space-4) + var(--ui-space-3))" }}
+        slotProps={{
+          title: {
+            css: { fontSize: "var(--ui-text-size-2xl)", lineHeight: "var(--ui-line-height-tight)" },
+          },
+          description: {
+            css: {
+              fontSize: "var(--ui-text-size-md)",
+              lineHeight: "var(--ui-line-height-relaxed)",
+            },
+          },
+        }}
+      />
       {error ? (
         <p className="mt-3 mb-0 text-[11px] text-(--theme-text-danger)" role="alert">
           {error}

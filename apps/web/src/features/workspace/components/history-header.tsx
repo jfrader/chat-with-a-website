@@ -1,3 +1,5 @@
+import { Button } from "@jfrader/ui"
+
 export function HistoryHeader({
   collapsed,
   mobileOpen,
@@ -17,18 +19,34 @@ export function HistoryHeader({
         alt="Chat With a Website"
       />
       {mobileOpen ? (
-        <button
-          ref={(node) => node?.focus()}
-          className="hidden size-11 cursor-pointer place-items-center border-0 bg-transparent p-3 text-(--theme-text-muted) max-mobile:grid"
+        <Button
+          variant="ghost"
+          autoFocus
+          sx={{
+            width: "var(--control-touch-target)",
+            height: "var(--control-touch-target)",
+            padding: 0,
+          }}
+          className="hidden cursor-pointer place-items-center border-0 bg-transparent text-(--ui-color-text-muted) max-mobile:grid"
           type="button"
           onClick={onCloseMobile}
           aria-label="Close summary history"
         >
           ×
-        </button>
+        </Button>
       ) : null}
-      <button
-        className={`absolute top-2.5 grid size-11 cursor-pointer place-items-center border-0 bg-transparent p-3 text-(--theme-text-muted) transition-[right] duration-180 ease-(--motion-easing-standard) max-mobile:hidden ${collapsed ? "right-0.5" : "right-2.5"}`}
+      <Button
+        variant="ghost"
+        sx={{
+          position: "absolute",
+          top: "var(--ui-space-2)",
+          right: collapsed ? "var(--ui-space-1)" : "var(--ui-space-3)",
+          width: "var(--control-touch-target)",
+          height: "var(--control-touch-target)",
+          padding: 0,
+          "@media (width < 720px)": { display: "none" },
+        }}
+        className="grid cursor-pointer place-items-center border-0 bg-transparent text-(--ui-color-text-muted) transition-[right] duration-[160ms] ease-out"
         type="button"
         aria-controls="summary-history-content"
         aria-expanded={!collapsed}
@@ -36,11 +54,11 @@ export function HistoryHeader({
         onClick={onToggle}
       >
         <img
-          className={`size-3 transition-[filter,transform] duration-180 ease-(--motion-easing-standard) hover:brightness-150 ${collapsed ? "rotate-180" : ""}`}
+          className={`size-3 transition-[filter,transform] duration-[160ms] ease-out hover:brightness-150 ${collapsed ? "rotate-180" : ""}`}
           src="/assets/collapse-sidebar.svg"
           alt=""
         />
-      </button>
+      </Button>
     </header>
   )
 }

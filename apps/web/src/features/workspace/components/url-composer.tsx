@@ -1,5 +1,7 @@
 import { httpUrlSchema, type SessionDto } from "@chat-with-a-website/contracts"
+import { Button, InputGroup, Surface } from "@jfrader/ui"
 import { useNavigate } from "@tanstack/react-router"
+import { Link } from "lucide-react"
 import {
   type FormEvent,
   type KeyboardEvent,
@@ -8,8 +10,6 @@ import {
   useRef,
   useState,
 } from "react"
-import { ComposerField } from "../../../components/composer-control/composer-field"
-import borderStyles from "../../../components/gradient-border.module.css"
 import { useSessions } from "../../session/hooks/session-queries"
 import styles from "./url-composer.module.css"
 
@@ -118,14 +118,15 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
     }
   }
 
-  function handleSuggestionsKeyDown(event: KeyboardEvent<HTMLFieldSetElement>) {
+  function handleSuggestionsKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault()
       const options = [newOptionRef.current, matchOptionRef.current].filter(
         (option) => option !== null,
       )
       const index = options.indexOf(document.activeElement as HTMLButtonElement)
-      options[(index + 1) % options.length]?.focus()
+      const direction = event.key === "ArrowDown" ? 1 : -1
+      options[(index + direction + options.length) % options.length]?.focus()
     } else if (event.key === "Escape") {
       event.preventDefault()
       setDismissed(true)
@@ -142,11 +143,16 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
         <div
           className={`${styles.field} w-(--url-composer-field-width) shrink-0 grow-0 basis-(--url-composer-field-width) max-compact:w-[min(var(--url-composer-field-width),calc(100vw-2rem))] max-compact:flex-none`}
         >
-          <ComposerField>
-            <span className={styles.inputIcon} aria-hidden="true">
-              <img src="/assets/link.svg" alt="" />
-            </span>
-            <input
+          <InputGroup
+            size="lg"
+            disabled={submitting}
+            invalid={feedback?.kind === "error"}
+            sx={{ minHeight: "var(--control-height)" }}
+          >
+            <InputGroup.Addon placement="start" aria-hidden="true">
+              <Link size={16} />
+            </InputGroup.Addon>
+            <InputGroup.Input
               ref={inputRef}
               id={inputId}
               name="url"
@@ -167,25 +173,29 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
                 idempotencyKey.current = undefined
               }}
             />
-          </ComposerField>
+          </InputGroup>
           {suggestionsOpen && match ? (
-            <fieldset
+            <Surface
+              variant="floating"
+              role="group"
               className={styles.suggestions}
               aria-label="Suggestions"
               onKeyDown={handleSuggestionsKeyDown}
             >
               {result.success ? (
-                <button
+                <Button
+                  variant="ghost"
                   ref={newOptionRef}
                   className={styles.suggestion}
                   type="button"
                   onClick={() => void startSummary()}
                 >
-                  <img src="/assets/link.svg" alt="" aria-hidden="true" />
+                  <Link size={16} aria-hidden="true" />
                   <span>New summary for “{value.trim()}”</span>
-                </button>
+                </Button>
               ) : null}
-              <button
+              <Button
+                variant="ghost"
                 ref={matchOptionRef}
                 className={`${styles.suggestion} ${styles.suggestionSession}`}
                 type="button"
@@ -193,8 +203,8 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
               >
                 <strong>{match.title ?? match.host}</strong>
                 <span>{match.originalUrl}</span>
-              </button>
-            </fieldset>
+              </Button>
+            </Surface>
           ) : null}
           <p
             className={
@@ -208,13 +218,15 @@ export function UrlComposer({ onSubmit }: UrlComposerProps) {
             {feedback?.message}
           </p>
         </div>
-        <button
-          className={`${styles.submit} ${borderStyles.gradientBorder} w-(--url-composer-action-width) shrink-0 grow-0 basis-(--url-composer-action-width) max-compact:w-[min(var(--url-composer-field-width),calc(100vw-2rem))] max-compact:basis-(--control-height)`}
+        <Button
+          size="lg"
+          tone="accent"
+          className="w-(--url-composer-action-width) shrink-0 grow-0 basis-(--url-composer-action-width) max-compact:w-[min(var(--url-composer-field-width),calc(100vw-2rem))] max-compact:basis-(--control-height)"
           type="submit"
           disabled={!value.trim() || submitting}
         >
           <span>{submitting ? "Starting…" : "Summarize"}</span>
-        </button>
+        </Button>
       </div>
     </form>
   )

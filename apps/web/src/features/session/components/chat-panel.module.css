@@ -8,10 +8,8 @@
     transform 180ms var(--motion-easing-standard);
 }
 
-.user {
-  border: var(--border-subtle);
-  border-radius: 18px;
-  background: linear-gradient(150deg, rgb(54 83 20 / 24%), rgb(255 255 255 / 8%));
+.message [data-ui="chat-message-author"] {
+  display: none;
 }
 
 .thought summary::-webkit-details-marker {
@@ -24,4 +22,11 @@
 
 .thought[open] .thoughtChevron {
   transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .panel,
+  .thoughtChevron {
+    transition: none;
+  }
 }

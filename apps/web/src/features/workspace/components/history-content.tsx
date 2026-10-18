@@ -1,10 +1,9 @@
+import { Button, EmptyState, SearchField, Skeleton } from "@jfrader/ui"
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useDeferredValue } from "react"
-import { ComposerField } from "../../../components/composer-control/composer-field"
-import { SearchIcon } from "../../../components/icons/search-icon"
 import { useSessions } from "../../session/hooks/session-queries"
-import styles from "./history-navigation.module.css"
 import { SessionCard } from "./session-card"
+import styles from "./history-navigation.module.css"
 
 export function HistoryContent({
   collapsed,
@@ -57,33 +56,24 @@ export function HistoryContent({
       inert={hidden}
     >
       {hideSearch ? null : (
-        <label className="mx-4 mb-2 block max-mobile:mx-3">
-          <span className="sr-only">Search summaries</span>
-          <ComposerField variant="search">
-            <span
-              className="grid size-4 place-items-center text-(--theme-text-muted)"
-              aria-hidden="true"
-            >
-              <SearchIcon />
-            </span>
-            <input
-              type="search"
-              value={query}
-              placeholder="Search summaries"
-              onChange={(event) => changeQuery(event.target.value)}
-            />
-          </ComposerField>
-        </label>
+        <div className="mx-4 mb-2 max-mobile:mx-3">
+          <SearchField
+            aria-label="Search summaries"
+            value={query}
+            placeholder="Search summaries"
+            onValueChange={changeQuery}
+          />
+        </div>
       )}
       <div
-        className="scrollbar-thin flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pt-3 [scrollbar-color:var(--theme-scrollbar-thumb)_transparent]"
+        className={`${styles.scrollArea} scrollbar-thin flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto pt-3 [scrollbar-color:var(--theme-scrollbar-thumb)_transparent]`}
         aria-live="polite"
       >
         {sessions.isLoading || deferredQuery !== query ? (
           <div className="mx-4 grid gap-2" role="status" aria-label="Loading summary history">
-            <span className={styles.skeleton} />
-            <span className={styles.skeleton} />
-            <span className={styles.skeleton} />
+            <Skeleton height={92} />
+            <Skeleton height={92} />
+            <Skeleton height={92} />
           </div>
         ) : sessions.error && !sessions.data ? (
           <p
@@ -102,9 +92,10 @@ export function HistoryContent({
             />
           ))
         ) : (
-          <p className="mx-3 my-auto text-center text-[13px] leading-5 text-(--theme-text-muted)">
-            {query ? "No summaries match your search" : "No summaries yet"}
-          </p>
+          <EmptyState
+            className="mx-3 my-auto"
+            title={query ? "No summaries match your search" : "No summaries yet"}
+          />
         )}
         {sessions.isFetchNextPageError ? (
           <p
@@ -115,14 +106,15 @@ export function HistoryContent({
           </p>
         ) : null}
         {sessions.hasNextPage ? (
-          <button
+          <Button
+            variant="outline"
             className="mx-4 mt-3 min-h-(--control-touch-target) w-[calc(100%-2rem)] cursor-pointer rounded-(--radius-pill) border border-(--theme-line-subtle-color) bg-transparent text-xs text-(--theme-text-secondary) disabled:cursor-default disabled:text-(--theme-text-disabled)"
             type="button"
             disabled={sessions.isFetchingNextPage}
             onClick={() => void sessions.fetchNextPage()}
           >
             {sessions.isFetchingNextPage ? "Loading…" : "Load older summaries"}
-          </button>
+          </Button>
         ) : null}
       </div>
     </div>

@@ -1,18 +1,12 @@
 import type { SessionDto } from "@chat-with-a-website/contracts"
-import { type KeyboardEvent, useEffect, useRef, useState } from "react"
-import { createPortal } from "react-dom"
+import { Button, Popover } from "@jfrader/ui"
+import { useRef, useState } from "react"
 import { CopyIcon } from "../../../components/icons/copy-icon"
 import { DownloadIcon } from "../../../components/icons/download-icon"
 import { TrashIcon } from "../../../components/icons/trash-icon"
-import { trapFocus } from "../../../components/trap-focus"
 import { DeleteSessionDialog } from "./delete-session-dialog"
 import { HistoryMenuButton } from "./history-menu-button"
 import styles from "./history-navigation.module.css"
-
-const MENU_VERTICAL_ALIGN_PX = 4
-const MENU_GAP_PX = 14
-const MENU_MIN_EDGE_SPACE_PX = 240
-const MENU_SCROLL_GRACE_MS = 100
 
 const statusLabels: Record<SessionDto["status"], string> = {
   fetching: "Fetching",
@@ -49,49 +43,9 @@ export function SessionCard({
   session: SessionDto
 }) {
   const [menuOpen, setMenuOpen] = useState(false)
-  const [menuPosition, setMenuPosition] = useState<{ top: number; left: number }>()
   const [deleteOpen, setDeleteOpen] = useState(false)
   const [actionFeedback, setActionFeedback] = useState<string>()
   const menuTrigger = useRef<HTMLButtonElement>(null)
-  const menu = useRef<HTMLFieldSetElement>(null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    menu.current?.querySelector<HTMLButtonElement>("button:not([disabled])")?.focus()
-    const close = () => setMenuOpen(false)
-    const closeOutside = (event: PointerEvent) => {
-      const target = event.target as Node
-      if (menu.current?.contains(target) || menuTrigger.current?.contains(target)) return
-      close()
-    }
-    const listen = window.setTimeout(() => {
-      window.addEventListener("scroll", close, { capture: true })
-      window.addEventListener("resize", close)
-      window.addEventListener("pointerdown", closeOutside)
-    }, MENU_SCROLL_GRACE_MS)
-    return () => {
-      window.clearTimeout(listen)
-      window.removeEventListener("scroll", close, { capture: true })
-      window.removeEventListener("resize", close)
-      window.removeEventListener("pointerdown", closeOutside)
-    }
-  }, [menuOpen])
-
-  function toggleMenu() {
-    if (!menuOpen && menuTrigger.current) {
-      const rect = menuTrigger.current.getBoundingClientRect()
-      const fitsBeside = rect.right + MENU_GAP_PX + MENU_MIN_EDGE_SPACE_PX <= window.innerWidth
-      setMenuPosition(
-        fitsBeside
-          ? { top: rect.top - MENU_VERTICAL_ALIGN_PX, left: rect.right + MENU_GAP_PX }
-          : {
-              top: rect.bottom + MENU_VERTICAL_ALIGN_PX,
-              left: Math.max(MENU_GAP_PX, window.innerWidth - MENU_MIN_EDGE_SPACE_PX),
-            },
-      )
-    }
-    setMenuOpen((open) => !open)
-  }
 
   function closeActions() {
     setMenuOpen(false)
@@ -143,38 +97,27 @@ export function SessionCard({
     finishSummaryAction("Markdown downloaded")
   }
 
-  function handleMenuKeyDown(event: KeyboardEvent<HTMLFieldSetElement>) {
-    if (event.key === "Escape") {
-      event.preventDefault()
-      setMenuOpen(false)
-      menuTrigger.current?.focus()
-      return
-    }
-    trapFocus(event, event.currentTarget)
-  }
-
   return (
     <article
       className={`relative border-b border-(--theme-line-subtle-color) ${selected ? styles.selected : ""}`}
-      onBlur={(event) => {
-        if (
-          event.relatedTarget &&
-          !event.currentTarget.contains(event.relatedTarget) &&
-          !menu.current?.contains(event.relatedTarget)
-        ) {
-          setMenuOpen(false)
-        }
-      }}
-      onKeyDown={(event) => {
-        if (event.key === "Escape" && menuOpen) {
-          event.preventDefault()
-          setMenuOpen(false)
-          menuTrigger.current?.focus()
-        }
-      }}
     >
-      <button
-        className="flex min-h-32 w-full cursor-pointer flex-col items-start gap-1 border-0 bg-transparent py-4 pr-14 pl-7 text-left text-(--theme-text-primary)"
+      <Button
+        variant="ghost"
+        sx={{
+          display: "flex",
+          height: "auto",
+          minHeight: 128,
+          width: "100%",
+          flexDirection: "column",
+          alignItems: "flex-start",
+          gap: "var(--ui-space-1)",
+          padding:
+            "var(--ui-space-4) calc(var(--ui-space-12) + var(--ui-space-2)) var(--ui-space-4) var(--ui-space-6)",
+          color: "var(--ui-color-text)",
+          borderRadius: 0,
+          textAlign: "left",
+          whiteSpace: "normal",
+        }}
         type="button"
         aria-current={selected ? "page" : undefined}
         onClick={onSelect}
@@ -202,78 +145,83 @@ export function SessionCard({
               : statusLabels[session.status]}
           </span>
         </span>
-      </button>
-      <button
-        ref={menuTrigger}
-        className={`${styles.menuTrigger} absolute top-1 right-4 grid size-11 cursor-pointer place-items-center rounded-(--radius-pill) border-0 bg-transparent text-sm leading-4 text-(--theme-text-muted) hover:text-(--theme-text-primary) aria-expanded:text-(--theme-text-primary)`}
-        type="button"
-        aria-controls={`session-actions-${session.id}`}
-        aria-expanded={menuOpen}
-        aria-label={`Actions for ${session.title ?? session.host}`}
-        onClick={toggleMenu}
-      >
-        ⋮
-      </button>
-      {menuOpen && menuPosition
-        ? createPortal(
-            <fieldset
-              ref={menu}
-              className="fixed z-30 m-0 flex min-w-auto flex-col items-start gap-2 border-0 p-0 max-mobile:rounded-(--radius-card) max-mobile:border max-mobile:border-(--theme-line-subtle-color) max-mobile:bg-(--theme-surface-navigation-solid) max-mobile:p-2"
-              id={`session-actions-${session.id}`}
-              aria-label={`Actions for ${session.title ?? session.host}`}
-              style={menuPosition}
-              onBlur={(event) => {
-                if (
-                  event.relatedTarget &&
-                  !event.currentTarget.contains(event.relatedTarget) &&
-                  event.relatedTarget !== menuTrigger.current
-                ) {
-                  setMenuOpen(false)
-                }
-              }}
-              onKeyDown={handleMenuKeyDown}
+      </Button>
+      <Popover open={menuOpen} onOpenChange={setMenuOpen} placement="right-start">
+        <Popover.Trigger
+          ref={menuTrigger}
+          sx={{
+            position: "absolute",
+            top: "var(--ui-space-1)",
+            right: "var(--ui-space-4)",
+            width: "var(--control-touch-target)",
+            height: "var(--control-touch-target)",
+            padding: 0,
+            border: 0,
+            background: "transparent",
+            color: "var(--ui-color-text-muted)",
+            "&:hover": {
+              background: "var(--ui-color-surface-hover)",
+              color: "var(--ui-color-text)",
+            },
+          }}
+          type="button"
+          aria-controls={`session-actions-${session.id}`}
+          aria-expanded={menuOpen}
+          aria-label={`Actions for ${session.title ?? session.host}`}
+        >
+          ⋮
+        </Popover.Trigger>
+        <Popover.Content
+          sx={{
+            zIndex: 30,
+            padding: "var(--ui-space-2)",
+            maxWidth: "calc(100vw - var(--ui-space-6))",
+          }}
+          id={`session-actions-${session.id}`}
+          aria-label={`Actions for ${session.title ?? session.host}`}
+        >
+          <fieldset
+            aria-label={`Actions for ${session.title ?? session.host}`}
+            className="m-0 flex min-w-0 flex-col items-start gap-2 border-0 p-0"
+          >
+            <div className="flex items-center gap-1">
+              <HistoryMenuButton
+                variant="copy"
+                type="button"
+                aria-label="Copy link"
+                onClick={() => void copyLink()}
+              >
+                <CopyIcon />
+              </HistoryMenuButton>
+              <span className="flex h-10 max-w-42 items-center overflow-hidden text-ellipsis whitespace-nowrap px-2 text-xs">
+                {session.originalUrl}
+              </span>
+            </div>
+            <HistoryMenuButton
+              variant="download"
+              type="button"
+              aria-label="Download Markdown"
+              disabled={!session.summary}
+              onClick={downloadSummary}
             >
-              <div className="flex items-center gap-1">
-                <HistoryMenuButton
-                  variant="copy"
-                  type="button"
-                  aria-label="Copy link"
-                  onClick={() => void copyLink()}
-                >
-                  <CopyIcon />
-                </HistoryMenuButton>
-                <span
-                  className={`${styles.menuUrl} flex h-10 max-w-42 items-center overflow-hidden text-ellipsis whitespace-nowrap rounded-(--radius-pill) border border-(--theme-line-subtle-color) px-4 text-xs text-(--theme-text-primary) backdrop-blur-(--blur-control)`}
-                >
-                  {session.originalUrl}
-                </span>
-              </div>
-              <HistoryMenuButton
-                variant="download"
-                type="button"
-                aria-label="Download Markdown"
-                disabled={!session.summary}
-                onClick={downloadSummary}
-              >
-                <DownloadIcon />
-                <span>Download</span>
-              </HistoryMenuButton>
-              <HistoryMenuButton
-                variant="delete"
-                type="button"
-                aria-label="Delete summary"
-                onClick={() => {
-                  setMenuOpen(false)
-                  setDeleteOpen(true)
-                }}
-              >
-                <TrashIcon />
-                <span>Delete</span>
-              </HistoryMenuButton>
-            </fieldset>,
-            document.body,
-          )
-        : null}
+              <DownloadIcon />
+              <span>Download</span>
+            </HistoryMenuButton>
+            <HistoryMenuButton
+              variant="delete"
+              type="button"
+              aria-label="Delete summary"
+              onClick={() => {
+                setMenuOpen(false)
+                setDeleteOpen(true)
+              }}
+            >
+              <TrashIcon />
+              <span>Delete</span>
+            </HistoryMenuButton>
+          </fieldset>
+        </Popover.Content>
+      </Popover>
       <span
         className="pointer-events-none absolute right-4 bottom-2 z-6 rounded-(--radius-pill) border border-(--theme-line-subtle-color) bg-(--theme-surface-elevated) px-2.5 py-1 text-[11px] text-(--theme-text-secondary) empty:hidden"
         aria-live="polite"

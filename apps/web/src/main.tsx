@@ -4,6 +4,9 @@ import { createRoot } from "react-dom/client"
 import "@fontsource-variable/inter"
 import { queryClient } from "./app/query-client"
 import { RuntimeApp } from "./app/runtime-app"
+import "@jfrader/tokens/tokens.css"
+import "@jfrader/tokens/base.css"
+import "./app/theme.css"
 import "./app/styles.css"
 
 const rootElement = document.getElementById("root")

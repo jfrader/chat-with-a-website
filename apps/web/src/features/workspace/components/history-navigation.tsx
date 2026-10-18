@@ -1,7 +1,8 @@
+import { Button, Drawer, Surface, ThemeRoot } from "@jfrader/ui"
 import { useNavigate } from "@tanstack/react-router"
-import { type KeyboardEvent, useRef, useState } from "react"
-import { Scrim } from "../../../components/scrim"
-import { trapFocus } from "../../../components/trap-focus"
+import { useState } from "react"
+import { MOBILE_LAYOUT_QUERY } from "../../../app/media-queries"
+import { useMediaQuery } from "../../../hooks/use-media-query"
 import { useSessions } from "../../session/hooks/session-queries"
 import { HistoryContent } from "./history-content"
 import { HistoryHeader } from "./history-header"
@@ -16,7 +17,8 @@ export function HistoryNavigation({
 }) {
   const navigate = useNavigate()
   const [collapsed, setCollapsed] = useState(false)
-  const navigation = useRef<HTMLDivElement>(null)
+  const [drawerPanel, setDrawerPanel] = useState<HTMLDivElement | null>(null)
+  const mobileLayout = useMediaQuery(MOBILE_LAYOUT_QUERY)
   const allSessions = useSessions("")
   const pristineEmpty =
     !allSessions.isLoading && !allSessions.error && allSessions.data?.sessions.length === 0
@@ -24,16 +26,6 @@ export function HistoryNavigation({
   const mobileClass = mobileOpen
     ? "max-mobile:visible max-mobile:translate-x-0"
     : "max-mobile:invisible max-mobile:-translate-x-full"
-
-  function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    if (!mobileOpen || !navigation.current) return
-    if (event.key === "Escape") {
-      event.preventDefault()
-      onCloseMobile()
-      return
-    }
-    trapFocus(event, navigation.current)
-  }
 
   const className = `${desktopSize} ${mobileClass} relative z-5 h-full min-w-0 shrink-0 grow-0 overflow-hidden border-r border-(--theme-line-subtle-color) bg-(--theme-surface-navigation) transition-[width,flex-basis,transform,visibility] duration-180 ease-(--motion-easing-standard) max-mobile:fixed max-mobile:inset-y-0 max-mobile:left-0 max-mobile:z-21 max-mobile:h-svh max-mobile:w-full max-mobile:flex-none max-mobile:border-r-0 max-mobile:bg-(--theme-surface-navigation-solid)`
   const content = (
@@ -52,12 +44,14 @@ export function HistoryNavigation({
       />
       {pristineEmpty ? null : (
         <div
-          className="absolute right-6 bottom-6 left-6 opacity-100 transition-opacity duration-100 ease-(--motion-easing-standard)"
+          className={`${styles.footer} absolute right-6 left-6 opacity-100 transition-opacity duration-100 ease-(--motion-easing-standard)`}
           aria-hidden={collapsed && !mobileOpen}
           inert={collapsed && !mobileOpen}
         >
-          <button
-            className={`${styles.newSummaryButton} flex h-12 w-full cursor-pointer items-center justify-center gap-2.5 rounded-(--radius-pill) border border-(--theme-line-strong-color)`}
+          <Button
+            variant="outline"
+            sx={{ width: "100%", minHeight: "var(--control-touch-target)" }}
+            className={styles.newSummaryButton}
             type="button"
             onClick={() => {
               onCloseMobile()
@@ -66,33 +60,53 @@ export function HistoryNavigation({
           >
             <img className="size-4" src="/assets/link.svg" alt="" />
             <span>New summary</span>
-          </button>
+          </Button>
         </div>
       )}
     </>
   )
 
-  if (!mobileOpen) {
+  if (!mobileLayout) {
     return (
       <aside className={className} aria-label="Summary history">
-        {content}
+        <Surface sx={{ height: "100%", border: 0, borderRadius: 0 }}>{content}</Surface>
       </aside>
     )
   }
 
   return (
-    <>
-      <Scrim className="z-20 hidden max-mobile:block" onClick={onCloseMobile} />
-      <div
-        ref={navigation}
-        className={className}
-        role="dialog"
+    <Drawer
+      open={mobileOpen}
+      onOpenChange={(open) => {
+        if (!open) onCloseMobile()
+      }}
+      side="inline-start"
+    >
+      <Drawer.Content
         aria-label="Summary history"
-        aria-modal="true"
-        onKeyDown={handleKeyDown}
+        withDescription={false}
+        onClose={(event) => {
+          if (event.target === event.currentTarget) onCloseMobile()
+        }}
       >
-        {content}
-      </div>
-    </>
+        <Drawer.Panel
+          ref={setDrawerPanel}
+          appearance="default"
+          sx={{
+            width: "100%",
+            maxWidth: "100%",
+            inlineSize: "100%",
+            "@media (max-width: 40rem)": { inlineSize: "100%" },
+            borderRadius: 0,
+            position: "relative",
+            padding: 0,
+          }}
+        >
+          <ThemeRoot theme="dark" portalContainer={drawerPanel} sx={{ display: "contents" }}>
+            {content}
+          </ThemeRoot>
+        </Drawer.Panel>
+      </Drawer.Content>
+    </Drawer>
   )
 }

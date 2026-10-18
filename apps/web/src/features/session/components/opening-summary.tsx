@@ -1,4 +1,4 @@
-import { ActiveStatusDot } from "../../../components/activity-indicator/active-status-dot"
+import { Spinner } from "@jfrader/ui"
 
 export function OpeningSummary() {
   return (
@@ -10,7 +10,7 @@ export function OpeningSummary() {
         className="mt-4 flex w-auto items-center gap-2 text-xs leading-4.5 text-(--theme-text-secondary)"
         role="status"
       >
-        <ActiveStatusDot />
+        <Spinner size="sm" aria-hidden="true" role="presentation" />
         Opening summary…
       </div>
     </section>
