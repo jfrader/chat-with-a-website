@@ -142,9 +142,9 @@ describe("presentation primitives", () => {
     const { container } = render(
       <ChatMessage message={createMessage({ role: "assistant", content: "Grounded answer" })} />,
     )
-    const author = container.querySelector('[data-ui="chat-message-author"]')
-    expect(author).not.toBeNull()
-    expect(getComputedStyle(author!).display).toBe("none")
+    const author = container.querySelector<HTMLElement>('[data-ui="chat-message-author"]')
+    if (author === null) throw new Error("author name element is missing")
+    expect(getComputedStyle(author).display).toBe("none")
     expect(screen.getByRole("article", { name: "Assistant" })).toBeVisible()
   })
 

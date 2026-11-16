@@ -12,3 +12,6 @@ minimumReleaseAgeExclude:
   - '@tanstack/react-query@5.102.4'
   - '@jfrader/tokens@0.9.1'
   - '@jfrader/ui@0.9.1'
+
+overrides:
+  seroval: 1.6.12
